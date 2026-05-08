@@ -78,6 +78,8 @@
 #define REL_MIN_DB                      2.0
 #define REL_MAX_DB                      28.0
 
+#define REC_FIR_TAPS                    63
+
 #ifndef M_PI
 #define M_PI                            3.14159265358979323846
 #endif
@@ -103,6 +105,7 @@ static  double          Global_DC_Q             = 0.0;
 static  double          Global_Rec_Phase        = 0.0;
 static  double          Global_Rec_Acc_I        = 0.0;
 static  double          Global_Rec_Acc_Q        = 0.0;
+static  int             Global_Rec_FIR_Pos      = 0;
 static  int             Global_LNA_Gain         = DEFAULT_LNA_GAIN;
 static  int             Global_VGA_Gain         = DEFAULT_VGA_GAIN;
 static  int             Global_Amp_Enable       = DEFAULT_AMP_ENABLE;
@@ -114,9 +117,11 @@ static  int             Global_Rec_Acc_Count    = 0;
 static  int             Global_Rec_Decimation   = 1;
 static  int             Global_Radio_Running    = 0;
 static  char            Global_Status_Msg[256]  = "";
-
 static  SDL_Color       Global_Status_Color     = {0, 255, 80, 255};
 
+static  double          Global_Rec_FIR[REC_FIR_TAPS];
+static  double          Global_Rec_Hist_I[REC_FIR_TAPS];
+static  double          Global_Rec_Hist_Q[REC_FIR_TAPS];
 static  Type_RingBuf    ring_buf;
 
 static  Type_Selector   Global_Selector         = { .X0 = 0.40,
@@ -190,6 +195,8 @@ static uint32_t selection_BW_Hz(void){
 
 static void stop_recording(void){
 
+    pthread_mutex_lock(&ring_buf.lock);
+
     if (Global_Rec_File){
         fclose(Global_Rec_File);
         Global_Rec_File = NULL;
@@ -201,11 +208,91 @@ static void stop_recording(void){
     Global_Rec_Acc_Q = 0.0;
     Global_Rec_Acc_Count = 0;
 
+    pthread_mutex_unlock(&ring_buf.lock);
+
     set_status("", (SDL_Color){0, 255, 80, 255});
 
 }
 
+static void configure_recording_filter(void) {
+    memset(Global_Rec_FIR, 0, sizeof(Global_Rec_FIR));
+    memset(Global_Rec_Hist_I, 0, sizeof(Global_Rec_Hist_I));
+    memset(Global_Rec_Hist_Q, 0, sizeof(Global_Rec_Hist_Q));
 
+    Global_Rec_FIR_Pos = 0;
+    Global_Rec_Acc_Count = 0;
+
+    /*
+     * Output rate should be comfortably above selected bandwidth.
+     * 2.5x gives room for FIR transition.
+     */
+    double wanted_out_rate = (double)Global_Rec_BW_Hz * 3;
+
+    if (wanted_out_rate < 48000.0) {
+        wanted_out_rate = 48000.0;
+    }
+
+    Global_Rec_Decimation = (int)((double)Global_Sample_Rate_Hz / wanted_out_rate);
+
+    if (Global_Rec_Decimation < 1) {
+        Global_Rec_Decimation = 1;
+    }
+
+    Global_Rec_Out_Rate_Hz = Global_Sample_Rate_Hz / (uint32_t)Global_Rec_Decimation;
+
+    /*
+     * After shifting selected center to 0 Hz, selected bandwidth is:
+     *
+     * -BW/2 to +BW/2
+     */
+    double cutoff_hz = (double)Global_Rec_BW_Hz * 0.5;
+
+    /*
+     * Keep cutoff below decimated Nyquist.
+     */
+    double max_safe_cutoff = (double)Global_Rec_Out_Rate_Hz * 0.45;
+
+    if (cutoff_hz > max_safe_cutoff) {
+        cutoff_hz = max_safe_cutoff;
+    }
+
+    /*
+     * Normalized cutoff relative to input sample rate.
+     */
+    double fc = cutoff_hz / (double)Global_Sample_Rate_Hz;
+
+    double sum = 0.0;
+    int mid = REC_FIR_TAPS / 2;
+
+    for (int n = 0; n < REC_FIR_TAPS; n++) {
+        int m = n - mid;
+
+        double sinc;
+
+        if (m == 0) {
+            sinc = 2.0 * fc;
+        } else {
+            sinc = sin(2.0 * M_PI * fc * (double)m) / (M_PI * (double)m);
+        }
+
+        /*
+         * Hamming window.
+         */
+        double window = 0.54 - 0.46 * cos((2.0 * M_PI * (double)n) / (double)(REC_FIR_TAPS - 1));
+
+        Global_Rec_FIR[n] = sinc * window;
+        sum += Global_Rec_FIR[n];
+    }
+
+    /*
+     * Normalize gain to 1.0.
+     */
+    if (fabs(sum) > 1e-12) {
+        for (int n = 0; n < REC_FIR_TAPS; n++) {
+            Global_Rec_FIR[n] /= sum;
+        }
+    }
+}
 
 static int start_recording(void){
 
@@ -214,9 +301,7 @@ static int start_recording(void){
     Global_Rec_Center_Hz = selection_center_Hz();
     Global_Rec_BW_Hz = selection_BW_Hz();
 
-    Global_Rec_Decimation = 1;
-
-    Global_Rec_Out_Rate_Hz = Global_Sample_Rate_Hz;
+    configure_recording_filter();
 
     char datetime_str[32];
     time_t now = time(NULL);
@@ -228,11 +313,12 @@ static int start_recording(void){
     
     snprintf( filename,
               sizeof(filename),
-              "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk.complex16",
+              "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk%d.complex16",
               datetime_str,
               Global_Rec_Center_Hz / 1e6,
               Global_Rec_BW_Hz / 1e3,
-              Global_Rec_Out_Rate_Hz / 1e3
+              Global_Rec_Out_Rate_Hz / 1e3,
+              Global_Rec_Decimation
             );
 
     Global_Rec_File = fopen(filename, "wb");
@@ -249,7 +335,10 @@ static int start_recording(void){
     Global_Rec_Phase = 0.0;
     Global_Rec_Acc_I = 0.0;
     Global_Rec_Acc_Q = 0.0;
-    Global_Rec_Acc_Count = 0.0;
+    Global_Rec_Acc_Count = 0;
+    Global_Selector.dragging = 0;
+    Global_Selector.resizing_left = 0;
+    Global_Selector.resizing_right = 0;
 
     char msg[256];
 
@@ -265,8 +354,10 @@ static void recorder_process_sample(float I, float Q){
 
     if (!Global_Rec || !Global_Rec_File) return;
 
+    /*
+     * Shift selected center frequency to baseband.
+     */
     double Freq_Offset_Hz = (double)Global_Rec_Center_Hz - (double)Global_Center_Freq_Hz;
-
     double Phase_Step = -2.0 * M_PI * Freq_Offset_Hz / (double)Global_Sample_Rate_Hz;
 
     double C = cos(Global_Rec_Phase);
@@ -280,23 +371,86 @@ static void recorder_process_sample(float I, float Q){
     if (Global_Rec_Phase > M_PI){
         Global_Rec_Phase -= 2.0 * M_PI;
     }
-    
+
     if (Global_Rec_Phase < -M_PI){
-        Global_Rec_Phase += 2.0 *M_PI;
+        Global_Rec_Phase += 2.0 * M_PI;
     }
 
+    if (Global_Rec_Decimation <= 1) {
     if (Shifted_I > 1.0) Shifted_I = 1.0;
     if (Shifted_I < -1.0) Shifted_I = -1.0;
 
     if (Shifted_Q > 1.0) Shifted_Q = 1.0;
     if (Shifted_Q < -1.0) Shifted_Q = -1.0;
 
-    int16_t int_16I = (int16_t)(Shifted_I * 32767.0);
-    int16_t int_16Q = (int16_t)(Shifted_Q * 32767.0);
+    int16_t iq_pair[2];
 
-    fwrite(&int_16I, sizeof(int16_t), 1, Global_Rec_File);
-    fwrite(&int_16Q, sizeof(int16_t), 1, Global_Rec_File);
+    iq_pair[0] = (int16_t)(Shifted_I * 32767.0);
+    iq_pair[1] = (int16_t)(Shifted_Q * 32767.0);
 
+    fwrite(iq_pair, sizeof(int16_t), 2, Global_Rec_File);
+    return;
+    }
+
+    /*
+     * Always store the newest shifted sample.
+     */
+    Global_Rec_Hist_I[Global_Rec_FIR_Pos] = Shifted_I;
+    Global_Rec_Hist_Q[Global_Rec_FIR_Pos] = Shifted_Q;
+
+    int newest_pos = Global_Rec_FIR_Pos;
+
+    Global_Rec_FIR_Pos++;
+
+    if (Global_Rec_FIR_Pos >= REC_FIR_TAPS) {
+        Global_Rec_FIR_Pos = 0;
+    }
+
+    /*
+     * Decimation gate.
+     *
+     * Do not run the full FIR convolution unless this input sample
+     * will produce one output sample.
+     */
+    Global_Rec_Acc_Count++;
+
+    if (Global_Rec_Acc_Count < Global_Rec_Decimation) {
+        return;
+    }
+
+    Global_Rec_Acc_Count = 0;
+
+    /*
+     * FIR convolution only on output samples.
+     */
+    double Filtered_I = 0.0;
+    double Filtered_Q = 0.0;
+
+    int hist_idx = newest_pos;
+
+    for (int tap = 0; tap < REC_FIR_TAPS; tap++) {
+        Filtered_I += Global_Rec_FIR[tap] * Global_Rec_Hist_I[hist_idx];
+        Filtered_Q += Global_Rec_FIR[tap] * Global_Rec_Hist_Q[hist_idx];
+
+        hist_idx--;
+
+        if (hist_idx < 0) {
+            hist_idx = REC_FIR_TAPS - 1;
+        }
+    }
+
+    if (Filtered_I > 1.0) Filtered_I = 1.0;
+    if (Filtered_I < -1.0) Filtered_I = -1.0;
+
+    if (Filtered_Q > 1.0) Filtered_Q = 1.0;
+    if (Filtered_Q < -1.0) Filtered_Q = -1.0;
+
+    int16_t iq_pair[2];
+
+    iq_pair[0] = (int16_t)(Filtered_I * 32767.0);
+    iq_pair[1] = (int16_t)(Filtered_Q * 32767.0);
+
+    fwrite(iq_pair, sizeof(int16_t), 2, Global_Rec_File);
 }
 
 static size_t ring_available_locked(Type_RingBuf* r){
@@ -363,6 +517,7 @@ static int rx_callback(hackrf_transfer *transfer){
     pthread_mutex_lock(&ring_buf.lock);
 
     for (int sam = 0; sam + 1 < transfer->valid_length; sam += 2){
+        
         uint8_t raw_I = transfer->buffer[sam];
         uint8_t raw_Q = transfer->buffer[sam + 1];
 
@@ -421,12 +576,12 @@ uint8_t r = 0, g = 0, b = 0;
 
     double event_strength = 0.0;
 
-    if (delta_db > 2.5) event_strength += (delta_db - 2.5) / 12.0;
-    if (peakness_db > 5.0) event_strength += (peakness_db - 5.0) / 15.0;
-    if (rel_db > 22.0) event_strength += (rel_db - 22.0) / 12.0;
+    if (delta_db > 10.0) event_strength += (delta_db - 10.0) / 30.0;
+    if (peakness_db > 12.0) event_strength += (peakness_db - 12.0) / 30.0;
+    if (rel_db > 34.0) event_strength += (rel_db - 34.0) / 30.0;
 
     if (event_strength > 1.0) event_strength = 1.0;
-    if (event_strength < 0.0) event_strength = 0.0;
+    if (event_strength < 0.10) event_strength = 0.0;
 
     if (event_strength > 0.0) {
         uint8_t er = 255;
@@ -538,10 +693,29 @@ static void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, do
         double sum_db = 0.0;
         int count = 0;
 
+        /*
+         * Track the top 3 bins instead of trusting one random spike.
+         */
+        double top1 = -300.0;
+        double top2 = -300.0;
+        double top3 = -300.0;
+
+        
         for (int k = start_bin; k < end_bin; k++) {
             if (abs(k - FFT_SIZE / 2) < 2) continue;
 
             double v = db[k];
+
+            if (v > top1) {
+                top3 = top2;
+                top2 = top1;
+                top1 = v;
+            } else if (v > top2) {
+                top3 = top2;
+                top2 = v;
+            } else if (v > top3) {
+                top3 = v;
+            }
 
             if (v > max_db) max_db = v;
 
@@ -550,16 +724,29 @@ static void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, do
         }
 
         double avg_db = (count > 0) ? (sum_db / count) : max_db;
-        double peakness_db = max_db - avg_db;
-        double rel_db = max_db - noise_floor_db;
+
+        /*
+         * Smoothed peak reduces salt-and-pepper red noise.
+         */
+
+        double color_db;
+
+        if (count >= 3) {
+            color_db = (top1 + top2 + top3) / 3.0;
+        } else {
+            color_db = max_db;
+        }
+
+        double peakness_db = color_db - avg_db;
+        double rel_db = color_db - noise_floor_db;
         double delta_db = 0.0;
 
         if (Global_Color_Baseline) {
             if (Global_Color_Baseline[x] < -200.0) {
-                Global_Color_Baseline[x] = max_db;
+                Global_Color_Baseline[x] = color_db;
             } else {
-                delta_db = max_db - Global_Color_Baseline[x];
-                Global_Color_Baseline[x] = 0.90 * Global_Color_Baseline[x] + 0.10 * max_db;
+                delta_db = color_db - Global_Color_Baseline[x];
+                Global_Color_Baseline[x] = 0.95 * Global_Color_Baseline[x] + 0.05 * color_db;
             }
         }
 
@@ -803,6 +990,25 @@ static int start_radio(hackrf_device *dev) {
     return 1;
 }
 
+static double recommended_antenna_length_inches(uint64_t freq_hz) {
+    if (freq_hz == 0) return 0.0;
+
+    /*
+     * Quarter-wave antenna length:
+     *
+     * wavelength = c / f
+     * quarter-wave = wavelength / 4
+     *
+     * c ≈ 299,792,458 m/s
+     *
+     * Return value is in inches.
+     */
+    double wavelength_m = 299792458.0 / (double)freq_hz;
+    double quarter_wave_m = wavelength_m / 4.0;
+
+    return quarter_wave_m * 39.37007874;
+}
+
 static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz, 
                                 uint32_t Sample_Rate_Hz, uint32_t Display_Span_Hz, 
                                 int LNA_Gain, int VGA_Gain, int Amp_Enable){
@@ -1011,6 +1217,58 @@ static void draw_selection_overlay(SDL_Renderer *renderer, SDL_Rect waterfall_re
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
+static void draw_selector_bandwidth(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect waterfall_rect) {
+    if (!Global_Selector.enabled) return;
+
+    uint32_t bw_hz = selection_BW_Hz();
+    uint64_t center_hz = selection_center_Hz();
+
+    char msg[128];
+
+    if (bw_hz >= 1000000) {
+        snprintf(
+            msg,
+            sizeof(msg),
+            "Selector: %.6f MHz | BW: %.3f MHz",
+            center_hz / 1e6,
+            bw_hz / 1e6
+        );
+    } else {
+        snprintf(
+            msg,
+            sizeof(msg),
+            "Selector: %.6f MHz | BW: %.3f kHz",
+            center_hz / 1e6,
+            bw_hz / 1e3
+        );
+    }
+
+    int text_w = 0;
+    int text_h = 0;
+
+    if (font && TTF_SizeText(font, msg, &text_w, &text_h) != 0) {
+        text_w = 0;
+        text_h = 0;
+    }
+
+    int x = waterfall_rect.x + 12;
+    int y = waterfall_rect.y + 12;
+
+    SDL_Rect bg = {
+        x - 6,
+        y - 4,
+        text_w + 12,
+        text_h + 8
+    };
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, bg, (SDL_Color){0, 0, 0, 180});
+    draw_outline_rect(renderer, bg, (SDL_Color){0, 180, 60, 220});
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    draw_text(renderer, font, msg, x, y, (SDL_Color){0, 255, 90, 255});
+}
+
 static void update_selection_from_mouse(int mouse_x, SDL_Rect waterfall_rect) {
     double frac = (double)(mouse_x - waterfall_rect.x) / (double)waterfall_rect.w;
     frac = limit_double(frac, 0.0, 1.0);
@@ -1054,6 +1312,26 @@ static void update_selection_from_mouse(int mouse_x, SDL_Rect waterfall_rect) {
         Global_Selector.X0 = limit_double(new_x0, 0.0, 1.0);
         Global_Selector.X1 = limit_double(new_x1, 0.0, 1.0);
     }
+}
+
+static void draw_antenna_recommendation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    double length_in = recommended_antenna_length_inches(Global_Center_Freq_Hz);
+
+    char msg[96];
+    snprintf(msg, sizeof(msg), "Recommended antenna length: %.2f in", length_in);
+
+    int text_w = 0;
+    int text_h = 0;
+
+    if (font && TTF_SizeText(font, msg, &text_w, &text_h) != 0) {
+        text_w = 0;
+        text_h = 0;
+    }
+
+    int x = win_w - text_w - 24;
+    int y = win_h - 24;
+
+    draw_text(renderer, font, msg, x, y, (SDL_Color){0, 220, 70, 255});
 }
 
 static int apply_from_inputs(
@@ -1424,8 +1702,13 @@ int main(void){
 
                 else if (point_in_rect(x, y, sel_button)) {
                     active = FIELD_NONE;
-                    Global_Selector.enabled = !Global_Selector.enabled;
-                } 
+
+                    if (!Global_Rec) {
+                        Global_Selector.enabled = !Global_Selector.enabled;
+                    } else {
+                        set_status("Selector locked while recording", (SDL_Color){255, 180, 40, 255});
+                    }
+                }
 
                 else if (point_in_rect(x, y, rec_button)) {
                     active = FIELD_NONE;
@@ -1437,7 +1720,7 @@ int main(void){
                     }
                 } 
 
-                else if (Global_Selector.enabled && point_in_rect(x, y, waterfall_rect)) {
+                else if (!Global_Rec && Global_Selector.enabled && point_in_rect(x, y, waterfall_rect)) {
                     active = FIELD_NONE;
 
                     int x0 = waterfall_rect.x + (int)(Global_Selector.X0 * waterfall_rect.w);
@@ -1470,11 +1753,13 @@ int main(void){
             }
 
             if (event.type == SDL_MOUSEMOTION) {
+              
+              if (!Global_Rec && Global_Selector.enabled && (Global_Selector.dragging || Global_Selector.resizing_left || 
+                    Global_Selector.resizing_right)) {
 
-                if (Global_Selector.enabled && (Global_Selector.dragging || Global_Selector.resizing_left || Global_Selector.resizing_right)) {
-                    update_selection_from_mouse(event.motion.x, waterfall_rect);
-
+                  update_selection_from_mouse(event.motion.x, waterfall_rect);
                 }
+
             }
 
         }
@@ -1528,10 +1813,13 @@ int main(void){
 
         SDL_RenderCopy(renderer, waterfall_texture, NULL, &waterfall_rect);
         draw_selection_overlay(renderer, waterfall_rect);
+        draw_selector_bandwidth(renderer, font_small, waterfall_rect);
         draw_border(renderer, waterfall_rect);
         draw_frequency_axis(renderer, font_small, waterfall_rect);
 
         draw_text(renderer, font_medium, Global_Status_Msg, MARGIN, win_h - 24, Global_Status_Color);
+
+        draw_antenna_recommendation(renderer, font_small, win_w, win_h);
 
         draw_made_in_usa(renderer, font_small, win_w);
 
