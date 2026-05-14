@@ -76,9 +76,11 @@
 #define MARGIN                          20
 
 #define REL_MIN_DB                      2.0
-#define REL_MAX_DB                      28.0
+#define REL_MAX_DB                      22.0
 
-#define REC_FIR_TAPS                    63
+#define PRE_RECORD_SECONDS              5
+
+#define REC_FIR_TAPS                    255
 
 #ifndef M_PI
 #define M_PI                            3.14159265358979323846
@@ -87,6 +89,7 @@
 
 static volatile sig_atomic_t Global_Running = 1;
 
+static pthread_mutex_t Global_Rec_Lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
         TYPE            VARIABLE                VALUE
@@ -122,7 +125,9 @@ static  SDL_Color       Global_Status_Color     = {0, 255, 80, 255};
 static  double          Global_Rec_FIR[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_I[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_Q[REC_FIR_TAPS];
+
 static  Type_RingBuf    ring_buf;
+static  Type_Rec_Cache  Global_Pre_Cache;
 
 static  Type_Selector   Global_Selector         = { .X0 = 0.40,
                                                     .X1 = 0.60,
@@ -195,7 +200,7 @@ static uint32_t selection_BW_Hz(void){
 
 static void stop_recording(void){
 
-    pthread_mutex_lock(&ring_buf.lock);
+    pthread_mutex_lock(&Global_Rec_Lock);
 
     if (Global_Rec_File){
         fclose(Global_Rec_File);
@@ -208,10 +213,9 @@ static void stop_recording(void){
     Global_Rec_Acc_Q = 0.0;
     Global_Rec_Acc_Count = 0;
 
-    pthread_mutex_unlock(&ring_buf.lock);
+    pthread_mutex_unlock(&Global_Rec_Lock);
 
     set_status("", (SDL_Color){0, 255, 80, 255});
-
 }
 
 static void configure_recording_filter(void) {
@@ -294,65 +298,147 @@ static void configure_recording_filter(void) {
     }
 }
 
-static int start_recording(void){
+static int pre_cache_init(Type_Rec_Cache *c, uint32_t sample_rate_hz){
 
-    stop_recording();
-
-    Global_Rec_Center_Hz = selection_center_Hz();
-    Global_Rec_BW_Hz = selection_BW_Hz();
-
-    configure_recording_filter();
-
-    char datetime_str[32];
-    time_t now = time(NULL);
-    struct tm *tm_now = localtime(&now);
-
-    strftime(datetime_str, sizeof(datetime_str), "%m-%d-%Y_%H-%M-%S", tm_now);
-
-    char filename[256];
+    memset(c, 0, sizeof(*c));
     
-    snprintf( filename,
-              sizeof(filename),
-              "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk%d.complex16",
-              datetime_str,
-              Global_Rec_Center_Hz / 1e6,
-              Global_Rec_BW_Hz / 1e3,
-              Global_Rec_Out_Rate_Hz / 1e3,
-              Global_Rec_Decimation
-            );
+    c->capacity = (size_t)sample_rate_hz * PRE_RECORD_SECONDS;
 
-    Global_Rec_File = fopen(filename, "wb");
+    c->I = malloc(sizeof(int16_t) * c->capacity);
+    c->Q = malloc(sizeof(int16_t) * c->capacity);
 
-    if (!Global_Rec_File){
-
-        Global_Rec = 0;
-        set_status("Record Open Failed", (SDL_Color){255, 60, 40, 255});
+    if (!c->I || !c->Q){
+        free(c->I);
+        free(c->Q);
+        c->I = NULL;
+        c->Q = NULL;
+        c->capacity = 0;
         return 0;
-
     }
 
-    Global_Rec = 1;
-    Global_Rec_Phase = 0.0;
-    Global_Rec_Acc_I = 0.0;
-    Global_Rec_Acc_Q = 0.0;
-    Global_Rec_Acc_Count = 0;
-    Global_Selector.dragging = 0;
-    Global_Selector.resizing_left = 0;
-    Global_Selector.resizing_right = 0;
-
-    char msg[256];
-
-    snprintf(msg, sizeof(msg), "RECORDING %.6f MHz - BW %.3f kHz", Global_Rec_Center_Hz / 1e6, Global_Rec_BW_Hz / 1e3);
-
-    set_status(msg, (SDL_Color){255, 60, 40, 255});
+    pthread_mutex_init(&c->lock, NULL);
 
     return 1;
 
 }
 
-static void recorder_process_sample(float I, float Q){
+static void pre_cache_free(Type_Rec_Cache *c){
+    
+    pthread_mutex_destroy(&c->lock);
 
-    if (!Global_Rec || !Global_Rec_File) return;
+    free(c->I);
+    free(c->Q);
+
+    memset(c, 0, sizeof(*c));
+
+}
+
+static int pre_cache_resize(Type_Rec_Cache *c, uint32_t sample_rate_hz){
+
+    pthread_mutex_lock(&c->lock);
+
+    free(c->I);
+    free(c->Q);
+
+    c->capacity = (size_t)sample_rate_hz * PRE_RECORD_SECONDS;
+    c->write_pos = 0;
+    c->count = 0;
+
+    c->I = malloc(sizeof(int16_t) * c->capacity);
+    c->Q = malloc(sizeof(int16_t) * c->capacity);
+
+    int status = (c->I && c->Q);
+
+    if (!status){
+
+        free(c->I);
+        free(c->Q);
+        c->I = NULL;
+        c->Q = NULL;
+        c->capacity = 0;
+        c->write_pos = 0;
+        c->count = 0;
+
+    }
+
+    pthread_mutex_unlock(&c->lock);
+
+    return status;
+
+}
+
+static void pre_cache_write(Type_Rec_Cache *c, float I, float Q){
+
+    if (!c->I || !c->Q || c->capacity == 0) return;
+
+    if (I > 1.0f) I = 1.0f;
+    if (I < -1.0f) I = -1.0f;
+
+    if (Q > 1.0f) Q = 1.0f;
+    if (Q < -1.0f) Q = -1.0f;
+
+    c->I[c->write_pos] = (int16_t)(I * 32767.0f);
+    c->Q[c->write_pos] = (int16_t)(Q * 32767.0f);
+
+    c->write_pos = (c->write_pos + 1) % c->capacity;
+
+    if(c->count < c->capacity){
+
+        c->count++;
+
+    }
+}
+
+static size_t pre_cache_snapshot(Type_Rec_Cache *c, int16_t **out_I, int16_t **out_Q){
+
+    *out_I = NULL;
+    *out_Q = NULL;
+
+    pthread_mutex_lock(&c->lock);
+
+    size_t count = c->count;
+
+    if (count == 0 || !c->I || !c->Q){
+        pthread_mutex_unlock(&c->lock);
+        return 0;
+    }
+
+    int16_t *copy_I = malloc(sizeof(int16_t) * count);
+    int16_t *copy_Q = malloc(sizeof(int16_t) * count);
+
+    if (!copy_I || !copy_Q) {
+        free(copy_I);
+        free(copy_Q);
+        pthread_mutex_unlock(&c->lock);
+        return 0;
+    }
+
+    size_t start;
+
+    if (c->count < c->capacity) start = 0;
+    else start = c->write_pos;
+
+    for (size_t n = 0; n < count; n++){
+
+        size_t idx = (start + n) % c->capacity;
+
+        copy_I[n] = c->I[idx];
+        copy_Q[n] = c->Q[idx];
+
+    }
+
+    pthread_mutex_unlock(&c->lock);
+
+    *out_I = copy_I;
+    *out_Q = copy_Q;
+
+    return count;
+
+}
+
+static void recorder_write_sample(float I, float Q){
+
+    if (!Global_Rec_File) return;
 
     /*
      * Shift selected center frequency to baseband.
@@ -453,6 +539,97 @@ static void recorder_process_sample(float I, float Q){
     fwrite(iq_pair, sizeof(int16_t), 2, Global_Rec_File);
 }
 
+static void recorder_process_sample(float I, float Q){
+
+    if (!Global_Rec || !Global_Rec_File) return;
+
+    recorder_write_sample(I, Q);
+}
+
+
+static int start_recording(void){
+
+    stop_recording();
+
+    Global_Rec_Center_Hz = selection_center_Hz();
+    Global_Rec_BW_Hz = selection_BW_Hz();
+
+    configure_recording_filter();
+
+    char datetime_str[32];
+    time_t now = time(NULL);
+    struct tm *tm_now = localtime(&now);
+
+    strftime(datetime_str, sizeof(datetime_str), "%m-%d-%Y_%H-%M-%S", tm_now);
+
+    char filename[256];
+    
+    snprintf(filename,
+             sizeof(filename),
+             "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk%d.complex16",
+             datetime_str,
+             Global_Rec_Center_Hz / 1e6,
+             Global_Rec_BW_Hz / 1e3,
+             Global_Rec_Out_Rate_Hz / 1e3,
+             Global_Rec_Decimation
+            );
+
+    Global_Rec_File = fopen(filename, "wb");
+
+    if (!Global_Rec_File){
+
+        Global_Rec = 0;
+        set_status("Record Open Failed", (SDL_Color){255, 60, 40, 255});
+        return 0;
+
+    }
+
+    Global_Rec_Phase = 0.0;
+    Global_Rec_Acc_I = 0.0;
+    Global_Rec_Acc_Q = 0.0;
+    Global_Rec_Acc_Count = 0;
+    Global_Rec_FIR_Pos = 0;
+
+    memset(Global_Rec_Hist_I, 0, sizeof(Global_Rec_Hist_I));
+    memset(Global_Rec_Hist_Q, 0, sizeof(Global_Rec_Hist_Q));
+
+    int16_t *pre_I = NULL;
+    int16_t *pre_Q = NULL;
+
+    size_t pre_count = pre_cache_snapshot(&Global_Pre_Cache, &pre_I, &pre_Q);
+
+    if (pre_count > 0 && pre_I && pre_Q){
+
+        for (size_t n = 0; n < pre_count; n++){
+
+            float I = (float)pre_I[n] / 32767.0f;
+            float Q = (float)pre_Q[n] / 32767.0f;
+
+            recorder_write_sample(I, Q);
+
+        }
+
+    free(pre_I);
+    free(pre_Q);
+
+    }
+
+    Global_Rec = 1;
+    Global_Selector.dragging = 0;
+    Global_Selector.resizing_left = 0;
+    Global_Selector.resizing_right = 0;
+
+    char msg[256];
+
+    snprintf(msg, sizeof(msg), "RECORDING %.6f MHz - BW %.3f kHz", Global_Rec_Center_Hz / 1e6, Global_Rec_BW_Hz / 1e3);
+
+    set_status(msg, (SDL_Color){255, 60, 40, 255});
+
+    return 1;
+
+}
+
+
 static size_t ring_available_locked(Type_RingBuf* r){
     
     if (r->write_pos >= r->read_pos) return r->write_pos - r->read_pos;
@@ -512,20 +689,32 @@ if (ring_available_locked(r) < FFT_SIZE){
 
 }
 
+#define MAX_TRANSFER_SAMPLES 262144
+
+static float temp_I[MAX_TRANSFER_SAMPLES];
+static float temp_Q[MAX_TRANSFER_SAMPLES];
+
 static int rx_callback(hackrf_transfer *transfer){
 
-    pthread_mutex_lock(&ring_buf.lock);
+    const int8_t *buf = (const int8_t *)transfer->buffer;
+    int sample_count = transfer->valid_length / 2;
 
-    for (int sam = 0; sam + 1 < transfer->valid_length; sam += 2){
-        
-        uint8_t raw_I = transfer->buffer[sam];
-        uint8_t raw_Q = transfer->buffer[sam + 1];
+    if (sample_count > MAX_TRANSFER_SAMPLES) {
+        sample_count = MAX_TRANSFER_SAMPLES;
+    }
 
-        float I = ((float)raw_I - 128.0f) / 128.0f;
-        float Q = ((float)raw_Q - 128.0f) / 128.0f;
+    /*
+     * Convert signed HackRF IQ once.
+     */
+
+    pthread_mutex_lock(&Global_Pre_Cache.lock);
+
+    for (int n = 0; n < sample_count; n++){
+
+        float I = (float)buf[2 * n] / 128.0f;
+        float Q = (float)buf[2 * n + 1] / 128.0f;
 
         if (Global_DC_Enable) {
-
             const double alpha = 0.0001;
 
             Global_DC_I += alpha * ((double)I - Global_DC_I);
@@ -533,17 +722,43 @@ static int rx_callback(hackrf_transfer *transfer){
 
             I -= (float)Global_DC_I;
             Q -= (float)Global_DC_Q;
-
         }
 
-        ring_write_sample(&ring_buf, I, Q);
-        recorder_process_sample(I, Q);
+        temp_I[n] = I;
+        temp_Q[n] = Q;
 
+        pre_cache_write(&Global_Pre_Cache, I, Q);
+    }
+
+    pthread_mutex_unlock(&Global_Pre_Cache.lock);
+
+    /*
+     * Waterfall ring buffer.
+     * Lock only around ring_buf writes.
+     */
+    pthread_mutex_lock(&ring_buf.lock);
+
+    for (int n = 0; n < sample_count; n++){
+        ring_write_sample(&ring_buf, temp_I[n], temp_Q[n]);
     }
 
     pthread_mutex_unlock(&ring_buf.lock);
-    return 0;
 
+    /*
+     * Recorder path.
+     * No ring_buf.lock here.
+     */
+    if (Global_Rec) {
+        pthread_mutex_lock(&Global_Rec_Lock);
+
+        for (int n = 0; n < sample_count; n++){
+            recorder_process_sample(temp_I[n], temp_Q[n]);
+        }
+
+        pthread_mutex_unlock(&Global_Rec_Lock);
+    }
+
+    return 0;
 }
 
 
@@ -1042,6 +1257,13 @@ static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz,
     Global_VGA_Gain = VGA_Gain;
     Global_Amp_Enable = Amp_Enable ? 1 : 0;
 
+    if (!pre_cache_resize(&Global_Pre_Cache, Global_Sample_Rate_Hz)) {
+
+        set_status("Pre-cache resize failed", (SDL_Color){255, 60, 40, 255});
+
+    return 0;
+    }
+
     return start_radio(dev);
 
 }
@@ -1403,6 +1625,13 @@ int main(void){
     memset(&ring_buf, 0, sizeof(ring_buf));
 
     pthread_mutex_init(&ring_buf.lock, NULL);
+
+    if (!pre_cache_init(&Global_Pre_Cache, Global_Sample_Rate_Hz)) {
+
+        fprintf(stderr, "pre-cache allocation failed\n");
+        return 1;
+
+    }
 
     hackrf_device *dev = NULL;
 
@@ -1856,6 +2085,7 @@ int main(void){
     free(pixels);
     free(Global_Color_Baseline);
 
+    pre_cache_free(&Global_Pre_Cache);
     pthread_mutex_destroy(&ring_buf.lock);
 
     return 0;

@@ -22,4 +22,15 @@ typedef struct {
   pthread_mutex_t lock;
 } Type_RingBuf;
 
+typedef struct {
+    pthread_mutex_t lock;
+
+    int16_t *I;
+    int16_t *Q;
+
+    size_t capacity;
+    size_t write_pos;
+    size_t count;
+} Type_Rec_Cache;
+
 #endif
