@@ -71,14 +71,16 @@
 #define MIN_WINDOW_WIDTH                1320
 #define MIN_WINDOW_HEIGHT               650
 
+#define REL_MIN_DB                      2.0
+#define REL_MAX_DB                      22.0
+
 #define CONTROL_PANEL_HEIGHT            95
 #define AXIS_HEIGHT                     70
 #define MARGIN                          20
 
-#define REL_MIN_DB                      2.0
-#define REL_MAX_DB                      22.0
-
 #define PRE_RECORD_SECONDS              5
+#define REC_QUEUE_SECONDS               (PRE_RECORD_SECONDS * 2)
+#define REC_PUSH_CHUNK_SAMPLES          4096
 
 #define REC_FIR_TAPS                    255
 
@@ -95,11 +97,16 @@ static pthread_mutex_t Global_Rec_Lock = PTHREAD_MUTEX_INITIALIZER;
         TYPE            VARIABLE                VALUE
 */
 
+        uint64_t        Global_Rec_Center_Hz    = 0;
+        uint64_t        Global_Center_Freq_Hz   = DEFAULT_CENTER_FREQ_HZ;
+        uint32_t        Global_Sample_Rate_Hz   = DEFAULT_SAMPLE_RATE_HZ;
+        uint32_t        Global_Display_Span_Hz  = DEFAULT_DISPLAY_SPAN_HZ;
+        int             Global_Amp_Enable       = DEFAULT_AMP_ENABLE;
+        int             Global_DC_Enable        = DEFAULT_DC_CORRECTION_ENABLE;
+        int             Global_Rec              = 0;
+        char            Global_Status_Msg[256]  = "";
+
 static  FILE*           Global_Rec_File         = NULL;
-static  uint64_t        Global_Rec_Center_Hz    = 0;
-static  uint64_t        Global_Center_Freq_Hz   = DEFAULT_CENTER_FREQ_HZ;
-static  uint32_t        Global_Sample_Rate_Hz   = DEFAULT_SAMPLE_RATE_HZ;
-static  uint32_t        Global_Display_Span_Hz  = DEFAULT_DISPLAY_SPAN_HZ;
 static  uint32_t        Global_Rec_BW_Hz        = 0;
 static  uint32_t        Global_Rec_Out_Rate_Hz  = 0;
 static  double*         Global_Color_Baseline   = NULL;       
@@ -111,16 +118,12 @@ static  double          Global_Rec_Acc_Q        = 0.0;
 static  int             Global_Rec_FIR_Pos      = 0;
 static  int             Global_LNA_Gain         = DEFAULT_LNA_GAIN;
 static  int             Global_VGA_Gain         = DEFAULT_VGA_GAIN;
-static  int             Global_Amp_Enable       = DEFAULT_AMP_ENABLE;
-static  int             Global_DC_Enable        = DEFAULT_DC_CORRECTION_ENABLE;
 static  int             Global_Waterfall_FPS    = DEFAULT_WATERFALL_FPS;
 static  int             Global_Rows_Per_Frame   = DEFAULT_ROWS_PER_FRAME;
-static  int             Global_Rec              = 0;
 static  int             Global_Rec_Acc_Count    = 0;
 static  int             Global_Rec_Decimation   = 1;
 static  int             Global_Radio_Running    = 0;
-static  char            Global_Status_Msg[256]  = "";
-static  SDL_Color       Global_Status_Color     = {0, 255, 80, 255};
+static  int             Global_Fullscreen       = 0;
 
 static  double          Global_Rec_FIR[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_I[REC_FIR_TAPS];
@@ -128,8 +131,18 @@ static  double          Global_Rec_Hist_Q[REC_FIR_TAPS];
 
 static  Type_RingBuf    ring_buf;
 static  Type_Rec_Cache  Global_Pre_Cache;
+static  Type_Rec_Queue  Global_Rec_Queue;
 
-static  Type_Selector   Global_Selector         = { .X0 = 0.40,
+static  pthread_t       Global_Rec_Thread;
+static  int             Global_Rec_Thread_Running = 0;
+
+static  int16_t         *Global_Rec_Pre_I       = NULL;
+static  int16_t         *Global_Rec_Pre_Q       = NULL;
+static  size_t          Global_Rec_Pre_Count    = 0;
+        
+        SDL_Color       Global_Status_Color     = {0, 255, 80, 255};
+
+        Type_Selector   Global_Selector         = { .X0 = 0.40,
                                                     .X1 = 0.60,
                                                     .enabled = 0,
                                                     .dragging = 0,
@@ -148,7 +161,7 @@ static void handle_sigint(int sig){
 
 }
 
-static double limit_double(double value, double low, double high){
+double limit_double(double value, double low, double high){
 
     if (value < low) return low;
 
@@ -172,7 +185,17 @@ static uint32_t rgb(uint8_t r, uint8_t g, uint8_t b){
 
 }
 
-static uint64_t selection_center_Hz(void){
+static void toggle_fullscreen(SDL_Window *window){
+
+    Global_Fullscreen = !Global_Fullscreen;
+
+    SDL_SetWindowFullscreen(
+        window,
+        Global_Fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0
+    );
+}
+
+uint64_t selection_center_Hz(void){
 
     double Center_Frac = (Global_Selector.X0 + Global_Selector.X1) * 0.5;
 
@@ -186,7 +209,7 @@ static uint64_t selection_center_Hz(void){
 
 }
 
-static uint32_t selection_BW_Hz(void){
+uint32_t selection_BW_Hz(void){
 
     double BW = fabs(Global_Selector.X1 - Global_Selector.X0) * (double)Global_Display_Span_Hz;
 
@@ -198,25 +221,6 @@ static uint32_t selection_BW_Hz(void){
 
 }
 
-static void stop_recording(void){
-
-    pthread_mutex_lock(&Global_Rec_Lock);
-
-    if (Global_Rec_File){
-        fclose(Global_Rec_File);
-        Global_Rec_File = NULL;
-    }
-
-    Global_Rec = 0;
-    Global_Rec_Phase = 0.0;
-    Global_Rec_Acc_I = 0.0;
-    Global_Rec_Acc_Q = 0.0;
-    Global_Rec_Acc_Count = 0;
-
-    pthread_mutex_unlock(&Global_Rec_Lock);
-
-    set_status("", (SDL_Color){0, 255, 80, 255});
-}
 
 static void configure_recording_filter(void) {
     memset(Global_Rec_FIR, 0, sizeof(Global_Rec_FIR));
@@ -389,17 +393,14 @@ static void pre_cache_write(Type_Rec_Cache *c, float I, float Q){
     }
 }
 
-static size_t pre_cache_snapshot(Type_Rec_Cache *c, int16_t **out_I, int16_t **out_Q){
+static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int16_t **out_Q){
 
     *out_I = NULL;
     *out_Q = NULL;
 
-    pthread_mutex_lock(&c->lock);
-
     size_t count = c->count;
 
     if (count == 0 || !c->I || !c->Q){
-        pthread_mutex_unlock(&c->lock);
         return 0;
     }
 
@@ -409,30 +410,277 @@ static size_t pre_cache_snapshot(Type_Rec_Cache *c, int16_t **out_I, int16_t **o
     if (!copy_I || !copy_Q) {
         free(copy_I);
         free(copy_Q);
-        pthread_mutex_unlock(&c->lock);
         return 0;
     }
 
-    size_t start;
+    if(c->count < c->capacity){
 
-    if (c->count < c->capacity) start = 0;
-    else start = c->write_pos;
-
-    for (size_t n = 0; n < count; n++){
-
-        size_t idx = (start + n) % c->capacity;
-
-        copy_I[n] = c->I[idx];
-        copy_Q[n] = c->Q[idx];
+        memcpy(copy_I, c->I, sizeof(int16_t) * count);
+        memcpy(copy_Q, c->Q, sizeof(int16_t) * count);
 
     }
 
-    pthread_mutex_unlock(&c->lock);
+    else {
+
+        size_t start = c->write_pos;
+        size_t first = c->capacity - start;
+        size_t second = start;
+
+        memcpy(copy_I, c->I + start, sizeof(int16_t) * first);
+        memcpy(copy_Q, c->Q + start, sizeof(int16_t) * first);
+
+        memcpy(copy_I + first, c->I, sizeof(int16_t) * second);
+        memcpy(copy_Q + first, c->Q, sizeof(int16_t) * second);
+
+    }
 
     *out_I = copy_I;
     *out_Q = copy_Q;
 
     return count;
+
+}
+
+static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz){
+
+    memset(q, 0, sizeof(*q));
+
+    // +1 because this ring-buffer design leaves one slot empty
+  
+    q->capacity = ((size_t)sample_rate_hz * REC_QUEUE_SECONDS) + 1;
+
+    q->I = malloc(sizeof(int16_t) * q->capacity);
+    q->Q = malloc(sizeof(int16_t) * q->capacity);
+
+    if (!q->I || !q->Q) {
+        free(q->I);
+        free(q->Q);
+        memset(q, 0, sizeof(*q));
+        return 0;
+    }
+
+    pthread_mutex_init(&q->lock, NULL);
+    pthread_cond_init(&q->data_cond, NULL);
+
+    return 1;
+
+}
+
+static void rec_queue_free(Type_Rec_Queue *q){
+
+    pthread_mutex_destroy(&q->lock);
+    pthread_cond_destroy(&q->data_cond);
+
+    free(q->I);
+    free(q->Q);
+
+    memset(q, 0, sizeof(*q));
+
+}
+
+static int rec_queue_resize(Type_Rec_Queue *q, uint32_t sample_rate_hz){
+
+    pthread_mutex_lock(&q->lock);
+
+    free(q->I);
+    free(q->Q);
+
+    q->capacity = ((size_t)sample_rate_hz * REC_QUEUE_SECONDS) + 1;
+    q->read_pos = 0;
+    q->write_pos = 0;
+    q->stop_requested = 0;
+    q->overflow = 0;
+
+    q->I = malloc(sizeof(int16_t) * q->capacity);
+    q->Q = malloc(sizeof(int16_t) * q->capacity);
+
+    int result = (q->I && q->Q);
+
+    if (!result){
+
+        free(q->I);
+        free(q->Q);
+
+        q->I = NULL;
+        q->Q = NULL;
+        q->capacity = 0;
+        q->read_pos = 0;
+        q->write_pos = 0;
+
+    }
+
+    pthread_mutex_unlock(&q->lock);
+    
+    return result;
+
+}
+
+static size_t rec_queue_available_locked(Type_Rec_Queue *q){
+
+    if (q->write_pos >= q->read_pos){
+        
+        return q->write_pos - q->read_pos;
+
+    }
+
+    return q->capacity - q->read_pos + q->write_pos;
+
+}
+
+static void rec_queue_reset(Type_Rec_Queue *q){
+
+    pthread_mutex_lock(&q->lock);
+
+    q->read_pos = 0;
+    q->write_pos = 0;
+    q->stop_requested = 0;
+    q->overflow = 0;
+
+    pthread_mutex_unlock(&q->lock);
+
+}
+
+static size_t rec_queue_push_block(Type_Rec_Queue *q, const float *in_I, const float *in_Q,
+                                    size_t count){
+
+    if (!q->I || !q->Q || q->capacity == 0) return 0;
+    if (!in_I || !in_Q || count == 0) return 0;
+
+    size_t total_pushed = 0;
+
+    while (total_pushed < count){
+
+        size_t chunk_count = count - total_pushed;
+
+        if (chunk_count > REC_PUSH_CHUNK_SAMPLES){
+
+            chunk_count = REC_PUSH_CHUNK_SAMPLES;
+
+        }
+
+        pthread_mutex_lock(&q->lock);
+
+        if (q->stop_requested){
+            
+            pthread_mutex_unlock(&q->lock);
+            break;
+
+        }
+
+        size_t pushed_chunk = 0;
+
+        for (size_t n = 0; n < chunk_count; n++){
+
+            size_t src_idx = total_pushed + n;
+            size_t next = (q->write_pos + 1) % q->capacity;
+
+            if (next == q->read_pos){
+
+                q->overflow = 1;
+                break;
+
+            }
+
+            float I = in_I[src_idx];
+            float Q = in_Q[src_idx];
+
+            if (I > 1.0f) I = 1.0f;
+            if (I < -1.0f) I = -1.0f;
+
+            if (Q > 1.0f) Q = 1.0f;
+            if (Q < -1.0f) Q = -1.0f;
+
+            q->I[q->write_pos] = (int16_t)(I * 32767.0f);
+            q->Q[q->write_pos] = (int16_t)(Q * 32767.0f);
+
+            q->write_pos = next;
+            pushed_chunk++;
+
+        }
+
+        if (pushed_chunk > 0) pthread_cond_signal(&q->data_cond);
+
+        pthread_mutex_unlock(&q->lock);
+
+        total_pushed += pushed_chunk;
+
+        // If queue becomes full before full chunk is pushed
+
+        if (pushed_chunk < chunk_count){
+
+            break;
+
+        }
+
+    }
+
+    return total_pushed;
+
+}
+
+static size_t rec_queue_pop_block(Type_Rec_Queue *q, int16_t *out_I, int16_t *out_Q,
+                                  size_t max_count){
+
+    pthread_mutex_lock(&q->lock);
+
+    while (rec_queue_available_locked(q) == 0 && !q->stop_requested){
+
+        pthread_cond_wait(&q->data_cond, &q->lock);
+
+    }
+
+    size_t available = rec_queue_available_locked(q);
+
+    if (available == 0 && q->stop_requested){
+    
+        pthread_mutex_unlock(&q->lock);
+        return 0;
+
+    }
+
+    if (available > max_count){
+
+        available = max_count;
+
+    }
+
+    for (size_t n = 0; n < available; n++){
+
+        out_I[n] = q->I[q->read_pos];
+        out_Q[n] = q->Q[q->read_pos];
+
+        q->read_pos = (q->read_pos + 1) % q->capacity;
+
+    }
+
+    pthread_mutex_unlock(&q->lock);
+
+    return available;
+
+}
+
+static void rec_queue_request_stop(Type_Rec_Queue *q){
+
+    pthread_mutex_lock(&q->lock);
+
+    q->stop_requested = 1;
+
+    pthread_cond_broadcast(&q->data_cond);
+
+    pthread_mutex_unlock(&q->lock);
+
+}
+
+static void recorder_reset_processing_state(void){
+
+    Global_Rec_Phase = 0.0;
+    Global_Rec_Acc_I = 0.0;
+    Global_Rec_Acc_Q = 0.0;
+    Global_Rec_Acc_Count = 0;
+    Global_Rec_FIR_Pos = 0;
+
+    memset(Global_Rec_Hist_I, 0, sizeof(Global_Rec_Hist_I));
+    memset(Global_Rec_Hist_Q, 0, sizeof(Global_Rec_Hist_Q));
 
 }
 
@@ -539,22 +787,119 @@ static void recorder_write_sample(float I, float Q){
     fwrite(iq_pair, sizeof(int16_t), 2, Global_Rec_File);
 }
 
-static void recorder_process_sample(float I, float Q){
 
-    if (!Global_Rec || !Global_Rec_File) return;
+static void stop_recording(void){
 
-    recorder_write_sample(I, Q);
+    int thread_exists = 0;
+
+    pthread_mutex_lock(&Global_Rec_Lock);
+
+    if (!Global_Rec && !Global_Rec_Thread_Running){
+
+        pthread_mutex_unlock(&Global_Rec_Lock);
+        set_status("", (SDL_Color){0, 255, 80, 255});
+        return;
+
+    }
+
+    Global_Rec = 0;
+    thread_exists = Global_Rec_Thread_Running;
+
+    pthread_mutex_unlock(&Global_Rec_Lock);
+
+    // Finish after draining queued samples
+    
+    rec_queue_request_stop(&Global_Rec_Queue);
+
+    if(thread_exists){
+
+        pthread_join(Global_Rec_Thread, NULL);
+        Global_Rec_Thread_Running = 0;
+
+    }
+
+    free(Global_Rec_Pre_I);
+    free(Global_Rec_Pre_Q);
+
+    Global_Rec_Pre_I = NULL;
+    Global_Rec_Pre_Q = NULL;
+    Global_Rec_Pre_Count = 0;
+
+    recorder_reset_processing_state();
+
+    if(Global_Rec_Queue.overflow){
+           set_status("Recording stopped - queue overflow occurred", (SDL_Color){255, 180, 40, 255});
+    }
+
+    else set_status("", (SDL_Color){0, 255, 80, 255});
+
+}
+
+static void *recorder_thread_main(void *arg){
+
+    (void)arg;
+
+    recorder_reset_processing_state();
+
+    // Write pre-record cache snapshot
+    
+    if (Global_Rec_Pre_Count > 0 && Global_Rec_Pre_I && Global_Rec_Pre_Q){
+
+        for (size_t n = 0; n < Global_Rec_Pre_Count; n++){
+
+            float I = (float)Global_Rec_Pre_I[n] / 32767.0f;
+            float Q = (float)Global_Rec_Pre_Q[n] / 32767.0f;
+
+            recorder_write_sample(I, Q);
+
+        }
+
+    }
+
+    // Write live samples from the record queue
+
+    int16_t block_I[8192];
+    int16_t block_Q[8192];
+
+    while (1){
+        
+        size_t popped = rec_queue_pop_block(&Global_Rec_Queue, block_I, block_Q, 8192);
+
+        if (popped == 0) break;
+
+        for (size_t n = 0; n < popped; n++){
+
+            float I = (float)block_I[n] / 32767.0f;
+            float Q = (float)block_Q[n] / 32767.0f;
+
+            recorder_write_sample(I, Q);
+
+        }
+
+    }
+
+    if (Global_Rec_File){
+
+        fclose(Global_Rec_File);
+        Global_Rec_File = NULL;
+
+    }
+
+    return NULL;
+
 }
 
 
 static int start_recording(void){
 
-    stop_recording();
+    if (Global_Rec) return 1;
 
     Global_Rec_Center_Hz = selection_center_Hz();
     Global_Rec_BW_Hz = selection_BW_Hz();
 
     configure_recording_filter();
+    recorder_reset_processing_state();
+    rec_queue_reset(&Global_Rec_Queue);
 
     char datetime_str[32];
     time_t now = time(NULL);
@@ -584,37 +929,57 @@ static int start_recording(void){
 
     }
 
-    Global_Rec_Phase = 0.0;
-    Global_Rec_Acc_I = 0.0;
-    Global_Rec_Acc_Q = 0.0;
-    Global_Rec_Acc_Count = 0;
-    Global_Rec_FIR_Pos = 0;
+    free(Global_Rec_Pre_I);
+    free(Global_Rec_Pre_Q);
 
-    memset(Global_Rec_Hist_I, 0, sizeof(Global_Rec_Hist_I));
-    memset(Global_Rec_Hist_Q, 0, sizeof(Global_Rec_Hist_Q));
+    Global_Rec_Pre_I = NULL;
+    Global_Rec_Pre_Q = NULL;
+    Global_Rec_Pre_Count = 0;
 
-    int16_t *pre_I = NULL;
-    int16_t *pre_Q = NULL;
+    // CRITICAL FOR ENSURING MINIMAL GAP BETWEEN CACHE AND LIVE DATA
 
-    size_t pre_count = pre_cache_snapshot(&Global_Pre_Cache, &pre_I, &pre_Q);
+    pthread_mutex_lock(&Global_Pre_Cache.lock);
 
-    if (pre_count > 0 && pre_I && pre_Q){
+    Global_Rec_Pre_Count = pre_cache_snapshot_locked(&Global_Pre_Cache, &Global_Rec_Pre_I,
+                                                     &Global_Rec_Pre_Q);
 
-        for (size_t n = 0; n < pre_count; n++){
+    pthread_mutex_lock(&Global_Rec_Lock);
 
-            float I = (float)pre_I[n] / 32767.0f;
-            float Q = (float)pre_Q[n] / 32767.0f;
+    Global_Rec = 1;
 
-            recorder_write_sample(I, Q);
+    pthread_mutex_unlock(&Global_Rec_Lock);
+
+    pthread_mutex_unlock(&Global_Pre_Cache.lock);
+
+    if (pthread_create(&Global_Rec_Thread, NULL, recorder_thread_main, NULL) != 0){
+
+        pthread_mutex_lock(&Global_Rec_Lock);
+        Global_Rec = 0;
+        pthread_mutex_unlock(&Global_Rec_Lock);
+
+        rec_queue_request_stop(&Global_Rec_Queue);
+
+        if (Global_Rec_File){
+
+            fclose(Global_Rec_File);
+            Global_Rec_File = NULL;
 
         }
 
-    free(pre_I);
-    free(pre_Q);
+        free(Global_Rec_Pre_I);
+        free(Global_Rec_Pre_Q);
+
+        Global_Rec_Pre_I = NULL;
+        Global_Rec_Pre_Q = NULL;
+        Global_Rec_Pre_Count = 0;
+
+        set_status("Record Thread Failed", (SDL_Color){255, 60, 40, 255});
+        return 0;
 
     }
 
-    Global_Rec = 1;
+    Global_Rec_Thread_Running = 1;
+
     Global_Selector.dragging = 0;
     Global_Selector.resizing_left = 0;
     Global_Selector.resizing_right = 0;
@@ -748,14 +1113,23 @@ static int rx_callback(hackrf_transfer *transfer){
      * Recorder path.
      * No ring_buf.lock here.
      */
-    if (Global_Rec) {
-        pthread_mutex_lock(&Global_Rec_Lock);
 
-        for (int n = 0; n < sample_count; n++){
-            recorder_process_sample(temp_I[n], temp_Q[n]);
+    int rec_enabled = 0;
+
+    pthread_mutex_lock(&Global_Rec_Lock);
+    rec_enabled = Global_Rec;
+    pthread_mutex_unlock(&Global_Rec_Lock);
+
+    if (rec_enabled){
+
+        size_t pushed = rec_queue_push_block(&Global_Rec_Queue, temp_I, temp_Q, (size_t)sample_count);
+
+        if (pushed < (size_t)sample_count){
+        
+            Global_Rec_Queue.overflow = 1;
+
         }
 
-        pthread_mutex_unlock(&Global_Rec_Lock);
     }
 
     return 0;
@@ -969,159 +1343,6 @@ static void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, do
     }
 }
 
-static TTF_Font *load_font(int size) {
-    const char *paths[] = {
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        NULL
-    };
-
-    for (int i = 0; paths[i] != NULL; i++) {
-        TTF_Font *font = TTF_OpenFont(paths[i], size);
-        if (font) return font;
-    }
-
-    return NULL;
-}
-
-static void draw_text(SDL_Renderer *renderer, TTF_Font *font, const char *text, int x, int y, SDL_Color color) {
-    if (!font || !text || text[0] == '\0') return;
-
-    SDL_Surface *surface = TTF_RenderText_Blended(font, text, color);
-    if (!surface) return;
-
-    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (!texture) {
-        SDL_FreeSurface(surface);
-        return;
-    }
-
-    SDL_Rect dst = {x, y, surface->w, surface->h};
-    SDL_RenderCopy(renderer, texture, NULL, &dst);
-
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
-}
-
-static void draw_filled_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderFillRect(renderer, &rect);
-}
-
-static void draw_outline_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderDrawRect(renderer, &rect);
-}
-
-static void draw_made_in_usa(SDL_Renderer *renderer, TTF_Font *font, int win_w) {
-    const char *msg = "Made with <3 in";
-
-    int text_w = 0;
-    int text_h = 0;
-
-    if (font && TTF_SizeText(font, msg, &text_w, &text_h) != 0) {
-        text_w = 0;
-        text_h = 0;
-    }
-
-    int flag_w = 38;
-    int flag_h = 22;
-    int gap = 8;
-    int right_pad = 34;
-    int y = 14;
-
-    int flag_x = win_w - right_pad - flag_w;
-    int text_x = flag_x - gap - text_w;
-
-    draw_text(renderer, font, msg, text_x, y + 2, (SDL_Color){0, 220, 70, 255});
-
-    SDL_Rect flag = {flag_x, y, flag_w, flag_h};
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(renderer, &flag);
-
-    int stripe_h = flag_h / 13;
-    if (stripe_h < 1) stripe_h = 1;
-
-    for (int s = 0; s < 13; s += 2) {
-        SDL_Rect stripe = {
-            flag_x,
-            y + s * flag_h / 13,
-            flag_w,
-            flag_h / 13 + 1
-        };
-
-        SDL_SetRenderDrawColor(renderer, 180, 20, 35, 255);
-        SDL_RenderFillRect(renderer, &stripe);
-    }
-
-    SDL_Rect canton = {
-        flag_x,
-        y,
-        flag_w * 2 / 5,
-        flag_h * 7 / 13
-    };
-
-    SDL_SetRenderDrawColor(renderer, 20, 45, 120, 255);
-    SDL_RenderFillRect(renderer, &canton);
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
-    for (int row = 0; row < 4; row++) {
-        for (int col = 0; col < 5; col++) {
-            int px = canton.x + 3 + col * 3;
-            int py = canton.y + 2 + row * 3;
-            SDL_RenderDrawPoint(renderer, px, py);
-        }
-    }
-
-    draw_outline_rect(renderer, flag, (SDL_Color){0, 120, 45, 255});
-}
-
-static void draw_button(
-    SDL_Renderer *renderer,
-    TTF_Font *font,
-    SDL_Rect rect,
-    const char *label,
-    int active,
-    int is_record_button
-) {
-    SDL_Color fill, border, text;
-
-    if (is_record_button) {
-        fill   = active ? (SDL_Color){130, 0, 0, 255} : (SDL_Color){0, 8, 3, 255};
-        border = active ? (SDL_Color){255, 80, 60, 255} : (SDL_Color){0, 100, 40, 255};
-        text   = active ? (SDL_Color){255, 130, 110, 255} : (SDL_Color){0, 180, 70, 255};
-    } else {
-        fill   = active ? (SDL_Color){0, 70, 25, 255} : (SDL_Color){0, 8, 3, 255};
-        border = active ? (SDL_Color){255, 60, 40, 255} : (SDL_Color){0, 180, 60, 255};
-        text   = active ? (SDL_Color){255, 70, 50, 255} : (SDL_Color){0, 255, 90, 255};
-    }
-
-    draw_filled_rect(renderer, rect, fill);
-    draw_outline_rect(renderer, rect, border);
-
-    int text_w = 0;
-    int text_h = 0;
-    if (font && TTF_SizeText(font, label, &text_w, &text_h) != 0) {
-        text_w = 0;
-        text_h = 0;
-    }
-
-    int text_x = rect.x + (rect.w - text_w) / 2;
-    int text_y = rect.y + (rect.h - text_h) / 2;
-
-    draw_text(renderer, font, label, text_x, text_y, text);
-}
-
-static int point_in_rect(int x, int y, SDL_Rect r) {
-    return x >= r.x && x < (r.x + r.w) && y >= r.y && y < (r.y + r.h);
-}
-
-static int near_px(int a, int b, int tolerance) {
-    return abs(a - b) <= tolerance;
-}
 
 static void append_text(char *dst, size_t dst_sz, const char *src) {
     size_t len = strlen(dst);
@@ -1205,7 +1426,7 @@ static int start_radio(hackrf_device *dev) {
     return 1;
 }
 
-static double recommended_antenna_length_inches(uint64_t freq_hz) {
+double recommended_antenna_length_inches(uint64_t freq_hz) {
     if (freq_hz == 0) return 0.0;
 
     /*
@@ -1260,300 +1481,19 @@ static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz,
     if (!pre_cache_resize(&Global_Pre_Cache, Global_Sample_Rate_Hz)) {
 
         set_status("Pre-cache resize failed", (SDL_Color){255, 60, 40, 255});
+        return 0;
 
-    return 0;
+    }
+
+    if (!rec_queue_resize(&Global_Rec_Queue, Global_Sample_Rate_Hz)) {
+
+        set_status("Record queue resize failed", (SDL_Color){255, 60, 40, 255});
+        return 0;
+
     }
 
     return start_radio(dev);
 
-}
-
-static void draw_input_box(SDL_Renderer *renderer, TTF_Font *font, Type_Input_Box *box, int active) {
-    SDL_Color border = active ? (SDL_Color){0, 255, 80, 255} : (SDL_Color){0, 100, 40, 255};
-    SDL_Color fill = {0, 10, 3, 255};
-    SDL_Color label = {0, 210, 70, 255};
-    SDL_Color text = {0, 255, 90, 255};
-
-    draw_text(renderer, font, box->label, box->rect.x, box->rect.y - 22, label);
-    draw_filled_rect(renderer, box->rect, fill);
-    draw_outline_rect(renderer, box->rect, border);
-    draw_text(renderer, font, box->text, box->rect.x + 8, box->rect.y + 10, text);
-}
-
-static void draw_checkbox(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *label, int checked) {
-    draw_outline_rect(renderer, rect, (SDL_Color){0, 255, 80, 255});
-
-    if (checked) {
-        SDL_Rect inner = {rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10};
-        draw_filled_rect(renderer, inner, (SDL_Color){0, 255, 80, 255});
-    }
-
-    draw_text(renderer, font, label, rect.x + rect.w + 8, rect.y + 2, (SDL_Color){0, 220, 70, 255});
-}
-
-static void layout_controls(
-    int win_w,
-    Type_Input_Box *freq_box,
-    Type_Input_Box *sr_box,
-    Type_Input_Box *display_box,
-    Type_Input_Box *lna_box,
-    Type_Input_Box *vga_box,
-    Type_Input_Box *fps_box,
-    Type_Input_Box *rows_box,
-    SDL_Rect *amp_box,
-    SDL_Rect *dc_box,
-    SDL_Rect *sel_button,
-    SDL_Rect *rec_button
-) {
-    int y = 42;
-    int x = MARGIN + 20;
-    int box_h = 42;
-    int gap = 12;
-
-    freq_box->rect = (SDL_Rect){x, y, 145, box_h}; x += 145 + gap;
-    sr_box->rect = (SDL_Rect){x, y, 145, box_h}; x += 145 + gap;
-    display_box->rect = (SDL_Rect){x, y, 155, box_h}; x += 155 + gap;
-    lna_box->rect = (SDL_Rect){x, y, 82, box_h}; x += 82 + gap;
-    vga_box->rect = (SDL_Rect){x, y, 82, box_h}; x += 82 + gap;
-    fps_box->rect = (SDL_Rect){x, y, 95, box_h}; x += 95 + gap;
-    rows_box->rect = (SDL_Rect){x, y, 105, box_h};
-
-    *amp_box = (SDL_Rect){win_w - 405, y - 4, 22, 22};
-    *dc_box = (SDL_Rect){win_w - 405, y + 22, 22, 22};
-    *sel_button = (SDL_Rect){win_w - 260, y, 105, box_h};
-    *rec_button = (SDL_Rect){win_w - 140, y, 105, box_h};
-}
-
-static void draw_control_panel(
-    SDL_Renderer *renderer,
-    TTF_Font *font,
-    int win_w,
-    Type_Input_Box *freq_box,
-    Type_Input_Box *sr_box,
-    Type_Input_Box *display_box,
-    Type_Input_Box *lna_box,
-    Type_Input_Box *vga_box,
-    Type_Input_Box *fps_box,
-    Type_Input_Box *rows_box,
-    SDL_Rect amp_box,
-    SDL_Rect dc_box,
-    SDL_Rect sel_button,
-    SDL_Rect rec_button,
-    Type_Active_Fields active
-) {
-    SDL_Rect panel = {MARGIN, 8, win_w - 2 * MARGIN, CONTROL_PANEL_HEIGHT - 8};
-
-    draw_filled_rect(renderer, panel, (SDL_Color){0, 0, 0, 255});
-    draw_outline_rect(renderer, panel, (SDL_Color){0, 90, 35, 255});
-
-    draw_input_box(renderer, font, freq_box, active == FIELD_FREQ);
-    draw_input_box(renderer, font, sr_box, active == FIELD_SR);
-    draw_input_box(renderer, font, display_box, active == FIELD_DISPLAY);
-    draw_input_box(renderer, font, lna_box, active == FIELD_LNA);
-    draw_input_box(renderer, font, vga_box, active == FIELD_VGA);
-    draw_input_box(renderer, font, fps_box, active == FIELD_FPS);
-    draw_input_box(renderer, font, rows_box, active == FIELD_ROWS);
-
-    draw_checkbox(renderer, font, amp_box, "AMPLIFY", Global_Amp_Enable);
-    draw_checkbox(renderer, font, dc_box, "DC Correction", Global_DC_Enable);
-    draw_button(renderer, font, sel_button, "SELECTOR", Global_Selector.enabled, 0);
-    draw_button(renderer, font, rec_button, "RECORD", Global_Rec, 1);
-}
-
-static void draw_frequency_axis(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect waterfall_rect) {
-    int axis_y = waterfall_rect.y + waterfall_rect.h + 14;
-
-    SDL_SetRenderDrawColor(renderer, 0, 220, 70, 255);
-    SDL_RenderDrawLine(renderer, waterfall_rect.x, axis_y, waterfall_rect.x + waterfall_rect.w, axis_y);
-
-    double start_hz = Global_Center_Freq_Hz - Global_Display_Span_Hz / 2.0;
-    double span_hz = Global_Display_Span_Hz;
-
-    int ticks = 10;
-
-    for (int t = 0; t <= ticks; t++) {
-        double frac = (double)t / ticks;
-        int x = waterfall_rect.x + (int)(frac * waterfall_rect.w);
-        double freq_mhz = (start_hz + frac * span_hz) / 1e6;
-
-        SDL_RenderDrawLine(renderer, x, axis_y - 8, x, axis_y + 8);
-
-        char label[32];
-        if (Global_Display_Span_Hz < 1000000) snprintf(label, sizeof(label), "%.4f", freq_mhz);
-        else snprintf(label, sizeof(label), "%.3f", freq_mhz);
-
-        int label_x = x - 24;
-
-        if (label_x < waterfall_rect.x) label_x = waterfall_rect.x;
-        if (label_x > waterfall_rect.x + waterfall_rect.w - 70) {
-            label_x = waterfall_rect.x + waterfall_rect.w - 70;
-        }
-
-        draw_text(renderer, font, label, label_x, axis_y + 12, (SDL_Color){0, 220, 70, 255});
-    }
-}
-
-static void draw_border(SDL_Renderer *renderer, SDL_Rect r) {
-    draw_outline_rect(renderer, r, (SDL_Color){0, 180, 60, 255});
-}
-
-static void draw_selection_overlay(SDL_Renderer *renderer, SDL_Rect waterfall_rect) {
-    if (!Global_Selector.enabled) return;
-
-    double x0f = limit_double(Global_Selector.X0, 0.0, 1.0);
-    double x1f = limit_double(Global_Selector.X1, 0.0, 1.0);
-
-    if (x1f < x0f) {
-        double tmp = x0f;
-        x0f = x1f;
-        x1f = tmp;
-    }
-
-    int x0 = waterfall_rect.x + (int)(x0f * waterfall_rect.w);
-    int x1 = waterfall_rect.x + (int)(x1f * waterfall_rect.w);
-
-    if (x1 <= x0) x1 = x0 + 1;
-
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-    SDL_Rect sel_rect = {x0, waterfall_rect.y, x1 - x0, waterfall_rect.h};
-
-    SDL_SetRenderDrawColor(renderer, 220, 220, 220, 50);
-    SDL_RenderFillRect(renderer, &sel_rect);
-
-    SDL_SetRenderDrawColor(renderer, 230, 230, 230, 180);
-    SDL_RenderDrawRect(renderer, &sel_rect);
-
-    int mid = (x0 + x1) / 2;
-
-    SDL_SetRenderDrawColor(renderer, 255, 25, 20, 240);
-    SDL_RenderDrawLine(renderer, mid, waterfall_rect.y, mid, waterfall_rect.y + waterfall_rect.h);
-
-    SDL_Rect left_handle = {x0 - 3, waterfall_rect.y, 6, waterfall_rect.h};
-    SDL_Rect right_handle = {x1 - 3, waterfall_rect.y, 6, waterfall_rect.h};
-
-    SDL_SetRenderDrawColor(renderer, 240, 240, 240, 145);
-    SDL_RenderFillRect(renderer, &left_handle);
-    SDL_RenderFillRect(renderer, &right_handle);
-
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-}
-
-static void draw_selector_bandwidth(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect waterfall_rect) {
-    if (!Global_Selector.enabled) return;
-
-    uint32_t bw_hz = selection_BW_Hz();
-    uint64_t center_hz = selection_center_Hz();
-
-    char msg[128];
-
-    if (bw_hz >= 1000000) {
-        snprintf(
-            msg,
-            sizeof(msg),
-            "Selector: %.6f MHz | BW: %.3f MHz",
-            center_hz / 1e6,
-            bw_hz / 1e6
-        );
-    } else {
-        snprintf(
-            msg,
-            sizeof(msg),
-            "Selector: %.6f MHz | BW: %.3f kHz",
-            center_hz / 1e6,
-            bw_hz / 1e3
-        );
-    }
-
-    int text_w = 0;
-    int text_h = 0;
-
-    if (font && TTF_SizeText(font, msg, &text_w, &text_h) != 0) {
-        text_w = 0;
-        text_h = 0;
-    }
-
-    int x = waterfall_rect.x + 12;
-    int y = waterfall_rect.y + 12;
-
-    SDL_Rect bg = {
-        x - 6,
-        y - 4,
-        text_w + 12,
-        text_h + 8
-    };
-
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    draw_filled_rect(renderer, bg, (SDL_Color){0, 0, 0, 180});
-    draw_outline_rect(renderer, bg, (SDL_Color){0, 180, 60, 220});
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-
-    draw_text(renderer, font, msg, x, y, (SDL_Color){0, 255, 90, 255});
-}
-
-static void update_selection_from_mouse(int mouse_x, SDL_Rect waterfall_rect) {
-    double frac = (double)(mouse_x - waterfall_rect.x) / (double)waterfall_rect.w;
-    frac = limit_double(frac, 0.0, 1.0);
-
-    if (Global_Selector.resizing_left) {
-        Global_Selector.X0 = frac;
-
-        if (Global_Selector.X0 > Global_Selector.X1 - 0.002) {
-            Global_Selector.X0 = Global_Selector.X1 - 0.002;
-        }
-
-        if (Global_Selector.X0 < 0.0) {
-            Global_Selector.X0 = 0.0;
-        }
-    } else if (Global_Selector.resizing_right) {
-        Global_Selector.X1 = frac;
-
-        if (Global_Selector.X1 < Global_Selector.X0 + 0.002) {
-            Global_Selector.X1 = Global_Selector.X0 + 0.002;
-        }
-
-        if (Global_Selector.X1 > 1.0) {
-            Global_Selector.X1 = 1.0;
-        }
-    } else if (Global_Selector.dragging) {
-        double width = Global_Selector.X1 - Global_Selector.X0;
-        double new_x0 = frac - width * 0.5;
-        double new_x1 = frac + width * 0.5;
-
-        if (new_x0 < 0.0) {
-            new_x1 -= new_x0;
-            new_x0 = 0.0;
-        }
-
-        if (new_x1 > 1.0) {
-            double excess = new_x1 - 1.0;
-            new_x0 -= excess;
-            new_x1 = 1.0;
-        }
-
-        Global_Selector.X0 = limit_double(new_x0, 0.0, 1.0);
-        Global_Selector.X1 = limit_double(new_x1, 0.0, 1.0);
-    }
-}
-
-static void draw_antenna_recommendation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
-    double length_in = recommended_antenna_length_inches(Global_Center_Freq_Hz);
-
-    char msg[96];
-    snprintf(msg, sizeof(msg), "Recommended antenna length: %.2f in", length_in);
-
-    int text_w = 0;
-    int text_h = 0;
-
-    if (font && TTF_SizeText(font, msg, &text_w, &text_h) != 0) {
-        text_w = 0;
-        text_h = 0;
-    }
-
-    int x = win_w - text_w - 24;
-    int y = win_h - 24;
-
-    draw_text(renderer, font, msg, x, y, (SDL_Color){0, 220, 70, 255});
 }
 
 static int apply_from_inputs(
@@ -1631,6 +1571,12 @@ int main(void){
         fprintf(stderr, "pre-cache allocation failed\n");
         return 1;
 
+    }
+
+    if (!rec_queue_init(&Global_Rec_Queue, Global_Sample_Rate_Hz)){
+        fprintf(stderr, "record queue allocation failed\n");
+        pre_cache_free(&Global_Pre_Cache);
+        return 1;
     }
 
     hackrf_device *dev = NULL;
@@ -1896,6 +1842,13 @@ int main(void){
                 int x = event.button.x;
                 int y = event.button.y;
 
+                if (event.button.clicks == 2 && y < CONTROL_PANEL_HEIGHT) {
+              
+                    active = FIELD_NONE;
+                    toggle_fullscreen(window_sdl);
+                    continue;
+                }
+
                 if (point_in_rect(x, y, freq_box.rect)) active = FIELD_FREQ;
                 else if (point_in_rect(x, y, sr_box.rect)) active = FIELD_SR;
                 else if (point_in_rect(x, y, display_box.rect)) active = FIELD_DISPLAY;
@@ -2086,6 +2039,7 @@ int main(void){
     free(Global_Color_Baseline);
 
     pre_cache_free(&Global_Pre_Cache);
+    rec_queue_free(&Global_Rec_Queue);
     pthread_mutex_destroy(&ring_buf.lock);
 
     return 0;
