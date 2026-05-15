@@ -1,32 +1,21 @@
-CC := gcc
+CC = gcc
 
-TARGET := RetroSpectrum
+CFLAGS = -Wall -Wextra -O2 -std=c11 -Iinclude
+LDLIBS = -lhackrf -lfftw3 -lSDL2 -lSDL2_ttf -lm -lpthread
 
-SRC_DIR := src
-INC_DIR := include
-BUILD_DIR := build
+SRC = src/RetroSpectrum.c src/GUIs.c
+OBJ = $(SRC:src/%.c=build/%.o)
 
-SRC := $(SRC_DIR)/RetroSpectrum.c
-OBJ := $(BUILD_DIR)/RetroSpectrum.o
-
-CFLAGS := -std=c11 -Wall -Wextra -O2 -I$(INC_DIR)
-LDFLAGS := -lhackrf -lfftw3 -lm -lSDL2 -lSDL2_ttf -lpthread
+TARGET = RetroSpectrum
 
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $(TARGET) $(LDFLAGS)
+	$(CC) $(OBJ) -o $(TARGET) $(LDLIBS)
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+build/%.o: src/%.c
+	mkdir -p build
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
-
-run: $(TARGET)
-	./$(TARGET)
-
-.PHONY: all clean run
+	rm -f build/*.o $(TARGET)
