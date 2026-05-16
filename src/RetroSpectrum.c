@@ -20,6 +20,8 @@
 // =========
 
 // Standard Libraries
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -88,6 +90,7 @@
 #define M_PI                            3.14159265358979323846
 #endif
 
+#define DEFAULT_RECORD_DIR              "recordings"
 
 static volatile sig_atomic_t Global_Running = 1;
 
@@ -125,6 +128,8 @@ static  int             Global_Rec_Decimation   = 1;
 static  int             Global_Radio_Running    = 0;
 static  int             Global_Fullscreen       = 0;
 
+static  char            Global_Record_Dir[512]  = DEFAULT_RECORD_DIR;
+
 static  double          Global_Rec_FIR[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_I[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_Q[REC_FIR_TAPS];
@@ -142,12 +147,12 @@ static  size_t          Global_Rec_Pre_Count    = 0;
         
         SDL_Color       Global_Status_Color     = {0, 255, 80, 255};
 
-        Type_Selector   Global_Selector         = { .X0 = 0.40,
-                                                    .X1 = 0.60,
-                                                    .enabled = 0,
-                                                    .dragging = 0,
-                                                    .resizing_left = 0,
-                                                    .resizing_right = 0
+        Type_Selector   Global_Selector         = {.X0 = 0.40,
+                                                   .X1 = 0.60,
+                                                   .enabled = 0,
+                                                   .dragging = 0,
+                                                   .resizing_left = 0,
+                                                   .resizing_right = 0
                                                   };
 
 // =========
@@ -193,6 +198,28 @@ static void toggle_fullscreen(SDL_Window *window){
         window,
         Global_Fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0
     );
+}
+
+static int ensure_record_dir_exists(void){
+
+    struct stat st;
+
+    if (stat(Global_Record_Dir, &st) == 0) {
+
+        if (S_ISDIR(st.st_mode)) return 1;
+
+        return 0;
+
+    }
+
+    if (mkdir(Global_Record_Dir, 0755) == 0) {
+
+        return 1;
+
+    }
+
+    return 0;
+
 }
 
 uint64_t selection_center_Hz(void){
@@ -907,11 +934,19 @@ static int start_recording(void){
 
     strftime(datetime_str, sizeof(datetime_str), "%m-%d-%Y_%H-%M-%S", tm_now);
 
-    char filename[256];
-    
+    if (!ensure_record_dir_exists()) {
+
+    Global_Rec = 0;
+    set_status("Record directory failed", (SDL_Color){255, 60, 40, 255});
+    return 0;
+    }
+
+    char filename[1024];
+
     snprintf(filename,
              sizeof(filename),
-             "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk%d.complex16",
+             "%s/%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk_Decimation_%d.complex16",
+             Global_Record_Dir,
              datetime_str,
              Global_Rec_Center_Hz / 1e6,
              Global_Rec_BW_Hz / 1e3,
@@ -1558,9 +1593,15 @@ double sr_msps = 0.0;
     return 1;
 }
 
-int main(void){
+int main(int argc, char **argv){
 
     signal(SIGINT, handle_sigint);
+
+    if (argc >= 2) {
+
+        snprintf(Global_Record_Dir, sizeof(Global_Record_Dir), "%s", argv[1]);
+
+    }
 
     memset(&ring_buf, 0, sizeof(ring_buf));
 
@@ -2003,7 +2044,7 @@ int main(void){
 
         draw_antenna_recommendation(renderer, font_small, win_w, win_h);
 
-        draw_made_in_usa(renderer, font_small, win_w);
+        draw_made_in_usa(renderer, font_medium, win_w, win_h);
 
         SDL_RenderPresent(renderer);
 

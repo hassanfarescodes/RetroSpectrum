@@ -76,66 +76,107 @@ void draw_outline_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
     SDL_RenderDrawRect(renderer, &rect);
 }
 
-void draw_made_in_usa(SDL_Renderer *renderer, TTF_Font *font, int win_w) {
-    const char *msg = "Made with <3 in";
+void draw_made_in_usa(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    (void)win_w;
 
-    int text_w = 0;
-    int text_h = 0;
+    if (!renderer || !font) return;
 
-    if (font && TTF_SizeText(font, msg, &text_w, &text_h) != 0) {
-        text_w = 0;
-        text_h = 0;
-    }
+    /*
+     * Flag size.
+     * Official US flag ratio is 19:10.
+     */
+    int flag_h = 40;
+    int flag_w = (flag_h * 19) / 10;
 
-    int flag_w = 38;
-    int flag_h = 22;
-    int gap = 8;
-    int right_pad = 34;
-    int y = 14;
+    int flag_x = 24;
+    int flag_y = win_h - flag_h - 8;
+    
+    int text_x = flag_x + 90;
+    int text_y = flag_y + 12;
 
-    int flag_x = win_w - right_pad - flag_w;
-    int text_x = flag_x - gap - text_w;
+    SDL_Color text_color = {0, 255, 80, 255};
+    draw_text(renderer, font, "Made in the USA", text_x, text_y, text_color);
 
-    draw_text(renderer, font, msg, text_x, y + 2, (SDL_Color){0, 220, 70, 255});
-
-    SDL_Rect flag = {flag_x, y, flag_w, flag_h};
-
+    /*
+     * White background.
+     */
+    SDL_Rect flag_bg = {flag_x, flag_y, flag_w, flag_h};
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(renderer, &flag);
+    SDL_RenderFillRect(renderer, &flag_bg);
 
-    for (int s = 0; s < 13; s += 2) {
+    /*
+     * 13 stripes.
+     */
+    for (int i = 0; i < 13; i++) {
+
+        int stripe_y0 = flag_y + (i * flag_h) / 13;
+        int stripe_y1 = flag_y + ((i + 1) * flag_h) / 13;
+
         SDL_Rect stripe = {
             flag_x,
-            y + s * flag_h / 13,
+            stripe_y0,
             flag_w,
-            flag_h / 13 + 1
+            stripe_y1 - stripe_y0
         };
 
-        SDL_SetRenderDrawColor(renderer, 180, 20, 35, 255);
+        if ((i % 2) == 0) {
+            SDL_SetRenderDrawColor(renderer, 191, 10, 48, 255);
+        } else {
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        }
+
         SDL_RenderFillRect(renderer, &stripe);
     }
 
+    /*
+     * Blue canton.
+     */
+    int canton_w = (int)(flag_w * 0.40);
+    int canton_h = (7 * flag_h) / 13;
+
     SDL_Rect canton = {
         flag_x,
-        y,
-        flag_w * 2 / 5,
-        flag_h * 7 / 13
+        flag_y,
+        canton_w,
+        canton_h
     };
 
-    SDL_SetRenderDrawColor(renderer, 20, 45, 120, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 40, 104, 255);
     SDL_RenderFillRect(renderer, &canton);
 
+    /*
+     * Stars as subtle single-pixel dots.
+     * 9 rows: 6,5,6,5,6,5,6,5,6.
+     */
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-    for (int row = 0; row < 4; row++) {
-        for (int col = 0; col < 5; col++) {
-            int px = canton.x + 3 + col * 3;
-            int py = canton.y + 2 + row * 3;
+    int top_margin = 3;
+    int bottom_margin = 3;
+    int left_margin = 3;
+    int right_margin = 3;
+
+    int usable_h = canton.h - top_margin - bottom_margin;
+    int usable_w = canton.w - left_margin - right_margin;
+
+    for (int row = 0; row < 9; row++) {
+
+        int stars_in_row = (row % 2 == 0) ? 6 : 5;
+        int py = canton.y + top_margin + (row * usable_h) / 8;
+
+        for (int col = 0; col < stars_in_row; col++) {
+
+            int px;
+
+            if (stars_in_row == 6) {
+                px = canton.x + left_margin + (col * usable_w) / 5;
+            } else {
+                px = canton.x + left_margin + (usable_w / 10) + (col * usable_w) / 5;
+            }
+
             SDL_RenderDrawPoint(renderer, px, py);
         }
     }
 
-    draw_outline_rect(renderer, flag, (SDL_Color){0, 120, 45, 255});
 }
 
 void draw_button(SDL_Renderer *renderer,
@@ -236,8 +277,8 @@ void layout_controls(int win_w,
     fps_box->rect = (SDL_Rect){x, y, 95, box_h}; x += 95 + gap;
     rows_box->rect = (SDL_Rect){x, y, 105, box_h};
 
-    *amp_box = (SDL_Rect){win_w - 405, y - 4, 22, 22};
-    *dc_box = (SDL_Rect){win_w - 405, y + 22, 22, 22};
+    *amp_box = (SDL_Rect){win_w - 410, y - 8, 22, 22};
+    *dc_box = (SDL_Rect){win_w - 410, y + 22, 22, 22};
     *sel_button = (SDL_Rect){win_w - 260, y, 105, box_h};
     *rec_button = (SDL_Rect){win_w - 140, y, 105, box_h};
 }
@@ -270,9 +311,9 @@ void draw_control_panel(SDL_Renderer *renderer,
     draw_input_box(renderer, font, fps_box, active == FIELD_FPS);
     draw_input_box(renderer, font, rows_box, active == FIELD_ROWS);
 
-    draw_checkbox(renderer, font, amp_box, "AMPLIFY", Global_Amp_Enable);
+    draw_checkbox(renderer, font, amp_box, "Amplify", Global_Amp_Enable);
     draw_checkbox(renderer, font, dc_box, "DC Correction", Global_DC_Enable);
-    draw_button(renderer, font, sel_button, "SELECTOR", Global_Selector.enabled, 0);
+    draw_button(renderer, font, sel_button, "Selector", Global_Selector.enabled, 0);
     draw_button(renderer, font, rec_button, "RECORD", Global_Rec, 1);
 }
 
@@ -479,7 +520,7 @@ void draw_antenna_recommendation(SDL_Renderer *renderer,
     }
 
     int x = win_w - text_w - 24;
-    int y = win_h - 24;
+    int y = win_h - 32;
 
     draw_text(renderer, font, msg, x, y, (SDL_Color){0, 220, 70, 255});
 }

@@ -82,9 +82,7 @@ void draw_outline_rect(SDL_Renderer *renderer,
                        SDL_Rect rect,
                        SDL_Color color);
 
-void draw_made_in_usa(SDL_Renderer *renderer,
-                      TTF_Font *font,
-                      int win_w);
+void draw_made_in_usa(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 
 void draw_button(SDL_Renderer *renderer,
                  TTF_Font *font,
