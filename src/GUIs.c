@@ -66,6 +66,30 @@ void draw_text(SDL_Renderer *renderer,
     SDL_FreeSurface(surface);
 }
 
+uint32_t rgb(uint8_t r, uint8_t g, uint8_t b){
+
+    return 0xFF000000U | ((uint32_t)r << 16) | ((uint32_t) g << 8) | b;
+
+}
+
+void toggle_fullscreen(SDL_Window *window){
+
+    Global_Fullscreen = !Global_Fullscreen;
+
+    SDL_SetWindowFullscreen(
+        window,
+        Global_Fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0
+    );
+}
+
+void set_status(const char *msg, SDL_Color color){
+
+    snprintf(Global_Status_Msg, sizeof(Global_Status_Msg), "%s", msg);
+
+    Global_Status_Color = color;
+
+}
+
 void draw_filled_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(renderer, &rect);

@@ -80,7 +80,7 @@
 #define AXIS_HEIGHT                     70
 #define MARGIN                          20
 
-#define PRE_RECORD_SECONDS              5
+#define PRE_RECORD_SECONDS              2
 #define REC_QUEUE_SECONDS               (PRE_RECORD_SECONDS * 2)
 #define REC_PUSH_CHUNK_SAMPLES          4096
 
@@ -90,34 +90,58 @@
 #define M_PI                            3.14159265358979323846
 #endif
 
-#define DEFAULT_RECORD_DIR              "recordings"
+#define MAX_TRANSFER_SAMPLES            262144
+
+#define DEFAULT_RECORD_DIR              "Recordings"
 
 static volatile sig_atomic_t Global_Running = 1;
 
 static pthread_mutex_t Global_Rec_Lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
-        TYPE            VARIABLE                VALUE
+
+TYPE            VARIABLE                VALUE
+
 */
 
-        uint64_t        Global_Rec_Center_Hz    = 0;
-        uint64_t        Global_Center_Freq_Hz   = DEFAULT_CENTER_FREQ_HZ;
-        uint32_t        Global_Sample_Rate_Hz   = DEFAULT_SAMPLE_RATE_HZ;
-        uint32_t        Global_Display_Span_Hz  = DEFAULT_DISPLAY_SPAN_HZ;
-        int             Global_Amp_Enable       = DEFAULT_AMP_ENABLE;
-        int             Global_DC_Enable        = DEFAULT_DC_CORRECTION_ENABLE;
-        int             Global_Rec              = 0;
-        char            Global_Status_Msg[256]  = "";
+uint64_t        Global_Rec_Center_Hz    = 0;
+uint64_t        Global_Center_Freq_Hz   = DEFAULT_CENTER_FREQ_HZ;
+uint32_t        Global_Sample_Rate_Hz   = DEFAULT_SAMPLE_RATE_HZ;
+uint32_t        Global_Display_Span_Hz  = DEFAULT_DISPLAY_SPAN_HZ;
+int             Global_Amp_Enable       = DEFAULT_AMP_ENABLE;
+int             Global_DC_Enable        = DEFAULT_DC_CORRECTION_ENABLE;
+int             Global_Fullscreen       = 0;
+int             Global_Rec              = 0;
+char            Global_Status_Msg[256]  = "";
+
+SDL_Color       Global_Status_Color     = {0, 255, 80, 255};
+
+Type_Selector   Global_Selector         = {.X0 = 0.40,
+                                           .X1 = 0.60,
+                                           .enabled = 0,
+                                           .dragging = 0,
+                                           .resizing_left = 0,
+                                           .resizing_right = 0
+                                          };
+
+/*
+
+        TYPE            VARIABLE                VALUE
+
+*/
 
 static  FILE*           Global_Rec_File         = NULL;
 static  uint32_t        Global_Rec_BW_Hz        = 0;
 static  uint32_t        Global_Rec_Out_Rate_Hz  = 0;
+static  int16_t         *Global_Rec_Pre_I       = NULL;
+static  int16_t         *Global_Rec_Pre_Q       = NULL;
 static  double*         Global_Color_Baseline   = NULL;       
 static  double          Global_DC_I             = 0.0;
 static  double          Global_DC_Q             = 0.0;
 static  double          Global_Rec_Phase        = 0.0;
 static  double          Global_Rec_Acc_I        = 0.0;
 static  double          Global_Rec_Acc_Q        = 0.0;
+static  size_t          Global_Rec_Pre_Count    = 0;
 static  int             Global_Rec_FIR_Pos      = 0;
 static  int             Global_LNA_Gain         = DEFAULT_LNA_GAIN;
 static  int             Global_VGA_Gain         = DEFAULT_VGA_GAIN;
@@ -126,13 +150,13 @@ static  int             Global_Rows_Per_Frame   = DEFAULT_ROWS_PER_FRAME;
 static  int             Global_Rec_Acc_Count    = 0;
 static  int             Global_Rec_Decimation   = 1;
 static  int             Global_Radio_Running    = 0;
-static  int             Global_Fullscreen       = 0;
-
 static  char            Global_Record_Dir[512]  = DEFAULT_RECORD_DIR;
 
 static  double          Global_Rec_FIR[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_I[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_Q[REC_FIR_TAPS];
+static  float           temp_I[MAX_TRANSFER_SAMPLES];
+static  float           temp_Q[MAX_TRANSFER_SAMPLES];
 
 static  Type_RingBuf    ring_buf;
 static  Type_Rec_Cache  Global_Pre_Cache;
@@ -141,23 +165,11 @@ static  Type_Rec_Queue  Global_Rec_Queue;
 static  pthread_t       Global_Rec_Thread;
 static  int             Global_Rec_Thread_Running = 0;
 
-static  int16_t         *Global_Rec_Pre_I       = NULL;
-static  int16_t         *Global_Rec_Pre_Q       = NULL;
-static  size_t          Global_Rec_Pre_Count    = 0;
-        
-        SDL_Color       Global_Status_Color     = {0, 255, 80, 255};
-
-        Type_Selector   Global_Selector         = {.X0 = 0.40,
-                                                   .X1 = 0.60,
-                                                   .enabled = 0,
-                                                   .dragging = 0,
-                                                   .resizing_left = 0,
-                                                   .resizing_right = 0
-                                                  };
-
 // =========
 // Functions
 // =========
+
+// OS Signal Handling
 
 static void handle_sigint(int sig){
 
@@ -165,6 +177,8 @@ static void handle_sigint(int sig){
     Global_Running = 0;
 
 }
+
+// Hard Bounds
 
 double limit_double(double value, double low, double high){
 
@@ -176,29 +190,7 @@ double limit_double(double value, double low, double high){
 
 }
 
-static void set_status(const char *msg, SDL_Color color){
-
-    snprintf(Global_Status_Msg, sizeof(Global_Status_Msg), "%s", msg);
-
-    Global_Status_Color = color;
-
-}
-
-static uint32_t rgb(uint8_t r, uint8_t g, uint8_t b){
-
-    return 0xFF000000U | ((uint32_t)r << 16) | ((uint32_t) g << 8) | b;
-
-}
-
-static void toggle_fullscreen(SDL_Window *window){
-
-    Global_Fullscreen = !Global_Fullscreen;
-
-    SDL_SetWindowFullscreen(
-        window,
-        Global_Fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0
-    );
-}
+// Target Path Validation and Creation
 
 static int ensure_record_dir_exists(void){
 
@@ -221,6 +213,8 @@ static int ensure_record_dir_exists(void){
     return 0;
 
 }
+
+// Selector Helpers
 
 uint64_t selection_center_Hz(void){
 
@@ -248,8 +242,10 @@ uint32_t selection_BW_Hz(void){
 
 }
 
+// RF Filter
 
 static void configure_recording_filter(void) {
+
     memset(Global_Rec_FIR, 0, sizeof(Global_Rec_FIR));
     memset(Global_Rec_Hist_I, 0, sizeof(Global_Rec_Hist_I));
     memset(Global_Rec_Hist_Q, 0, sizeof(Global_Rec_Hist_Q));
@@ -257,77 +253,70 @@ static void configure_recording_filter(void) {
     Global_Rec_FIR_Pos = 0;
     Global_Rec_Acc_Count = 0;
 
-    /*
-     * Output rate should be comfortably above selected bandwidth.
-     * 2.5x gives room for FIR transition.
-     */
+     // Output rate should be comfortably above selected bandwidth
+     // 2.5x gives room for FIR transition
+
     double wanted_out_rate = (double)Global_Rec_BW_Hz * 3;
 
-    if (wanted_out_rate < 48000.0) {
-        wanted_out_rate = 48000.0;
-    }
-
+    if (wanted_out_rate < 48000.0) wanted_out_rate = 48000.0;
+    
     Global_Rec_Decimation = (int)((double)Global_Sample_Rate_Hz / wanted_out_rate);
 
-    if (Global_Rec_Decimation < 1) {
-        Global_Rec_Decimation = 1;
-    }
+    if (Global_Rec_Decimation < 1) Global_Rec_Decimation = 1;
 
     Global_Rec_Out_Rate_Hz = Global_Sample_Rate_Hz / (uint32_t)Global_Rec_Decimation;
 
-    /*
-     * After shifting selected center to 0 Hz, selected bandwidth is:
-     *
-     * -BW/2 to +BW/2
-     */
+    // After shifting selected center to 0 Hz, selected bandwidth is -BW/2 to +BW/2
+
     double cutoff_hz = (double)Global_Rec_BW_Hz * 0.5;
 
-    /*
-     * Keep cutoff below decimated Nyquist.
-     */
+    // Keep cutoff below decimated Nyquist
+
     double max_safe_cutoff = (double)Global_Rec_Out_Rate_Hz * 0.45;
 
-    if (cutoff_hz > max_safe_cutoff) {
-        cutoff_hz = max_safe_cutoff;
-    }
+    if (cutoff_hz > max_safe_cutoff) cutoff_hz = max_safe_cutoff;
 
-    /*
-     * Normalized cutoff relative to input sample rate.
-     */
+    // Normalized cutoff relative to input sample rate
+
     double fc = cutoff_hz / (double)Global_Sample_Rate_Hz;
 
     double sum = 0.0;
     int mid = REC_FIR_TAPS / 2;
 
     for (int n = 0; n < REC_FIR_TAPS; n++) {
+
         int m = n - mid;
 
         double sinc;
 
-        if (m == 0) {
-            sinc = 2.0 * fc;
-        } else {
-            sinc = sin(2.0 * M_PI * fc * (double)m) / (M_PI * (double)m);
-        }
+        if (m == 0) sinc = 2.0 * fc;
 
-        /*
-         * Hamming window.
-         */
+        else sinc = sin(2.0 * M_PI * fc * (double)m) / (M_PI * (double)m);
+
+
+        // Hamming window.
+
         double window = 0.54 - 0.46 * cos((2.0 * M_PI * (double)n) / (double)(REC_FIR_TAPS - 1));
 
         Global_Rec_FIR[n] = sinc * window;
         sum += Global_Rec_FIR[n];
+
     }
 
-    /*
-     * Normalize gain to 1.0.
-     */
+    // Normalize gain to 1.0
+
     if (fabs(sum) > 1e-12) {
+
         for (int n = 0; n < REC_FIR_TAPS; n++) {
+
             Global_Rec_FIR[n] /= sum;
+
         }
+
     }
 }
+
+// Cache Helpers
 
 static int pre_cache_init(Type_Rec_Cache *c, uint32_t sample_rate_hz){
 
@@ -413,11 +402,8 @@ static void pre_cache_write(Type_Rec_Cache *c, float I, float Q){
 
     c->write_pos = (c->write_pos + 1) % c->capacity;
 
-    if(c->count < c->capacity){
+    if(c->count < c->capacity) c->count++;
 
-        c->count++;
-
-    }
 }
 
 static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int16_t **out_Q){
@@ -427,17 +413,17 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
 
     size_t count = c->count;
 
-    if (count == 0 || !c->I || !c->Q){
-        return 0;
-    }
+    if (count == 0 || !c->I || !c->Q) return 0;
 
     int16_t *copy_I = malloc(sizeof(int16_t) * count);
     int16_t *copy_Q = malloc(sizeof(int16_t) * count);
 
     if (!copy_I || !copy_Q) {
+
         free(copy_I);
         free(copy_Q);
         return 0;
+
     }
 
     if(c->count < c->capacity){
@@ -468,6 +454,8 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
 
 }
 
+// Queue Helpers
+
 static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz){
 
     memset(q, 0, sizeof(*q));
@@ -480,10 +468,12 @@ static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz){
     q->Q = malloc(sizeof(int16_t) * q->capacity);
 
     if (!q->I || !q->Q) {
+
         free(q->I);
         free(q->Q);
         memset(q, 0, sizeof(*q));
         return 0;
+
     }
 
     pthread_mutex_init(&q->lock, NULL);
@@ -698,6 +688,8 @@ static void rec_queue_request_stop(Type_Rec_Queue *q){
 
 }
 
+// Recorder Helpers
+
 static void recorder_reset_processing_state(void){
 
     Global_Rec_Phase = 0.0;
@@ -715,9 +707,8 @@ static void recorder_write_sample(float I, float Q){
 
     if (!Global_Rec_File) return;
 
-    /*
-     * Shift selected center frequency to baseband.
-     */
+    // Shift selected center frequency to baseband
+
     double Freq_Offset_Hz = (double)Global_Rec_Center_Hz - (double)Global_Center_Freq_Hz;
     double Phase_Step = -2.0 * M_PI * Freq_Offset_Hz / (double)Global_Sample_Rate_Hz;
 
@@ -729,13 +720,9 @@ static void recorder_write_sample(float I, float Q){
 
     Global_Rec_Phase += Phase_Step;
 
-    if (Global_Rec_Phase > M_PI){
-        Global_Rec_Phase -= 2.0 * M_PI;
-    }
+    if (Global_Rec_Phase > M_PI) Global_Rec_Phase -= 2.0 * M_PI;
 
-    if (Global_Rec_Phase < -M_PI){
-        Global_Rec_Phase += 2.0 * M_PI;
-    }
+    if (Global_Rec_Phase < -M_PI) Global_Rec_Phase += 2.0 * M_PI;
 
     if (Global_Rec_Decimation <= 1) {
     if (Shifted_I > 1.0) Shifted_I = 1.0;
@@ -753,9 +740,8 @@ static void recorder_write_sample(float I, float Q){
     return;
     }
 
-    /*
-     * Always store the newest shifted sample.
-     */
+    // Always store the newest shifted sample
+
     Global_Rec_Hist_I[Global_Rec_FIR_Pos] = Shifted_I;
     Global_Rec_Hist_Q[Global_Rec_FIR_Pos] = Shifted_Q;
 
@@ -763,41 +749,33 @@ static void recorder_write_sample(float I, float Q){
 
     Global_Rec_FIR_Pos++;
 
-    if (Global_Rec_FIR_Pos >= REC_FIR_TAPS) {
-        Global_Rec_FIR_Pos = 0;
-    }
+    if (Global_Rec_FIR_Pos >= REC_FIR_TAPS) Global_Rec_FIR_Pos = 0;
 
-    /*
-     * Decimation gate.
-     *
-     * Do not run the full FIR convolution unless this input sample
-     * will produce one output sample.
-     */
+    // Decimation gate
+    // Do not run the full FIR convolution unless this input sample will produce one output sample
+
     Global_Rec_Acc_Count++;
 
-    if (Global_Rec_Acc_Count < Global_Rec_Decimation) {
-        return;
-    }
+    if (Global_Rec_Acc_Count < Global_Rec_Decimation) return;
 
     Global_Rec_Acc_Count = 0;
 
-    /*
-     * FIR convolution only on output samples.
-     */
+    // FIR convolution only on output samples
+
     double Filtered_I = 0.0;
     double Filtered_Q = 0.0;
 
     int hist_idx = newest_pos;
 
     for (int tap = 0; tap < REC_FIR_TAPS; tap++) {
+
         Filtered_I += Global_Rec_FIR[tap] * Global_Rec_Hist_I[hist_idx];
         Filtered_Q += Global_Rec_FIR[tap] * Global_Rec_Hist_Q[hist_idx];
 
         hist_idx--;
 
-        if (hist_idx < 0) {
-            hist_idx = REC_FIR_TAPS - 1;
-        }
+        if (hist_idx < 0) hist_idx = REC_FIR_TAPS - 1;
+
     }
 
     if (Filtered_I > 1.0) Filtered_I = 1.0;
@@ -838,7 +816,7 @@ static void stop_recording(void){
     
     rec_queue_request_stop(&Global_Rec_Queue);
 
-    if(thread_exists){
+    if (thread_exists){
 
         pthread_join(Global_Rec_Thread, NULL);
         Global_Rec_Thread_Running = 0;
@@ -855,10 +833,16 @@ static void stop_recording(void){
     recorder_reset_processing_state();
 
     if(Global_Rec_Queue.overflow){
-           set_status("Recording stopped - queue overflow occurred", (SDL_Color){255, 180, 40, 255});
+
+        set_status("Recording stopped - queue overflow occurred", (SDL_Color){255, 180, 40, 255});
+
     }
 
-    else set_status("", (SDL_Color){0, 255, 80, 255});
+    else {
+
+        set_status("", (SDL_Color){0, 255, 80, 255});
+
+    }
 
 }
 
@@ -1029,6 +1013,7 @@ static int start_recording(void){
 
 }
 
+// Ring Buffer Helpers
 
 static size_t ring_available_locked(Type_RingBuf* r){
     
@@ -1081,7 +1066,8 @@ if (ring_available_locked(r) < FFT_SIZE){
     }
 
     // Hann window is being used, smoothen out any edges and visualize shorter bursts better
-    // That is why we add by FFT_SIZE / 2 (Use half of the older samples)
+    // That explains "+ FFT_SIZE / 2" (Use half of the older samples)
+
     r->read_pos = (r->read_pos + FFT_SIZE / 2) % RING_SIZE;
 
     pthread_mutex_unlock(&r->lock);
@@ -1089,10 +1075,7 @@ if (ring_available_locked(r) < FFT_SIZE){
 
 }
 
-#define MAX_TRANSFER_SAMPLES 262144
-
-static float temp_I[MAX_TRANSFER_SAMPLES];
-static float temp_Q[MAX_TRANSFER_SAMPLES];
+// RX Helper
 
 static int rx_callback(hackrf_transfer *transfer){
 
@@ -1103,9 +1086,7 @@ static int rx_callback(hackrf_transfer *transfer){
         sample_count = MAX_TRANSFER_SAMPLES;
     }
 
-    /*
-     * Convert signed HackRF IQ once.
-     */
+    // Convert signed HackRF IQ once
 
     pthread_mutex_lock(&Global_Pre_Cache.lock);
 
@@ -1132,10 +1113,9 @@ static int rx_callback(hackrf_transfer *transfer){
 
     pthread_mutex_unlock(&Global_Pre_Cache.lock);
 
-    /*
-     * Waterfall ring buffer.
-     * Lock only around ring_buf writes.
-     */
+    // Waterfall ring buffer
+    // Lock only around ring_buf writes
+
     pthread_mutex_lock(&ring_buf.lock);
 
     for (int n = 0; n < sample_count; n++){
@@ -1144,10 +1124,8 @@ static int rx_callback(hackrf_transfer *transfer){
 
     pthread_mutex_unlock(&ring_buf.lock);
 
-    /*
-     * Recorder path.
-     * No ring_buf.lock here.
-     */
+    // Recorder path
+    // No ring_buf.lock here
 
     int rec_enabled = 0;
 
@@ -1170,8 +1148,8 @@ static int rx_callback(hackrf_transfer *transfer){
     return 0;
 }
 
+// Graphics Helper
 
-// AI-Assisted
 static uint32_t power_to_color_relative(double rel_db, double delta_db, double peakness_db) {
     if (rel_db < REL_MIN_DB) return rgb(0, 0, 0);
 
@@ -1378,7 +1356,6 @@ static void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, do
     }
 }
 
-
 static void append_text(char *dst, size_t dst_sz, const char *src) {
     size_t len = strlen(dst);
 
@@ -1419,6 +1396,8 @@ static int parse_nonnegative_int(const char *s, int *out) {
     return 1;
 }
 
+// Normalization Helpers
+
 static int normalize_lna_gain(int gain) {
     if (gain < 0) gain = 0;
     if (gain > 40) gain = 40;
@@ -1442,6 +1421,8 @@ static int normalize_rows_per_frame(int rows) {
     if (rows > 64) rows = 64;
     return rows;
 }
+
+// Radio Helpers
 
 static int stop_radio(hackrf_device *dev) {
     if (Global_Radio_Running) {
@@ -1472,8 +1453,9 @@ double recommended_antenna_length_inches(uint64_t freq_hz) {
      *
      * c ≈ 299,792,458 m/s
      *
-     * Return value is in inches.
+     * Return value is in inches
      */
+
     double wavelength_m = 299792458.0 / (double)freq_hz;
     double quarter_wave_m = wavelength_m / 4.0;
 
@@ -1592,6 +1574,10 @@ double sr_msps = 0.0;
     set_status("", (SDL_Color){0, 255, 80, 255});
     return 1;
 }
+
+// ==========
+// Main Logic
+// ==========
 
 int main(int argc, char **argv){
 
@@ -1883,7 +1869,7 @@ int main(int argc, char **argv){
                 int x = event.button.x;
                 int y = event.button.y;
 
-                if (event.button.clicks == 2 && y < CONTROL_PANEL_HEIGHT) {
+                if (event.button.clicks == 3 && y < CONTROL_PANEL_HEIGHT) {
               
                     active = FIELD_NONE;
                     toggle_fullscreen(window_sdl);
@@ -2040,7 +2026,7 @@ int main(int argc, char **argv){
         draw_border(renderer, waterfall_rect);
         draw_frequency_axis(renderer, font_small, waterfall_rect);
 
-        draw_text(renderer, font_medium, Global_Status_Msg, MARGIN, win_h - 24, Global_Status_Color);
+        draw_text(renderer, font_medium, Global_Status_Msg, win_w / 2 - 192, win_h - 36, Global_Status_Color);
 
         draw_antenna_recommendation(renderer, font_small, win_w, win_h);
 
