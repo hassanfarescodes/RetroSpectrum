@@ -80,7 +80,7 @@
 #define AXIS_HEIGHT                     70
 #define MARGIN                          20
 
-#define PRE_RECORD_SECONDS              2
+#define PRE_RECORD_SECONDS              5
 #define REC_QUEUE_SECONDS               (PRE_RECORD_SECONDS * 2)
 #define REC_PUSH_CHUNK_SAMPLES          4096
 
@@ -150,6 +150,7 @@ static  int             Global_Rows_Per_Frame   = DEFAULT_ROWS_PER_FRAME;
 static  int             Global_Rec_Acc_Count    = 0;
 static  int             Global_Rec_Decimation   = 1;
 static  int             Global_Radio_Running    = 0;
+static  int             Global_Cached_Recording = 0;
 static  char            Global_Record_Dir[512]  = DEFAULT_RECORD_DIR;
 
 static  double          Global_Rec_FIR[REC_FIR_TAPS];
@@ -957,18 +958,33 @@ static int start_recording(void){
 
     // CRITICAL FOR ENSURING MINIMAL GAP BETWEEN CACHE AND LIVE DATA
 
-    pthread_mutex_lock(&Global_Pre_Cache.lock);
+    if (Global_Cached_Recording) {
 
-    Global_Rec_Pre_Count = pre_cache_snapshot_locked(&Global_Pre_Cache, &Global_Rec_Pre_I,
-                                                     &Global_Rec_Pre_Q);
+        pthread_mutex_lock(&Global_Pre_Cache.lock);
 
-    pthread_mutex_lock(&Global_Rec_Lock);
+        Global_Rec_Pre_Count = pre_cache_snapshot_locked(&Global_Pre_Cache,
+                                                         &Global_Rec_Pre_I,
+                                                         &Global_Rec_Pre_Q);
 
-    Global_Rec = 1;
+        pthread_mutex_lock(&Global_Rec_Lock);
 
-    pthread_mutex_unlock(&Global_Rec_Lock);
+        Global_Rec = 1;
 
-    pthread_mutex_unlock(&Global_Pre_Cache.lock);
+        pthread_mutex_unlock(&Global_Rec_Lock);
+
+        pthread_mutex_unlock(&Global_Pre_Cache.lock);
+
+    } 
+
+    else {
+
+        pthread_mutex_lock(&Global_Rec_Lock);
+
+        Global_Rec = 1;
+
+        pthread_mutex_unlock(&Global_Rec_Lock);
+
+    }
 
     if (pthread_create(&Global_Rec_Thread, NULL, recorder_thread_main, NULL) != 0){
 
@@ -1005,7 +1021,8 @@ static int start_recording(void){
 
     char msg[256];
 
-    snprintf(msg, sizeof(msg), "RECORDING %.6f MHz - BW %.3f kHz", Global_Rec_Center_Hz / 1e6, Global_Rec_BW_Hz / 1e3);
+    snprintf(msg, sizeof(msg), "RECORDING %.6f MHz - BW %.3f kHz%s", Global_Rec_Center_Hz / 1e6,Global_Rec_BW_Hz / 1e3, 
+             Global_Cached_Recording ? " - CACHE 5s" : "");
 
     set_status(msg, (SDL_Color){255, 60, 40, 255});
 
@@ -1583,9 +1600,39 @@ int main(int argc, char **argv){
 
     signal(SIGINT, handle_sigint);
 
-    if (argc >= 2) {
+    for (int i = 1; i < argc; i++) {
 
-        snprintf(Global_Record_Dir, sizeof(Global_Record_Dir), "%s", argv[1]);
+        if (strcmp(argv[i], "-C") == 0) {
+
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Missing value for -C. Use -C 0 or -C 1.\n");
+                return 1;
+            }
+
+            Global_Cached_Recording = atoi(argv[i + 1]) ? 1 : 0;
+            i++;
+
+        } 
+
+        else if (strcmp(argv[i], "-o") == 0) {
+
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Missing value for -o record directory.\n");
+                return 1;
+            }
+
+            snprintf(Global_Record_Dir, sizeof(Global_Record_Dir), "%s", argv[i + 1]);
+            i++;
+
+        } 
+
+        else {
+
+            fprintf(stderr, "Unknown argument: %s\n", argv[i]);
+            fprintf(stderr, "Usage: %s [-o record_dir] [-C 0|1]\n", argv[0]);
+            return 1;
+
+        }
 
     }
 

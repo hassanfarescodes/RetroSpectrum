@@ -174,9 +174,9 @@ void draw_made_in_usa(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win
      */
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-    int top_margin = 3;
+    int top_margin = 2;
     int bottom_margin = 3;
-    int left_margin = 3;
+    int left_margin = 2;
     int right_margin = 3;
 
     int usable_h = canton.h - top_margin - bottom_margin;
