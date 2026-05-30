@@ -919,6 +919,75 @@ void ANALYSIS_draw_line_plot(SDL_Renderer *renderer,
 
 }
 
+void ANALYSIS_draw_constellation_plot(SDL_Renderer *renderer,
+                                      SDL_Rect rect,
+                                      const float *i_values,
+                                      const float *q_values,
+                                      int count,
+                                      TTF_Font *font){
+
+    /*
+
+    Purpose: Draws an I/Q constellation plot inside a rectangle
+
+    Return: No return
+
+    */
+
+    (void)font;
+
+    draw_filled_rect(renderer, rect, (SDL_Color){5, 5, 5, 255});
+    draw_outline_rect(renderer, rect, (SDL_Color){120, 120, 120, 255});
+
+    int cx = rect.x + rect.w / 2;
+    int cy = rect.y + rect.h / 2;
+    int radius = rect.w < rect.h ? rect.w : rect.h;
+    radius = (int)((double)radius * 0.43);
+
+    if (radius < 4) return;
+
+    SDL_SetRenderDrawColor(renderer, 55, 55, 55, 255);
+    SDL_RenderDrawLine(renderer, rect.x + 8, cy, rect.x + rect.w - 8, cy);
+    SDL_RenderDrawLine(renderer, cx, rect.y + 8, cx, rect.y + rect.h - 8);
+
+    SDL_Rect unit_box = {cx - radius, cy - radius, radius * 2, radius * 2};
+    SDL_RenderDrawRect(renderer, &unit_box);
+
+    if (!i_values || !q_values || count <= 0) return;
+
+    SDL_SetRenderDrawColor(renderer, 0, 210, 255, 255);
+
+    for (int n = 0; n < count; n++) {
+
+        float I = i_values[n];
+        float Q = q_values[n];
+
+        if (I < -1.0f) I = -1.0f;
+        if (I > 1.0f) I = 1.0f;
+        if (Q < -1.0f) Q = -1.0f;
+        if (Q > 1.0f) Q = 1.0f;
+
+        int x = cx + (int)(I * (float)radius);
+        int y = cy - (int)(Q * (float)radius);
+
+        if (x >= rect.x + 1 && x < rect.x + rect.w - 1 &&
+            y >= rect.y + 1 && y < rect.y + rect.h - 1) {
+
+            SDL_RenderDrawPoint(renderer, x, y);
+
+            if (rect.w > 180 && rect.h > 100) {
+
+                SDL_RenderDrawPoint(renderer, x + 1, y);
+                SDL_RenderDrawPoint(renderer, x, y + 1);
+
+            }
+
+        }
+
+    }
+
+}
+
 void ANALYSIS_make_ellipsis_text(TTF_Font *font,
                                         const char *src,
                                         char *dst,
@@ -1191,43 +1260,62 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
     int work_w = win_w - 2 * MARGIN;
     int work_h = win_h - work_y - MARGIN;
 
-    if (work_w < 100 || work_h < 200) return;
+    if (work_w < 100 || work_h < 260) return;
 
-    int gap = 12;
-    int title_h = 24;
-    int mag_h = work_h / 5;
-    int phase_h = work_h / 5;
+    int gap = 10;
+    int title_h = 22;
+    int col_gap = 12;
+    int top_row_h = work_h / 4;
+    int mid_row_h = work_h / 4;
+    int spec_h = work_h - top_row_h - mid_row_h - (gap * 2) - (title_h * 3);
 
-    if (mag_h < 80) mag_h = 80;
-    if (phase_h < 80) phase_h = 80;
+    if (top_row_h < 70) top_row_h = 70;
+    if (mid_row_h < 70) mid_row_h = 70;
+    if (spec_h < 110) spec_h = 110;
 
-    int mag_title_y = work_y;
+    int half_w = (work_w - col_gap) / 2;
+    int top_title_y = work_y;
 
     SDL_Rect mag_rect = {
         work_x,
-        mag_title_y + title_h,
-        work_w,
-        mag_h
+        top_title_y + title_h,
+        half_w,
+        top_row_h
     };
-
-    int phase_title_y = mag_rect.y + mag_rect.h + gap;
 
     SDL_Rect phase_rect = {
-        work_x,
-        phase_title_y + title_h,
-        work_w,
-        phase_h
+        work_x + half_w + col_gap,
+        top_title_y + title_h,
+        work_w - half_w - col_gap,
+        top_row_h
     };
+
+    int mid_title_y = mag_rect.y + mag_rect.h + gap;
+
+    SDL_Rect inst_rect = {
+        work_x,
+        mid_title_y + title_h,
+        half_w,
+        mid_row_h
+    };
+
+    SDL_Rect const_rect = {
+        work_x + half_w + col_gap,
+        mid_title_y + title_h,
+        work_w - half_w - col_gap,
+        mid_row_h
+    };
+
+    int spec_title_y = inst_rect.y + inst_rect.h + gap;
 
     SDL_Rect spec_rect = {
         work_x,
-        phase_rect.y + phase_rect.h + gap,
+        spec_title_y + title_h,
         work_w,
-        win_h - (phase_rect.y + phase_rect.h + gap) - MARGIN
+        win_h - (spec_title_y + title_h) - MARGIN
     };
 
-    if (spec_rect.h < 120) spec_rect.h = 120;
-
+    if (spec_rect.h < 110) spec_rect.h = 110;
 
     if (Global_Analysis_Dirty) {
 
@@ -1246,10 +1334,19 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
 
     }
 
-    draw_text(renderer, font, "Magnitude Envelope", work_x + 10, mag_title_y + 4,
+    draw_text(renderer, font, "Magnitude Envelope", mag_rect.x + 10, top_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
-    draw_text(renderer, font, "Phase / Frequency Discriminator", work_x + 10, phase_title_y + 4,
+    draw_text(renderer, font, "Phase Delta", phase_rect.x + 10, top_title_y + 3,
+              (SDL_Color){190, 190, 190, 255});
+
+    draw_text(renderer, font, "Instantaneous Frequency", inst_rect.x + 10, mid_title_y + 3,
+              (SDL_Color){190, 190, 190, 255});
+
+    draw_text(renderer, font, "Constellation I/Q", const_rect.x + 10, mid_title_y + 3,
+              (SDL_Color){190, 190, 190, 255});
+
+    draw_text(renderer, font, "Greyscale Spectrogram", spec_rect.x + 10, spec_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
     if (Global_Analysis_Path[0] == '\0') {
@@ -1257,10 +1354,16 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
         draw_filled_rect(renderer, mag_rect, (SDL_Color){5, 5, 5, 255});
         draw_outline_rect(renderer, mag_rect, (SDL_Color){120, 120, 120, 255});
         draw_text(renderer, font, "Select a recording above, then press Enter to open it.",
-          mag_rect.x + 12, mag_rect.y + 54, (SDL_Color){200, 200, 200, 255});
+          mag_rect.x + 12, mag_rect.y + 42, (SDL_Color){200, 200, 200, 255});
 
         draw_filled_rect(renderer, phase_rect, (SDL_Color){5, 5, 5, 255});
         draw_outline_rect(renderer, phase_rect, (SDL_Color){120, 120, 120, 255});
+
+        draw_filled_rect(renderer, inst_rect, (SDL_Color){5, 5, 5, 255});
+        draw_outline_rect(renderer, inst_rect, (SDL_Color){120, 120, 120, 255});
+
+        draw_filled_rect(renderer, const_rect, (SDL_Color){5, 5, 5, 255});
+        draw_outline_rect(renderer, const_rect, (SDL_Color){120, 120, 120, 255});
 
         draw_filled_rect(renderer, spec_rect, (SDL_Color){5, 5, 5, 255});
         draw_outline_rect(renderer, spec_rect, (SDL_Color){120, 120, 120, 255});
@@ -1286,6 +1389,22 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
                             NULL,
                             font);
 
+    ANALYSIS_draw_line_plot(renderer,
+                            inst_rect,
+                            Global_Analysis_InstFreq_Line,
+                            Global_Analysis_Render_W,
+                            1,
+                            (SDL_Color){0, 190, 255, 255},
+                            NULL,
+                            font);
+
+    ANALYSIS_draw_constellation_plot(renderer,
+                                     const_rect,
+                                     Global_Analysis_Const_I,
+                                     Global_Analysis_Const_Q,
+                                     Global_Analysis_Const_Count,
+                                     font);
+
     SDL_RenderCopy(renderer, texture, NULL, &spec_rect);
     draw_border(renderer, spec_rect);
 
@@ -1295,7 +1414,7 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
         double t0 = (double)Global_Analysis_View_Start / Global_Analysis_Sample_Rate;
         double t1 = (double)(Global_Analysis_View_Start + Global_Analysis_View_Len) / Global_Analysis_Sample_Rate;
 
-        snprintf(info, sizeof(info), "Greyscale Spectrogram | %.6f MHz | %.6f sec to %.6f sec | %.3f kS/s",
+        snprintf(info, sizeof(info), "%.6f MHz | %.6f sec to %.6f sec | %.3f kS/s | Drag to pan | Wheel to zoom",
                  Global_Analysis_Center_Hz / 1e6,
                  t0,
                  t1,

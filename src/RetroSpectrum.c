@@ -112,6 +112,7 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
 #define ANALYSIS_FFT_SIZE                512
 #define ANALYSIS_LIST_WIDTH              430
 #define ANALYSIS_MAX_RENDER_W            2048
+#define ANALYSIS_MAX_CONST_POINTS          4096
 
 
 static volatile sig_atomic_t Global_Running = 1;
@@ -194,6 +195,10 @@ char                    Global_Analysis_Path[1024] = "";
 char                    Global_Analysis_Status[256] = "Press R to scan recordings";
 float                   Global_Analysis_Mag_Line[ANALYSIS_MAX_RENDER_W];
 float                   Global_Analysis_Phase_Line[ANALYSIS_MAX_RENDER_W];
+float                   Global_Analysis_InstFreq_Line[ANALYSIS_MAX_RENDER_W];
+float                   Global_Analysis_Const_I[ANALYSIS_MAX_CONST_POINTS];
+float                   Global_Analysis_Const_Q[ANALYSIS_MAX_CONST_POINTS];
+int                     Global_Analysis_Const_Count = 0;
 
 static  double          Global_Rec_FIR[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_I[REC_FIR_TAPS];
@@ -1842,6 +1847,10 @@ static void ANALYSIS_clear_loaded_file(void){
     Global_Analysis_Render_W = 0;
     memset(Global_Analysis_Mag_Line, 0, sizeof(Global_Analysis_Mag_Line));
     memset(Global_Analysis_Phase_Line, 0, sizeof(Global_Analysis_Phase_Line));
+    memset(Global_Analysis_InstFreq_Line, 0, sizeof(Global_Analysis_InstFreq_Line));
+    memset(Global_Analysis_Const_I, 0, sizeof(Global_Analysis_Const_I));
+    memset(Global_Analysis_Const_Q, 0, sizeof(Global_Analysis_Const_Q));
+    Global_Analysis_Const_Count = 0;
     Global_Analysis_Dirty = 1;
 
 }
@@ -2248,6 +2257,10 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
     Global_Analysis_Render_W = 0;
     memset(Global_Analysis_Mag_Line, 0, sizeof(Global_Analysis_Mag_Line));
     memset(Global_Analysis_Phase_Line, 0, sizeof(Global_Analysis_Phase_Line));
+    memset(Global_Analysis_InstFreq_Line, 0, sizeof(Global_Analysis_InstFreq_Line));
+    memset(Global_Analysis_Const_I, 0, sizeof(Global_Analysis_Const_I));
+    memset(Global_Analysis_Const_Q, 0, sizeof(Global_Analysis_Const_Q));
+    Global_Analysis_Const_Count = 0;
 
     if (Global_Analysis_IQ_Count < ANALYSIS_FFT_SIZE ||
         Global_Analysis_Path[0] == '\0' ||
@@ -2312,6 +2325,7 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
     double max_db = -300.0;
     double max_mag = 1e-12;
     double max_phase_abs = 1e-12;
+    double max_inst_freq_abs = 1e-12;
 
     for (int x = 0; x < render_w; x++) {
 
@@ -2342,6 +2356,7 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
         double sum_mag = 0.0;
         double sum_phase = 0.0;
+        double sum_inst_freq = 0.0;
         int phase_count = 0;
 
         for (int k = 0; k < ANALYSIS_FFT_SIZE; k++) {
@@ -2358,7 +2373,11 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
                 double re = I0 * I + Q0 * Q;
                 double im = I0 * Q - Q0 * I;
 
-                sum_phase += atan2(im, re);
+                double dphase = atan2(im, re);
+                double inst_freq_hz = dphase * Global_Analysis_Sample_Rate / (2.0 * M_PI);
+
+                sum_phase += dphase;
+                sum_inst_freq += inst_freq_hz;
                 phase_count++;
 
             }
@@ -2370,12 +2389,15 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
         double avg_mag = sum_mag / (double)ANALYSIS_FFT_SIZE;
         double avg_phase = phase_count > 0 ? sum_phase / (double)phase_count : 0.0;
+        double avg_inst_freq = phase_count > 0 ? sum_inst_freq / (double)phase_count : 0.0;
 
         Global_Analysis_Mag_Line[x] = (float)avg_mag;
         Global_Analysis_Phase_Line[x] = (float)avg_phase;
+        Global_Analysis_InstFreq_Line[x] = (float)avg_inst_freq;
 
         if (avg_mag > max_mag) max_mag = avg_mag;
         if (fabs(avg_phase) > max_phase_abs) max_phase_abs = fabs(avg_phase);
+        if (fabs(avg_inst_freq) > max_inst_freq_abs) max_inst_freq_abs = fabs(avg_inst_freq);
 
         fftw_execute(plan);
 
@@ -2399,11 +2421,14 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
         Global_Analysis_Mag_Line[x] = (float)(Global_Analysis_Mag_Line[x] / max_mag);
         Global_Analysis_Phase_Line[x] = (float)(Global_Analysis_Phase_Line[x] / max_phase_abs);
+        Global_Analysis_InstFreq_Line[x] = (float)(Global_Analysis_InstFreq_Line[x] / max_inst_freq_abs);
 
         if (Global_Analysis_Mag_Line[x] < 0.0f) Global_Analysis_Mag_Line[x] = 0.0f;
         if (Global_Analysis_Mag_Line[x] > 1.0f) Global_Analysis_Mag_Line[x] = 1.0f;
         if (Global_Analysis_Phase_Line[x] < -1.0f) Global_Analysis_Phase_Line[x] = -1.0f;
         if (Global_Analysis_Phase_Line[x] > 1.0f) Global_Analysis_Phase_Line[x] = 1.0f;
+        if (Global_Analysis_InstFreq_Line[x] < -1.0f) Global_Analysis_InstFreq_Line[x] = -1.0f;
+        if (Global_Analysis_InstFreq_Line[x] > 1.0f) Global_Analysis_InstFreq_Line[x] = 1.0f;
 
     }
 
@@ -2422,6 +2447,58 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
             double norm = (val - min_db) / 70.0;
 
             pixels[(size_t)py * tex_w + x] = ANALYSIS_gray(norm);
+
+        }
+
+    }
+
+    if (Global_Analysis_IQ_Count > 0 && Global_Analysis_View_Len > 0) {
+
+        int const_count = ANALYSIS_MAX_CONST_POINTS;
+
+        if ((size_t)const_count > Global_Analysis_View_Len) {
+
+            const_count = (int)Global_Analysis_View_Len;
+
+        }
+
+        if (const_count < 0) const_count = 0;
+
+        Global_Analysis_Const_Count = const_count;
+
+        for (int p = 0; p < const_count; p++) {
+
+            size_t sample_index = Global_Analysis_View_Start;
+
+            if (const_count > 1) {
+
+                sample_index += (size_t)(((double)p / (double)(const_count - 1)) *
+                                         (double)(Global_Analysis_View_Len - 1));
+
+            }
+
+            if (sample_index >= Global_Analysis_IQ_Count) {
+
+                sample_index = Global_Analysis_IQ_Count - 1;
+
+            }
+
+            int16_t iq_pair[2] = {0, 0};
+
+            if (fseek(fp, (long)(sample_index * 2 * sizeof(int16_t)), SEEK_SET) == 0 &&
+                fread(iq_pair, sizeof(int16_t), 2, fp) == 2) {
+
+                Global_Analysis_Const_I[p] = (float)((double)iq_pair[0] / 32768.0);
+                Global_Analysis_Const_Q[p] = (float)((double)iq_pair[1] / 32768.0);
+
+            }
+
+            else {
+
+                Global_Analysis_Const_I[p] = 0.0f;
+                Global_Analysis_Const_Q[p] = 0.0f;
+
+            }
 
         }
 

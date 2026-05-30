@@ -15,6 +15,10 @@
 #define ANALYSIS_MAX_RENDER_W            2048
 #endif
 
+#ifndef ANALYSIS_MAX_CONST_POINTS
+#define ANALYSIS_MAX_CONST_POINTS          4096
+#endif
+
 
 // Track active settings
 typedef enum {
@@ -86,6 +90,10 @@ extern char Global_Analysis_Path[1024];
 extern char Global_Analysis_Status[256];
 extern float Global_Analysis_Mag_Line[ANALYSIS_MAX_RENDER_W];
 extern float Global_Analysis_Phase_Line[ANALYSIS_MAX_RENDER_W];
+extern float Global_Analysis_InstFreq_Line[ANALYSIS_MAX_RENDER_W];
+extern float Global_Analysis_Const_I[ANALYSIS_MAX_CONST_POINTS];
+extern float Global_Analysis_Const_Q[ANALYSIS_MAX_CONST_POINTS];
+extern int Global_Analysis_Const_Count;
 
 
 // Functions still defined in RetroSpectrum.c but used by GUIs.c
@@ -204,6 +212,13 @@ void ANALYSIS_draw_line_plot(SDL_Renderer *renderer,
                              SDL_Color color,
                              const char *title,
                              TTF_Font *font);
+
+void ANALYSIS_draw_constellation_plot(SDL_Renderer *renderer,
+                                      SDL_Rect rect,
+                                      const float *i_values,
+                                      const float *q_values,
+                                      int count,
+                                      TTF_Font *font);
 
 void ANALYSIS_make_ellipsis_text(TTF_Font *font,
                                  const char *src,
