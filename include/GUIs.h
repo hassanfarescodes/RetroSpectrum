@@ -7,6 +7,15 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
+#ifndef ANALYSIS_MAX_FILES
+#define ANALYSIS_MAX_FILES               512
+#endif
+
+#ifndef ANALYSIS_MAX_RENDER_W
+#define ANALYSIS_MAX_RENDER_W            2048
+#endif
+
+
 // Track active settings
 typedef enum {
     FIELD_NONE = 0,
@@ -52,7 +61,31 @@ extern int Global_Fullscreen;
 extern char Global_Status_Msg[256];
 extern SDL_Color Global_Status_Color;
 
+extern double *Global_Color_Baseline;
+
 extern Type_Selector Global_Selector;
+
+extern int Global_Analysis_Mode;
+extern int Global_Analysis_Dirty;
+extern int Global_Analysis_File_Count;
+extern int Global_Analysis_Selected;
+extern int Global_Analysis_List_Scroll;
+extern int Global_Analysis_Dragging;
+extern int Global_Analysis_Drag_Last_X;
+extern int Global_Analysis_Loading;
+extern int Global_Analysis_Load_Frame;
+extern int Global_Analysis_Loaded_Index;
+extern int Global_Analysis_Render_W;
+extern size_t Global_Analysis_IQ_Count;
+extern size_t Global_Analysis_View_Start;
+extern size_t Global_Analysis_View_Len;
+extern double Global_Analysis_Sample_Rate;
+extern double Global_Analysis_Center_Hz;
+extern char Global_Analysis_Files[ANALYSIS_MAX_FILES][512];
+extern char Global_Analysis_Path[1024];
+extern char Global_Analysis_Status[256];
+extern float Global_Analysis_Mag_Line[ANALYSIS_MAX_RENDER_W];
+extern float Global_Analysis_Phase_Line[ANALYSIS_MAX_RENDER_W];
 
 
 // Functions still defined in RetroSpectrum.c but used by GUIs.c
@@ -61,6 +94,7 @@ double limit_double(double value, double low, double high);
 uint64_t selection_center_Hz(void);
 uint32_t selection_BW_Hz(void);
 double recommended_antenna_length_inches(uint64_t freq_hz);
+void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h);
 
 
 // GUI functions defined in GUIs.c
@@ -141,5 +175,58 @@ void draw_selector_bandwidth(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect wa
 void update_selection_from_mouse(int mouse_x, SDL_Rect waterfall_rect);
 
 void draw_antenna_recommendation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
+
+uint32_t power_to_color_relative(double rel_db, double delta_db, double peakness_db);
+
+void clear_waterfall(uint32_t *pixels, int w, int h);
+
+void reset_prev_col_db(int tex_w);
+
+void append_text(char *dst, size_t dst_sz, const char *src);
+
+void backspace_text(char *dst);
+
+
+
+int cmp_double_for_qsort(const void *a, const void *b);
+
+void get_visible_bin_range(int *start_bin, int *end_bin);
+
+double estimate_noise_floor_median_visible(double *db, int start_bin, int end_bin);
+
+void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, double *db);
+
+void ANALYSIS_draw_line_plot(SDL_Renderer *renderer,
+                             SDL_Rect rect,
+                             const float *values,
+                             int count,
+                             int bipolar,
+                             SDL_Color color,
+                             const char *title,
+                             TTF_Font *font);
+
+void ANALYSIS_make_ellipsis_text(TTF_Font *font,
+                                 const char *src,
+                                 char *dst,
+                                 size_t dst_sz,
+                                 int max_px);
+
+void ANALYSIS_draw_loading_indicator(SDL_Renderer *renderer,
+                                     TTF_Font *font,
+                                     SDL_Rect parent_rect);
+
+void ANALYSIS_draw_file_list(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect);
+
+void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
+                               TTF_Font *font,
+                               SDL_Texture *texture,
+                               uint32_t *pixels,
+                               int tex_w,
+                               int tex_h,
+                               int win_w,
+                               int win_h);
+
+void ANALYSIS_exit_mode(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *texture);
+
 
 #endif

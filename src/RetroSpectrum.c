@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <dirent.h>
 
 // HackRF Library
 #include <libhackrf/hackrf.h>
@@ -51,6 +52,19 @@
 
 // Responsible for IQ objects
 #include "IQs.h"
+
+// GUI functions implemented in GUIs.c and called from this main logic file
+
+void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, double *db);
+void ANALYSIS_exit_mode(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *texture);
+void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
+                               TTF_Font *font,
+                               SDL_Texture *texture,
+                               uint32_t *pixels,
+                               int tex_w,
+                               int tex_h,
+                               int win_w,
+                               int win_h);
 
 // ======================
 // Global Initializations
@@ -94,6 +108,12 @@
 
 #define DEFAULT_RECORD_DIR              "Recordings"
 
+#define ANALYSIS_MAX_FILES               512
+#define ANALYSIS_FFT_SIZE                512
+#define ANALYSIS_LIST_WIDTH              430
+#define ANALYSIS_MAX_RENDER_W            2048
+
+
 static volatile sig_atomic_t Global_Running = 1;
 
 static pthread_mutex_t Global_Rec_Lock = PTHREAD_MUTEX_INITIALIZER;
@@ -135,7 +155,7 @@ static  uint32_t        Global_Rec_BW_Hz        = 0;
 static  uint32_t        Global_Rec_Out_Rate_Hz  = 0;
 static  int16_t         *Global_Rec_Pre_I       = NULL;
 static  int16_t         *Global_Rec_Pre_Q       = NULL;
-static  double*         Global_Color_Baseline   = NULL;       
+double*                 Global_Color_Baseline   = NULL;       
 static  double          Global_DC_I             = 0.0;
 static  double          Global_DC_Q             = 0.0;
 static  double          Global_Rec_Phase        = 0.0;
@@ -152,6 +172,28 @@ static  int             Global_Rec_Decimation   = 1;
 static  int             Global_Radio_Running    = 0;
 static  int             Global_Cached_Recording = 0;
 static  char            Global_Record_Dir[512]  = DEFAULT_RECORD_DIR;
+
+int                     Global_Analysis_Mode        = 0;
+int                     Global_Analysis_Dirty       = 0;
+int                     Global_Analysis_File_Count  = 0;
+int                     Global_Analysis_Selected    = 0;
+int                     Global_Analysis_List_Scroll  = 0;
+int                     Global_Analysis_Dragging     = 0;
+int                     Global_Analysis_Drag_Last_X  = 0;
+int                     Global_Analysis_Loading      = 0;
+int                     Global_Analysis_Load_Frame   = 0;
+int                     Global_Analysis_Loaded_Index = -1;
+int                     Global_Analysis_Render_W    = 0;
+size_t                  Global_Analysis_IQ_Count    = 0;
+size_t                  Global_Analysis_View_Start  = 0;
+size_t                  Global_Analysis_View_Len    = 0;
+double                  Global_Analysis_Sample_Rate = 0.0;
+double                  Global_Analysis_Center_Hz   = 0.0;
+char                    Global_Analysis_Files[ANALYSIS_MAX_FILES][512];
+char                    Global_Analysis_Path[1024] = "";
+char                    Global_Analysis_Status[256] = "Press R to scan recordings";
+float                   Global_Analysis_Mag_Line[ANALYSIS_MAX_RENDER_W];
+float                   Global_Analysis_Phase_Line[ANALYSIS_MAX_RENDER_W];
 
 static  double          Global_Rec_FIR[REC_FIR_TAPS];
 static  double          Global_Rec_Hist_I[REC_FIR_TAPS];
@@ -174,6 +216,14 @@ static  int             Global_Rec_Thread_Running = 0;
 
 static void handle_sigint(int sig){
 
+    /*
+
+    Purpose: Handles SIGINT shutdown requests
+
+    Return: No return
+
+    */
+
     (void)sig;
     Global_Running = 0;
 
@@ -182,6 +232,14 @@ static void handle_sigint(int sig){
 // Hard Bounds
 
 double limit_double(double value, double low, double high){
+
+    /*
+
+    Purpose: Clamps a double value between lower and upper bounds
+
+    Return: Clamped value
+
+    */
 
     if (value < low) return low;
 
@@ -194,6 +252,14 @@ double limit_double(double value, double low, double high){
 // Target Path Validation and Creation
 
 static int ensure_record_dir_exists(void){
+
+    /*
+
+    Purpose: Ensures the recording directory exists and is usable
+
+    Return: Directory status
+
+    */
 
     struct stat st;
 
@@ -219,6 +285,14 @@ static int ensure_record_dir_exists(void){
 
 uint64_t selection_center_Hz(void){
 
+    /*
+
+    Purpose: Computes the selected recording center frequency in Hz
+
+    Return: Center frequency
+
+    */
+
     double Center_Frac = (Global_Selector.X0 + Global_Selector.X1) * 0.5;
 
     double Offset_Hz = (Center_Frac - 0.5) * (double)Global_Display_Span_Hz;
@@ -233,6 +307,14 @@ uint64_t selection_center_Hz(void){
 
 uint32_t selection_BW_Hz(void){
 
+    /*
+
+    Purpose: Computes the selected recording bandwidth in Hz
+
+    Return: Bandwidth value
+
+    */
+
     double BW = fabs(Global_Selector.X1 - Global_Selector.X0) * (double)Global_Display_Span_Hz;
 
     if (BW < 1000.0) BW = 1000.0;
@@ -246,6 +328,14 @@ uint32_t selection_BW_Hz(void){
 // RF Filter
 
 static void configure_recording_filter(void) {
+
+    /*
+
+    Purpose: Configures the FIR filter and decimation used by recording
+
+    Return: No return
+
+    */
 
     memset(Global_Rec_FIR, 0, sizeof(Global_Rec_FIR));
     memset(Global_Rec_Hist_I, 0, sizeof(Global_Rec_Hist_I));
@@ -321,6 +411,14 @@ static void configure_recording_filter(void) {
 
 static int pre_cache_init(Type_Rec_Cache *c, uint32_t sample_rate_hz){
 
+    /*
+
+    Purpose: Initializes the pre-record IQ cache
+
+    Return: Init status
+
+    */
+
     memset(c, 0, sizeof(*c));
     
     c->capacity = (size_t)sample_rate_hz * PRE_RECORD_SECONDS;
@@ -344,6 +442,14 @@ static int pre_cache_init(Type_Rec_Cache *c, uint32_t sample_rate_hz){
 }
 
 static void pre_cache_free(Type_Rec_Cache *c){
+
+    /*
+
+    Purpose: Frees the pre-record IQ cache
+
+    Return: No return
+
+    */
     
     pthread_mutex_destroy(&c->lock);
 
@@ -355,6 +461,14 @@ static void pre_cache_free(Type_Rec_Cache *c){
 }
 
 static int pre_cache_resize(Type_Rec_Cache *c, uint32_t sample_rate_hz){
+
+    /*
+
+    Purpose: Resizes the pre-record IQ cache for a new sample rate
+
+    Return: Resize status
+
+    */
 
     pthread_mutex_lock(&c->lock);
 
@@ -390,6 +504,14 @@ static int pre_cache_resize(Type_Rec_Cache *c, uint32_t sample_rate_hz){
 
 static void pre_cache_write(Type_Rec_Cache *c, float I, float Q){
 
+    /*
+
+    Purpose: Writes one IQ sample into the pre-record cache
+
+    Return: No return
+
+    */
+
     if (!c->I || !c->Q || c->capacity == 0) return;
 
     if (I > 1.0f) I = 1.0f;
@@ -408,6 +530,14 @@ static void pre_cache_write(Type_Rec_Cache *c, float I, float Q){
 }
 
 static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int16_t **out_Q){
+
+    /*
+
+    Purpose: Copies the current pre-record cache while already locked
+
+    Return: Snapshot count
+
+    */
 
     *out_I = NULL;
     *out_Q = NULL;
@@ -459,6 +589,14 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
 
 static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz){
 
+    /*
+
+    Purpose: Initializes the recording queue
+
+    Return: Init status
+
+    */
+
     memset(q, 0, sizeof(*q));
 
     // +1 because this ring-buffer design leaves one slot empty
@@ -486,6 +624,14 @@ static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz){
 
 static void rec_queue_free(Type_Rec_Queue *q){
 
+    /*
+
+    Purpose: Frees the recording queue
+
+    Return: No return
+
+    */
+
     pthread_mutex_destroy(&q->lock);
     pthread_cond_destroy(&q->data_cond);
 
@@ -497,6 +643,14 @@ static void rec_queue_free(Type_Rec_Queue *q){
 }
 
 static int rec_queue_resize(Type_Rec_Queue *q, uint32_t sample_rate_hz){
+
+    /*
+
+    Purpose: Resizes the recording queue for a new sample rate
+
+    Return: Resize status
+
+    */
 
     pthread_mutex_lock(&q->lock);
 
@@ -535,6 +689,14 @@ static int rec_queue_resize(Type_Rec_Queue *q, uint32_t sample_rate_hz){
 
 static size_t rec_queue_available_locked(Type_Rec_Queue *q){
 
+    /*
+
+    Purpose: Returns the number of queued samples while already locked
+
+    Return: Available samples
+
+    */
+
     if (q->write_pos >= q->read_pos){
         
         return q->write_pos - q->read_pos;
@@ -546,6 +708,14 @@ static size_t rec_queue_available_locked(Type_Rec_Queue *q){
 }
 
 static void rec_queue_reset(Type_Rec_Queue *q){
+
+    /*
+
+    Purpose: Resets the recording queue state
+
+    Return: No return
+
+    */
 
     pthread_mutex_lock(&q->lock);
 
@@ -560,6 +730,14 @@ static void rec_queue_reset(Type_Rec_Queue *q){
 
 static size_t rec_queue_push_block(Type_Rec_Queue *q, const float *in_I, const float *in_Q,
                                     size_t count){
+
+    /*
+
+    Purpose: Pushes a block of IQ samples into the recording queue
+
+    Return: Pushed samples
+
+    */
 
     if (!q->I || !q->Q || q->capacity == 0) return 0;
     if (!in_I || !in_Q || count == 0) return 0;
@@ -639,6 +817,14 @@ static size_t rec_queue_push_block(Type_Rec_Queue *q, const float *in_I, const f
 static size_t rec_queue_pop_block(Type_Rec_Queue *q, int16_t *out_I, int16_t *out_Q,
                                   size_t max_count){
 
+    /*
+
+    Purpose: Pops a block of IQ samples from the recording queue
+
+    Return: Popped samples
+
+    */
+
     pthread_mutex_lock(&q->lock);
 
     while (rec_queue_available_locked(q) == 0 && !q->stop_requested){
@@ -679,6 +865,14 @@ static size_t rec_queue_pop_block(Type_Rec_Queue *q, int16_t *out_I, int16_t *ou
 
 static void rec_queue_request_stop(Type_Rec_Queue *q){
 
+    /*
+
+    Purpose: Requests the recording queue to stop blocking operations
+
+    Return: No return
+
+    */
+
     pthread_mutex_lock(&q->lock);
 
     q->stop_requested = 1;
@@ -693,6 +887,14 @@ static void rec_queue_request_stop(Type_Rec_Queue *q){
 
 static void recorder_reset_processing_state(void){
 
+    /*
+
+    Purpose: Resets recorder filter and mixer state
+
+    Return: No return
+
+    */
+
     Global_Rec_Phase = 0.0;
     Global_Rec_Acc_I = 0.0;
     Global_Rec_Acc_Q = 0.0;
@@ -705,6 +907,14 @@ static void recorder_reset_processing_state(void){
 }
 
 static void recorder_write_sample(float I, float Q){
+
+    /*
+
+    Purpose: Processes and writes one IQ sample to the active recording file
+
+    Return: No return
+
+    */
 
     if (!Global_Rec_File) return;
 
@@ -794,7 +1004,97 @@ static void recorder_write_sample(float I, float Q){
 }
 
 
+static void *recorder_thread_main(void *arg){
+
+    /*
+
+    Purpose: Drains queued IQ samples and writes the active recording file
+
+    Return: Thread result
+
+    */
+
+    (void)arg;
+
+    if (Global_Rec_Pre_I && Global_Rec_Pre_Q && Global_Rec_Pre_Count > 0) {
+
+        for (size_t n = 0; n < Global_Rec_Pre_Count; n++) {
+
+            float I = (float)Global_Rec_Pre_I[n] / 32768.0f;
+            float Q = (float)Global_Rec_Pre_Q[n] / 32768.0f;
+
+            recorder_write_sample(I, Q);
+
+        }
+
+        fflush(Global_Rec_File);
+
+    }
+
+    int16_t *buf_I = malloc(sizeof(int16_t) * REC_PUSH_CHUNK_SAMPLES);
+    int16_t *buf_Q = malloc(sizeof(int16_t) * REC_PUSH_CHUNK_SAMPLES);
+
+    if (!buf_I || !buf_Q) {
+
+        free(buf_I);
+        free(buf_Q);
+
+        if (Global_Rec_File) {
+
+            fclose(Global_Rec_File);
+            Global_Rec_File = NULL;
+
+        }
+
+        return NULL;
+
+    }
+
+    for (;;) {
+
+        size_t got = rec_queue_pop_block(&Global_Rec_Queue,
+                                         buf_I,
+                                         buf_Q,
+                                         REC_PUSH_CHUNK_SAMPLES);
+
+        if (got == 0) break;
+
+        for (size_t n = 0; n < got; n++) {
+
+            float I = (float)buf_I[n] / 32768.0f;
+            float Q = (float)buf_Q[n] / 32768.0f;
+
+            recorder_write_sample(I, Q);
+
+        }
+
+    }
+
+    free(buf_I);
+    free(buf_Q);
+
+    if (Global_Rec_File) {
+
+        fflush(Global_Rec_File);
+        fclose(Global_Rec_File);
+        Global_Rec_File = NULL;
+
+    }
+
+    return NULL;
+
+}
+
+
 static void stop_recording(void){
+
+    /*
+
+    Purpose: Stops recording and drains the recording queue
+
+    Return: No return
+
+    */
 
     int thread_exists = 0;
 
@@ -847,62 +1147,15 @@ static void stop_recording(void){
 
 }
 
-static void *recorder_thread_main(void *arg){
-
-    (void)arg;
-
-    recorder_reset_processing_state();
-
-    // Write pre-record cache snapshot
-    
-    if (Global_Rec_Pre_Count > 0 && Global_Rec_Pre_I && Global_Rec_Pre_Q){
-
-        for (size_t n = 0; n < Global_Rec_Pre_Count; n++){
-
-            float I = (float)Global_Rec_Pre_I[n] / 32767.0f;
-            float Q = (float)Global_Rec_Pre_Q[n] / 32767.0f;
-
-            recorder_write_sample(I, Q);
-
-        }
-
-    }
-
-    // Write live samples from the record queue
-
-    int16_t block_I[8192];
-    int16_t block_Q[8192];
-
-    while (1){
-        
-        size_t popped = rec_queue_pop_block(&Global_Rec_Queue, block_I, block_Q, 8192);
-
-        if (popped == 0) break;
-
-        for (size_t n = 0; n < popped; n++){
-
-            float I = (float)block_I[n] / 32767.0f;
-            float Q = (float)block_Q[n] / 32767.0f;
-
-            recorder_write_sample(I, Q);
-
-        }
-
-    }
-
-    if (Global_Rec_File){
-
-        fclose(Global_Rec_File);
-        Global_Rec_File = NULL;
-
-    }
-
-    return NULL;
-
-}
-
-
 static int start_recording(void){
+
+    /*
+
+    Purpose: Runs the background recording writer thread
+
+    Return: Start status
+
+    */
 
     if (Global_Rec) return 1;
 
@@ -974,7 +1227,7 @@ static int start_recording(void){
 
         pthread_mutex_unlock(&Global_Pre_Cache.lock);
 
-    } 
+    }
 
     else {
 
@@ -1021,7 +1274,11 @@ static int start_recording(void){
 
     char msg[256];
 
-    snprintf(msg, sizeof(msg), "RECORDING %.6f MHz - BW %.3f kHz%s", Global_Rec_Center_Hz / 1e6,Global_Rec_BW_Hz / 1e3, 
+    snprintf(msg,
+             sizeof(msg),
+             "RECORDING %.6f MHz - BW %.3f kHz%s",
+             Global_Rec_Center_Hz / 1e6,
+             Global_Rec_BW_Hz / 1e3,
              Global_Cached_Recording ? " - CACHE 5s" : "");
 
     set_status(msg, (SDL_Color){255, 60, 40, 255});
@@ -1033,6 +1290,15 @@ static int start_recording(void){
 // Ring Buffer Helpers
 
 static size_t ring_available_locked(Type_RingBuf* r){
+
+    /*
+
+    Purpose: Returns the number of samples available in the waterfall ring buffer while
+             already locked
+
+    Return: Available samples
+
+    */
     
     if (r->write_pos >= r->read_pos) return r->write_pos - r->read_pos;
 
@@ -1041,6 +1307,14 @@ static size_t ring_available_locked(Type_RingBuf* r){
 }
 
 static void ring_clear(Type_RingBuf *r){
+
+    /*
+
+    Purpose: Clears the waterfall ring buffer
+
+    Return: No return
+
+    */
 
     pthread_mutex_lock(&r->lock);
 
@@ -1051,6 +1325,14 @@ static void ring_clear(Type_RingBuf *r){
 }
 
 static void ring_write_sample(Type_RingBuf *r, float I, float Q){
+
+    /*
+
+    Purpose: Writes one IQ sample into the waterfall ring buffer
+
+    Return: No return
+
+    */
     
     r->I[r->write_pos] = I;
     r->Q[r->write_pos] = Q;
@@ -1066,6 +1348,14 @@ static void ring_write_sample(Type_RingBuf *r, float I, float Q){
 }
 
 static int ring_read_block(Type_RingBuf *r, fftw_complex *in, double *window){
+
+    /*
+
+    Purpose: Reads one FFT block from the waterfall ring buffer
+
+    Return: Read status
+
+    */
 
     pthread_mutex_lock(&r->lock);
 
@@ -1095,6 +1385,14 @@ if (ring_available_locked(r) < FFT_SIZE){
 // RX Helper
 
 static int rx_callback(hackrf_transfer *transfer){
+
+    /*
+
+    Purpose: Receives HackRF samples and routes them to cache, display, and recording paths
+
+    Return: Callback status
+
+    */
 
     const int8_t *buf = (const int8_t *)transfer->buffer;
     int sample_count = transfer->valid_length / 2;
@@ -1167,55 +1465,15 @@ static int rx_callback(hackrf_transfer *transfer){
 
 // Graphics Helper
 
-static uint32_t power_to_color_relative(double rel_db, double delta_db, double peakness_db) {
-    if (rel_db < REL_MIN_DB) return rgb(0, 0, 0);
-
-    double norm = (rel_db - REL_MIN_DB) / (REL_MAX_DB - REL_MIN_DB);
-    if (norm < 0.0) norm = 0.0;
-    if (norm > 1.0) norm = 1.0;
-
-uint8_t r = 0, g = 0, b = 0;
-
-    if (norm < 0.30) {
-        double t = norm / 0.30;
-        g = (uint8_t)(10 + 55 * t);
-    } 
-
-    else if (norm < 0.70) {
-        double t = (norm - 0.30) / 0.40;
-        g = (uint8_t)(65 + 135 * t);
-    } 
-
-    else {
-        double t = (norm - 0.70) / 0.30;
-        r = (uint8_t)(0 + 35 * t);
-        g = (uint8_t)(200 + 55 * t);
-        b = (uint8_t)(0 + 15 * t);
-    }
-
-    double event_strength = 0.0;
-
-    if (delta_db > 10.0) event_strength += (delta_db - 10.0) / 30.0;
-    if (peakness_db > 12.0) event_strength += (peakness_db - 12.0) / 30.0;
-    if (rel_db > 34.0) event_strength += (rel_db - 34.0) / 30.0;
-
-    if (event_strength > 1.0) event_strength = 1.0;
-    if (event_strength < 0.10) event_strength = 0.0;
-
-    if (event_strength > 0.0) {
-        uint8_t er = 255;
-        uint8_t eg = (uint8_t)(100 * (1.0 - event_strength));
-        uint8_t eb = 0;
-
-        r = (uint8_t)((1.0 - event_strength) * r + event_strength * er);
-        g = (uint8_t)((1.0 - event_strength) * g + event_strength * eg);
-        b = (uint8_t)((1.0 - event_strength) * b + event_strength * eb);
-    }
-
-    return rgb(r, g, b);
-}
-
 static void compute_DB_from_FFT(fftw_complex *out, double *db){
+
+    /*
+
+    Purpose: Converts FFT output bins into shifted decibel values
+
+    Return: No return
+
+    */
 
     for (int sam = 0; sam < FFT_SIZE; sam++){
 
@@ -1231,165 +1489,15 @@ static void compute_DB_from_FFT(fftw_complex *out, double *db){
 
 }
 
-static void clear_waterfall(uint32_t *pixels, int w, int h) {
-    for (int i = 0; i < w * h; i++) pixels[i] = rgb(0, 0, 0);
-}
-
-static void reset_prev_col_db(int tex_w) {
-    if (!Global_Color_Baseline) return;
-    for (int i = 0; i < tex_w; i++) Global_Color_Baseline[i] = -300.0;
-}
-
-static int cmp_double_for_qsort(const void *a, const void *b) {
-    double da = *(const double *)a;
-    double db = *(const double *)b;
-    if (da < db) return -1;
-    if (da > db) return 1;
-    return 0;
-}
-
-static void get_visible_bin_range(int *start_bin, int *end_bin) {
-    double bins_per_hz = (double)FFT_SIZE / (double)Global_Sample_Rate_Hz;
-    int visible_bins = (int)((double)Global_Display_Span_Hz * bins_per_hz);
-
-    if (visible_bins < 8) visible_bins = 8;
-    if (visible_bins > FFT_SIZE) visible_bins = FFT_SIZE;
-
-    int center = FFT_SIZE / 2;
-
-    *start_bin = center - visible_bins / 2;
-    *end_bin = *start_bin + visible_bins;
-
-    if (*start_bin < 0) {
-        *start_bin = 0;
-        *end_bin = visible_bins;
-    }
-
-    if (*end_bin > FFT_SIZE) {
-*end_bin = FFT_SIZE;
-        *start_bin = FFT_SIZE - visible_bins;
-        if (*start_bin < 0) *start_bin = 0;
-    }
-}
-
-static double estimate_noise_floor_median_visible(double *db, int start_bin, int end_bin){
-
-    static double temp[FFT_SIZE];
-    int count = 0;
-
-    for (int x = start_bin; (x < end_bin) && (count < FFT_SIZE); x++){
-
-        if(abs(x - FFT_SIZE / 2) < 2) continue;
-        temp[count++] = db[x];
-
-    }
-
-    if (count <= 0) return -300.0;
-
-    qsort(temp, count, sizeof(double), cmp_double_for_qsort);
-    return temp[count / 2];
-
-}
-
-static void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, double *db) {
-    memmove(pixels + tex_w, pixels, sizeof(uint32_t) * tex_w * (tex_h - 1));
-
-    int visible_start = 0;
-    int visible_end = FFT_SIZE;
-
-    get_visible_bin_range(&visible_start, &visible_end);
-
-    double noise_floor_db = estimate_noise_floor_median_visible(db, visible_start, visible_end);
-
-    for (int x = 0; x < tex_w; x++) {
-        int start_bin = visible_start + x * (visible_end - visible_start) / tex_w;
-        int end_bin = visible_start + (x + 1) * (visible_end - visible_start) / tex_w;
-
-        if (end_bin <= start_bin) end_bin = start_bin + 1;
-        if (end_bin > visible_end) end_bin = visible_end;
-
-        double max_db = -300.0;
-        double sum_db = 0.0;
-        int count = 0;
-
-        /*
-         * Track the top 3 bins instead of trusting one random spike.
-         */
-        double top1 = -300.0;
-        double top2 = -300.0;
-        double top3 = -300.0;
-
-        
-        for (int k = start_bin; k < end_bin; k++) {
-            if (abs(k - FFT_SIZE / 2) < 2) continue;
-
-            double v = db[k];
-
-            if (v > top1) {
-                top3 = top2;
-                top2 = top1;
-                top1 = v;
-            } else if (v > top2) {
-                top3 = top2;
-                top2 = v;
-            } else if (v > top3) {
-                top3 = v;
-            }
-
-            if (v > max_db) max_db = v;
-
-            sum_db += v;
-            count++;
-        }
-
-        double avg_db = (count > 0) ? (sum_db / count) : max_db;
-
-        /*
-         * Smoothed peak reduces salt-and-pepper red noise.
-         */
-
-        double color_db;
-
-        if (count >= 3) {
-            color_db = (top1 + top2 + top3) / 3.0;
-        } else {
-            color_db = max_db;
-        }
-
-        double peakness_db = color_db - avg_db;
-        double rel_db = color_db - noise_floor_db;
-        double delta_db = 0.0;
-
-        if (Global_Color_Baseline) {
-            if (Global_Color_Baseline[x] < -200.0) {
-                Global_Color_Baseline[x] = color_db;
-            } else {
-                delta_db = color_db - Global_Color_Baseline[x];
-                Global_Color_Baseline[x] = 0.95 * Global_Color_Baseline[x] + 0.05 * color_db;
-            }
-        }
-
-        pixels[x] = power_to_color_relative(rel_db, delta_db, peakness_db);
-    }
-}
-
-static void append_text(char *dst, size_t dst_sz, const char *src) {
-    size_t len = strlen(dst);
-
-    while (*src && len + 1 < dst_sz) {
-        char c = *src++;
-        if ((c >= '0' && c <= '9') || c == '.') dst[len++] = c;
-}
-
-    dst[len] = '\0';
-}
-
-static void backspace_text(char *dst) {
-    size_t len = strlen(dst);
-    if (len > 0) dst[len - 1] = '\0';
-}
-
 static int parse_positive_double(const char *s, double *out) {
+
+    /*
+
+    Purpose: Parses a positive double value from text
+
+    Return: Parse status
+
+    */
     if (!s || !*s) return 0;
 
     char *end = NULL;
@@ -1402,6 +1510,14 @@ if (end == s || *end != '\0' || v <= 0.0) return 0;
 }
 
 static int parse_nonnegative_int(const char *s, int *out) {
+
+    /*
+
+    Purpose: Parses a nonnegative integer value from text
+
+    Return: Parse status
+
+    */
     if (!s || !*s) return 0;
 
     char *end = NULL;
@@ -1416,24 +1532,56 @@ static int parse_nonnegative_int(const char *s, int *out) {
 // Normalization Helpers
 
 static int normalize_lna_gain(int gain) {
+
+    /*
+
+    Purpose: Normalizes HackRF LNA gain to a valid step
+
+    Return: Gain value
+
+    */
     if (gain < 0) gain = 0;
     if (gain > 40) gain = 40;
     return (gain / 8) * 8;
 }
 
 static int normalize_vga_gain(int gain) {
+
+    /*
+
+    Purpose: Normalizes HackRF VGA gain to a valid step
+
+    Return: Gain value
+
+    */
     if (gain < 0) gain = 0;
     if (gain > 62) gain = 62;
     return (gain / 2) * 2;
 }
 
 static int normalize_fps(int fps) {
+
+    /*
+
+    Purpose: Normalizes waterfall frame rate
+
+    Return: FPS value
+
+    */
     if (fps < 1) fps = 1;
     if (fps > 1000) fps = 1000;
     return fps;
 }
 
 static int normalize_rows_per_frame(int rows) {
+
+    /*
+
+    Purpose: Normalizes waterfall rows rendered per frame
+
+    Return: Row count
+
+    */
     if (rows < 1) rows = 1;
     if (rows > 64) rows = 64;
     return rows;
@@ -1442,6 +1590,14 @@ static int normalize_rows_per_frame(int rows) {
 // Radio Helpers
 
 static int stop_radio(hackrf_device *dev) {
+
+    /*
+
+    Purpose: Stops HackRF receive mode when active
+
+    Return: Stop status
+
+    */
     if (Global_Radio_Running) {
         if (hackrf_stop_rx(dev) != HACKRF_SUCCESS) return 0;
         Global_Radio_Running = 0;
@@ -1451,6 +1607,14 @@ static int stop_radio(hackrf_device *dev) {
 }
 
 static int start_radio(hackrf_device *dev) {
+
+    /*
+
+    Purpose: Starts HackRF receive mode when inactive
+
+    Return: Start status
+
+    */
     if (!Global_Radio_Running) {
         if (hackrf_start_rx(dev, rx_callback, NULL) != HACKRF_SUCCESS) return 0;
         Global_Radio_Running = 1;
@@ -1460,6 +1624,14 @@ static int start_radio(hackrf_device *dev) {
 }
 
 double recommended_antenna_length_inches(uint64_t freq_hz) {
+
+    /*
+
+    Purpose: Computes quarter-wave antenna length in inches
+
+    Return: Antenna length
+
+    */
     if (freq_hz == 0) return 0.0;
 
     /*
@@ -1482,6 +1654,14 @@ double recommended_antenna_length_inches(uint64_t freq_hz) {
 static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz, 
                                 uint32_t Sample_Rate_Hz, uint32_t Display_Span_Hz, 
                                 int LNA_Gain, int VGA_Gain, int Amp_Enable){
+
+    /*
+
+    Purpose: Applies center frequency, sample rate, display span, gain, and amp settings
+
+    Return: Apply status
+
+    */
 
     if (Global_Rec) stop_recording();
     if (!stop_radio(dev)) return 0;
@@ -1543,6 +1723,14 @@ static int apply_from_inputs(
     int tex_w,
     int tex_h
 ) {
+
+    /*
+
+    Purpose: Parses GUI input boxes and applies radio settings
+
+    Return: Apply status
+
+    */
     double freq_mhz = 0.0;
 double sr_msps = 0.0;
     double display_mhz = 0.0;
@@ -1592,47 +1780,797 @@ double sr_msps = 0.0;
     return 1;
 }
 
-// ==========
-// Main Logic
-// ==========
 
-int main(int argc, char **argv){
+// ==========================
+// Greyscale Recordings Viewer
+// ==========================
 
-    signal(SIGINT, handle_sigint);
+static int ANALYSIS_name_compare(const void *a, const void *b){
+
+    /*
+
+    Purpose: Compares analysis recording file names for sorting
+
+    Return: Sort order
+
+    */
+
+    const char *sa = (const char *)a;
+    const char *sb = (const char *)b;
+
+    return strcmp(sa, sb);
+
+}
+
+static int ANALYSIS_is_complex16_file(const char *name){
+
+    /*
+
+    Purpose: Checks whether a filename has the complex16 recording suffix
+
+    Return: Match status
+
+    */
+
+    size_t len = strlen(name);
+    const char *suffix = ".complex16";
+    size_t suffix_len = strlen(suffix);
+
+    if (len < suffix_len) return 0;
+
+    return strcmp(name + len - suffix_len, suffix) == 0;
+
+}
+
+static void ANALYSIS_clear_loaded_file(void){
+
+    /*
+
+    Purpose: Clears the currently loaded analysis recording state
+
+    Return: No return
+
+    */
+
+    Global_Analysis_Loaded_Index = -1;
+    Global_Analysis_IQ_Count = 0;
+    Global_Analysis_View_Start = 0;
+    Global_Analysis_View_Len = 0;
+    Global_Analysis_Sample_Rate = 0.0;
+    Global_Analysis_Center_Hz = 0.0;
+    Global_Analysis_Path[0] = '\0';
+    Global_Analysis_Render_W = 0;
+    memset(Global_Analysis_Mag_Line, 0, sizeof(Global_Analysis_Mag_Line));
+    memset(Global_Analysis_Phase_Line, 0, sizeof(Global_Analysis_Phase_Line));
+    Global_Analysis_Dirty = 1;
+
+}
+
+static void ANALYSIS_parse_recording_metadata(const char *name){
+
+    /*
+
+    Purpose: Parses sample rate and center frequency from a recording filename
+
+    Return: No return
+
+    */
+
+    Global_Analysis_Center_Hz = (double)Global_Center_Freq_Hz;
+    Global_Analysis_Sample_Rate = (double)((Global_Rec_Out_Rate_Hz > 0) ? Global_Rec_Out_Rate_Hz : Global_Sample_Rate_Hz);
+
+    const char *cap = strstr(name, "_CAPTURE_");
+
+    if (cap) {
+
+        double mhz = 0.0;
+
+        if (sscanf(cap, "_CAPTURE_%lfMHz", &mhz) == 1 && mhz > 0.0) {
+
+            Global_Analysis_Center_Hz = mhz * 1e6;
+
+        }
+
+    }
+
+    const char *sr = strstr(name, "_SR_");
+
+    if (sr) {
+
+        double khz = 0.0;
+
+        if (sscanf(sr, "_SR_%lfk", &khz) == 1 && khz > 0.0) {
+
+            Global_Analysis_Sample_Rate = khz * 1000.0;
+
+        }
+
+    }
+
+    if (Global_Analysis_Sample_Rate <= 0.0) {
+
+        Global_Analysis_Sample_Rate = (double)Global_Sample_Rate_Hz;
+
+    }
+
+}
+
+static int ANALYSIS_scan_recordings(void){
+
+    /*
+
+    Purpose: Scans the recording directory for complex16 files
+
+    Return: Scan status
+
+    */
+
+    DIR *dir = opendir(Global_Record_Dir);
+
+    Global_Analysis_File_Count = 0;
+
+    if (!dir) {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                 "Could not open recording directory: %.180s", Global_Record_Dir);
+        ANALYSIS_clear_loaded_file();
+        return 0;
+
+    }
+
+    struct dirent *entry = NULL;
+
+    while ((entry = readdir(dir)) != NULL && Global_Analysis_File_Count < ANALYSIS_MAX_FILES) {
+
+        if (!ANALYSIS_is_complex16_file(entry->d_name)) continue;
+
+        snprintf(Global_Analysis_Files[Global_Analysis_File_Count],
+                 sizeof(Global_Analysis_Files[Global_Analysis_File_Count]),
+                 "%s", entry->d_name);
+        Global_Analysis_File_Count++;
+
+    }
+
+    closedir(dir);
+
+    qsort(Global_Analysis_Files,
+          (size_t)Global_Analysis_File_Count,
+          sizeof(Global_Analysis_Files[0]),
+          ANALYSIS_name_compare);
+
+    if (Global_Analysis_File_Count <= 0) {
+
+        Global_Analysis_Selected = 0;
+        Global_Analysis_List_Scroll = 0;
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                 "No .complex16 recordings found in %.180s", Global_Record_Dir);
+        ANALYSIS_clear_loaded_file();
+        return 0;
+
+    }
+
+    if (Global_Analysis_Selected < 0) Global_Analysis_Selected = 0;
+
+    if (Global_Analysis_Selected >= Global_Analysis_File_Count) {
+
+        Global_Analysis_Selected = Global_Analysis_File_Count - 1;
+
+    }
+
+    if (Global_Analysis_List_Scroll < 0) Global_Analysis_List_Scroll = 0;
+
+    if (Global_Analysis_List_Scroll >= Global_Analysis_File_Count) {
+
+        Global_Analysis_List_Scroll = Global_Analysis_File_Count - 1;
+
+    }
+
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+             "Found %d recording(s) in %.180s", Global_Analysis_File_Count, Global_Record_Dir);
+
+    return 1;
+
+}
+
+static int ANALYSIS_open_selected_recording(void){
+
+    /*
+
+    Purpose: Opens the selected recording for analysis
+
+    Return: Open status
+
+    */
+
+    if (Global_Analysis_File_Count <= 0) return 0;
+
+    Global_Analysis_Loading = 1;
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+             "Loading %.180s",
+             Global_Analysis_Files[Global_Analysis_Selected]);
+
+    char path[1024];
+
+    snprintf(path, sizeof(path), "%s/%s", Global_Record_Dir,
+             Global_Analysis_Files[Global_Analysis_Selected]);
+
+    FILE *fp = fopen(path, "rb");
+
+    if (!fp) {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                 "Failed to open %.180s", Global_Analysis_Files[Global_Analysis_Selected]);
+        ANALYSIS_clear_loaded_file();
+        Global_Analysis_Loading = 0;
+        return 0;
+
+    }
+
+    if (fseek(fp, 0, SEEK_END) != 0) {
+
+        fclose(fp);
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to seek recording");
+        ANALYSIS_clear_loaded_file();
+        Global_Analysis_Loading = 0;
+        return 0;
+
+    }
+
+    long bytes = ftell(fp);
+    fclose(fp);
+
+    if (bytes <= 0) {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Recording is empty");
+        ANALYSIS_clear_loaded_file();
+        Global_Analysis_Loading = 0;
+        return 0;
+
+    }
+
+    size_t count_i16 = (size_t)bytes / sizeof(int16_t);
+
+    if (count_i16 % 2) count_i16--;
+
+    snprintf(Global_Analysis_Path, sizeof(Global_Analysis_Path), "%s", path);
+
+    Global_Analysis_Loaded_Index = Global_Analysis_Selected;
+    Global_Analysis_IQ_Count = count_i16 / 2;
+    Global_Analysis_View_Start = 0;
+    Global_Analysis_View_Len = Global_Analysis_IQ_Count;
+
+    if (Global_Analysis_View_Len < ANALYSIS_FFT_SIZE) {
+
+        Global_Analysis_View_Len = Global_Analysis_IQ_Count;
+
+    }
+
+    ANALYSIS_parse_recording_metadata(Global_Analysis_Files[Global_Analysis_Selected]);
+
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+             "Opened %.180s | %.6f sec",
+             Global_Analysis_Files[Global_Analysis_Selected],
+             Global_Analysis_Sample_Rate > 0.0 ?
+             (double)Global_Analysis_IQ_Count / Global_Analysis_Sample_Rate : 0.0);
+
+    Global_Analysis_Dirty = 1;
+
+    return 1;
+
+}
+
+static void ANALYSIS_select_relative(int delta){
+
+    /*
+
+    Purpose: Moves the selected analysis file by a relative offset
+
+    Return: No return
+
+    */
+
+    if (Global_Analysis_File_Count <= 0) return;
+
+    Global_Analysis_Selected += delta;
+
+    if (Global_Analysis_Selected < 0) {
+
+        Global_Analysis_Selected = Global_Analysis_File_Count - 1;
+
+    }
+
+    if (Global_Analysis_Selected >= Global_Analysis_File_Count) {
+
+        Global_Analysis_Selected = 0;
+
+    }
+
+    Global_Analysis_List_Scroll = Global_Analysis_Selected - 2;
+
+    if (Global_Analysis_List_Scroll < 0) Global_Analysis_List_Scroll = 0;
+
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+             "Selected %.180s | Press Enter to open",
+             Global_Analysis_Files[Global_Analysis_Selected]);
+
+}
+
+static void ANALYSIS_zoom_at_fraction(double frac, int zoom_in){
+
+    /*
+
+    Purpose: Zooms the analysis view around a fractional cursor position
+
+    Return: No return
+
+    */
+
+    if (Global_Analysis_IQ_Count == 0 || Global_Analysis_Path[0] == '\0') return;
+
+    if (frac < 0.0) frac = 0.0;
+    if (frac > 1.0) frac = 1.0;
+
+    size_t cursor_sample = Global_Analysis_View_Start +
+                           (size_t)(frac * (double)Global_Analysis_View_Len);
+
+    size_t min_len = ANALYSIS_FFT_SIZE * 8;
+
+    if (min_len > Global_Analysis_IQ_Count) min_len = Global_Analysis_IQ_Count;
+
+    if (zoom_in) {
+
+        Global_Analysis_View_Len /= 2;
+
+        if (Global_Analysis_View_Len < min_len) Global_Analysis_View_Len = min_len;
+
+    }
+
+    else {
+
+        Global_Analysis_View_Len *= 2;
+
+        if (Global_Analysis_View_Len > Global_Analysis_IQ_Count) {
+
+            Global_Analysis_View_Len = Global_Analysis_IQ_Count;
+
+        }
+
+    }
+
+    size_t anchor = (size_t)(frac * (double)Global_Analysis_View_Len);
+
+    if (cursor_sample > anchor) Global_Analysis_View_Start = cursor_sample - anchor;
+    else Global_Analysis_View_Start = 0;
+
+    if (Global_Analysis_View_Start + Global_Analysis_View_Len > Global_Analysis_IQ_Count) {
+
+        Global_Analysis_View_Start = Global_Analysis_IQ_Count > Global_Analysis_View_Len ?
+                                     Global_Analysis_IQ_Count - Global_Analysis_View_Len : 0;
+
+    }
+
+    Global_Analysis_Dirty = 1;
+
+}
+
+static void ANALYSIS_drag_move_view(int dx, int graph_w){
+
+    /*
+
+    Purpose: Moves the analysis view according to horizontal mouse drag distance
+
+    Return: No return
+
+    */
+
+    if (Global_Analysis_IQ_Count == 0 ||
+        Global_Analysis_Path[0] == '\0' ||
+        graph_w <= 0 ||
+        Global_Analysis_View_Len >= Global_Analysis_IQ_Count) {
+
+        return;
+
+    }
+
+    double samples_per_pixel = (double)Global_Analysis_View_Len / (double)graph_w;
+    long delta_samples = (long)((double)(-dx) * samples_per_pixel);
+
+    if (delta_samples == 0 && dx != 0) {
+
+        delta_samples = (dx > 0) ? -1 : 1;
+
+    }
+
+    if (delta_samples < 0) {
+
+        size_t step = (size_t)(-delta_samples);
+
+        Global_Analysis_View_Start = Global_Analysis_View_Start > step ?
+                                     Global_Analysis_View_Start - step : 0;
+
+    }
+
+    else if (delta_samples > 0) {
+
+        size_t step = (size_t)delta_samples;
+        size_t max_start = Global_Analysis_IQ_Count > Global_Analysis_View_Len ?
+                           Global_Analysis_IQ_Count - Global_Analysis_View_Len : 0;
+
+        if (Global_Analysis_View_Start + step < max_start) {
+
+            Global_Analysis_View_Start += step;
+
+        }
+
+        else {
+
+            Global_Analysis_View_Start = max_start;
+
+        }
+
+    }
+
+    Global_Analysis_Dirty = 1;
+
+}
+
+static uint32_t ANALYSIS_gray(double v){
+
+    /*
+
+    Purpose: Maps a normalized value to a grayscale pixel color
+
+    Return: RGB color
+
+    */
+
+    if (v < 0.0) v = 0.0;
+    if (v > 1.0) v = 1.0;
+
+    uint8_t c = (uint8_t)(v * 255.0);
+
+    return rgb(c, c, c);
+
+}
+
+void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
+
+    /*
+
+    Purpose: Renders magnitude, phase, and spectrogram analysis data from the loaded
+             recording
+
+    Return: No return
+
+    */
+
+    clear_waterfall(pixels, tex_w, tex_h);
+    Global_Analysis_Render_W = 0;
+    memset(Global_Analysis_Mag_Line, 0, sizeof(Global_Analysis_Mag_Line));
+    memset(Global_Analysis_Phase_Line, 0, sizeof(Global_Analysis_Phase_Line));
+
+    if (Global_Analysis_IQ_Count < ANALYSIS_FFT_SIZE ||
+        Global_Analysis_Path[0] == '\0' ||
+        tex_w <= 0 || tex_h <= 0) {
+
+        return;
+
+    }
+
+    int render_w = tex_w;
+    if (render_w > ANALYSIS_MAX_RENDER_W) render_w = ANALYSIS_MAX_RENDER_W;
+    Global_Analysis_Render_W = render_w;
+
+    FILE *fp = fopen(Global_Analysis_Path, "rb");
+
+    if (!fp) {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                 "Failed to reopen selected recording");
+        return;
+
+    }
+
+    double window[ANALYSIS_FFT_SIZE];
+
+    for (int i = 0; i < ANALYSIS_FFT_SIZE; i++) {
+
+        window[i] = 0.5 - 0.5 * cos((2.0 * M_PI * (double)i) /
+                                    (double)(ANALYSIS_FFT_SIZE - 1));
+
+    }
+
+    double *db_img = malloc(sizeof(double) * (size_t)render_w * ANALYSIS_FFT_SIZE);
+    fftw_complex *in = fftw_malloc(sizeof(fftw_complex) * ANALYSIS_FFT_SIZE);
+    fftw_complex *out = fftw_malloc(sizeof(fftw_complex) * ANALYSIS_FFT_SIZE);
+    int16_t *block = malloc(sizeof(int16_t) * ANALYSIS_FFT_SIZE * 2);
+
+    if (!db_img || !in || !out || !block) {
+
+        free(db_img);
+        free(block);
+        if (in) fftw_free(in);
+        if (out) fftw_free(out);
+        fclose(fp);
+        return;
+
+    }
+
+    fftw_plan plan = fftw_plan_dft_1d(ANALYSIS_FFT_SIZE, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+
+    if (!plan) {
+
+        free(db_img);
+        free(block);
+        fftw_free(in);
+        fftw_free(out);
+        fclose(fp);
+        return;
+
+    }
+
+    double max_db = -300.0;
+    double max_mag = 1e-12;
+    double max_phase_abs = 1e-12;
+
+    for (int x = 0; x < render_w; x++) {
+
+        double frac = (render_w > 1) ? (double)x / (double)(render_w - 1) : 0.0;
+        size_t start = Global_Analysis_View_Start +
+                       (size_t)(frac * (double)Global_Analysis_View_Len);
+
+        if (start + ANALYSIS_FFT_SIZE >= Global_Analysis_IQ_Count) {
+
+            start = Global_Analysis_IQ_Count > ANALYSIS_FFT_SIZE ?
+                    Global_Analysis_IQ_Count - ANALYSIS_FFT_SIZE : 0;
+
+        }
+
+        if (fseek(fp, (long)(start * 2 * sizeof(int16_t)), SEEK_SET) != 0) {
+
+            continue;
+
+        }
+
+        size_t got = fread(block, sizeof(int16_t), ANALYSIS_FFT_SIZE * 2, fp);
+
+        if (got < ANALYSIS_FFT_SIZE * 2) {
+
+            memset(block + got, 0, sizeof(int16_t) * ((ANALYSIS_FFT_SIZE * 2) - got));
+
+        }
+
+        double sum_mag = 0.0;
+        double sum_phase = 0.0;
+        int phase_count = 0;
+
+        for (int k = 0; k < ANALYSIS_FFT_SIZE; k++) {
+
+            double I = (double)block[k * 2] / 32768.0;
+            double Q = (double)block[k * 2 + 1] / 32768.0;
+
+            sum_mag += sqrt(I * I + Q * Q);
+
+            if (k > 0) {
+
+                double I0 = (double)block[(k - 1) * 2] / 32768.0;
+                double Q0 = (double)block[(k - 1) * 2 + 1] / 32768.0;
+                double re = I0 * I + Q0 * Q;
+                double im = I0 * Q - Q0 * I;
+
+                sum_phase += atan2(im, re);
+                phase_count++;
+
+            }
+
+            in[k][0] = I * window[k];
+            in[k][1] = Q * window[k];
+
+        }
+
+        double avg_mag = sum_mag / (double)ANALYSIS_FFT_SIZE;
+        double avg_phase = phase_count > 0 ? sum_phase / (double)phase_count : 0.0;
+
+        Global_Analysis_Mag_Line[x] = (float)avg_mag;
+        Global_Analysis_Phase_Line[x] = (float)avg_phase;
+
+        if (avg_mag > max_mag) max_mag = avg_mag;
+        if (fabs(avg_phase) > max_phase_abs) max_phase_abs = fabs(avg_phase);
+
+        fftw_execute(plan);
+
+        for (int y = 0; y < ANALYSIS_FFT_SIZE; y++) {
+
+            int shifted = (y + ANALYSIS_FFT_SIZE / 2) % ANALYSIS_FFT_SIZE;
+            double I = out[shifted][0];
+            double Q = out[shifted][1];
+            double mag = sqrt(I * I + Q * Q) / (double)ANALYSIS_FFT_SIZE;
+            double val = 20.0 * log10(mag + 1e-12) + 100.0;
+
+            db_img[(size_t)x * ANALYSIS_FFT_SIZE + y] = val;
+
+            if (val > max_db) max_db = val;
+
+        }
+
+    }
+
+    for (int x = 0; x < render_w; x++) {
+
+        Global_Analysis_Mag_Line[x] = (float)(Global_Analysis_Mag_Line[x] / max_mag);
+        Global_Analysis_Phase_Line[x] = (float)(Global_Analysis_Phase_Line[x] / max_phase_abs);
+
+        if (Global_Analysis_Mag_Line[x] < 0.0f) Global_Analysis_Mag_Line[x] = 0.0f;
+        if (Global_Analysis_Mag_Line[x] > 1.0f) Global_Analysis_Mag_Line[x] = 1.0f;
+        if (Global_Analysis_Phase_Line[x] < -1.0f) Global_Analysis_Phase_Line[x] = -1.0f;
+        if (Global_Analysis_Phase_Line[x] > 1.0f) Global_Analysis_Phase_Line[x] = 1.0f;
+
+    }
+
+    double min_db = max_db - 70.0;
+
+    for (int x = 0; x < tex_w; x++) {
+
+        int src_x = x;
+        if (src_x >= render_w) src_x = render_w - 1;
+
+        for (int py = 0; py < tex_h; py++) {
+
+            int bin = (int)((1.0 - ((double)py / (double)tex_h)) *
+                            (double)(ANALYSIS_FFT_SIZE - 1));
+            double val = db_img[(size_t)src_x * ANALYSIS_FFT_SIZE + bin];
+            double norm = (val - min_db) / 70.0;
+
+            pixels[(size_t)py * tex_w + x] = ANALYSIS_gray(norm);
+
+        }
+
+    }
+
+    fftw_destroy_plan(plan);
+    free(db_img);
+    free(block);
+    fftw_free(in);
+    fftw_free(out);
+    fclose(fp);
+
+}
+
+static void ANALYSIS_enter_mode(void){
+
+    /*
+
+    Purpose: Enters analysis mode and prepares the file list
+
+    Return: No return
+
+    */
+
+    Global_Analysis_Mode = 1;
+    Global_Analysis_Dragging = 0;
+    ANALYSIS_clear_loaded_file();
+
+    if (ANALYSIS_scan_recordings()) {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                 "Found %d recording(s). Select one and press Enter.",
+                 Global_Analysis_File_Count);
+
+    }
+
+    else {
+
+        Global_Analysis_Dirty = 1;
+
+    }
+
+    set_status("Analysis workstation", (SDL_Color){220, 220, 220, 255});
+
+}
+
+// =====================
+// Command Line Handling
+// =====================
+
+static int parse_command_line_args(int argc, char **argv){
+
+    /*
+
+    Purpose: Parses supported command-line arguments
+
+    Return: Parse status
+
+    */
+
+    int output_dir_provided = 0;
+
+    if (argc <= 1) {
+
+        fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+        fprintf(stderr, "  -o record_dir   Required directory used to save and scan recordings.\n");
+        fprintf(stderr, "  -C 0|1          Optional cached recording toggle: 0 disables cache, 1 enables 5-second cache.\n");
+        return 0;
+
+    }
 
     for (int i = 1; i < argc; i++) {
 
         if (strcmp(argv[i], "-C") == 0) {
 
             if (i + 1 >= argc) {
+
                 fprintf(stderr, "Missing value for -C. Use -C 0 or -C 1.\n");
-                return 1;
+                fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+                return 0;
+
             }
 
             Global_Cached_Recording = atoi(argv[i + 1]) ? 1 : 0;
             i++;
 
-        } 
+        }
 
         else if (strcmp(argv[i], "-o") == 0) {
 
             if (i + 1 >= argc) {
+
                 fprintf(stderr, "Missing value for -o record directory.\n");
-                return 1;
+                fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+                return 0;
+
             }
 
             snprintf(Global_Record_Dir, sizeof(Global_Record_Dir), "%s", argv[i + 1]);
+            output_dir_provided = 1;
             i++;
 
-        } 
+        }
 
         else {
 
             fprintf(stderr, "Unknown argument: %s\n", argv[i]);
-            fprintf(stderr, "Usage: %s [-o record_dir] [-C 0|1]\n", argv[0]);
-            return 1;
+            fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+            fprintf(stderr, "  -o record_dir   Required directory used to save and scan recordings.\n");
+            fprintf(stderr, "  -C 0|1          Optional cached recording toggle: 0 disables cache, 1 enables 5-second cache.\n");
+            return 0;
 
         }
+
+    }
+
+    if (!output_dir_provided) {
+
+        fprintf(stderr, "Missing required -o record directory.\n");
+        fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+        fprintf(stderr, "  -o record_dir   Required directory used to save and scan recordings.\n");
+        fprintf(stderr, "  -C 0|1          Optional cached recording toggle: 0 disables cache, 1 enables 5-second cache.\n");
+        return 0;
+
+    }
+
+    return 1;
+
+}
+
+// ==========
+// Main Logic
+// ==========
+
+int main(int argc, char **argv){
+
+    /*
+
+    Purpose: Runs the RetroSpectrum application event loop
+
+    Return: Exit status
+
+    */
+
+    signal(SIGINT, handle_sigint);
+
+    if (!parse_command_line_args(argc, argv)) {
+
+        return 1;
 
     }
 
@@ -1842,6 +2780,77 @@ int main(int argc, char **argv){
             if (event.type == SDL_QUIT) Global_Running = 0;
 
             if (event.type == SDL_KEYDOWN) {
+                SDL_Keycode key = event.key.keysym.sym;
+
+                if (key == SDLK_g && active == FIELD_NONE) {
+
+                    if (Global_Analysis_Mode) {
+
+                        ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
+                        next_waterfall_ms = SDL_GetTicks64();
+
+                    }
+
+                    else {
+
+                        ANALYSIS_enter_mode();
+
+                    }
+
+                    continue;
+
+                }
+
+                if (Global_Analysis_Mode && active == FIELD_NONE) {
+
+                    if (key == SDLK_ESCAPE) {
+
+                        ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
+                        next_waterfall_ms = SDL_GetTicks64();
+
+                    }
+
+                    else if (key == SDLK_q) {
+
+                        Global_Running = 0;
+
+                    }
+
+                    else if (key == SDLK_r) {
+
+                        ANALYSIS_clear_loaded_file();
+                        if (ANALYSIS_scan_recordings()) {
+                            snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                                     "Found %d recording(s). Select one and press Enter.",
+                                     Global_Analysis_File_Count);
+                        } else {
+                            Global_Analysis_Dirty = 1;
+                        }
+
+                    }
+
+                    else if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
+
+                        ANALYSIS_open_selected_recording();
+
+                    }
+
+                    else if (key == SDLK_UP) {
+
+                        ANALYSIS_select_relative(-1);
+
+                    }
+
+                    else if (key == SDLK_DOWN) {
+
+                        ANALYSIS_select_relative(1);
+
+                    }
+
+                    continue;
+
+                }
+
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                     if (active != FIELD_NONE) active = FIELD_NONE;
                     else Global_Running = 0;
@@ -1912,9 +2921,117 @@ int main(int argc, char **argv){
 
             }
 
+            if (event.type == SDL_MOUSEWHEEL && Global_Analysis_Mode) {
+
+                int mx = 0;
+                int my = 0;
+                SDL_GetMouseState(&mx, &my);
+
+                int selector_h = (int)((double)win_h * 0.22);
+
+                if (selector_h < 130) selector_h = 130;
+
+                SDL_Rect list_rect = {
+                    MARGIN,
+                    MARGIN,
+                    win_w - 2 * MARGIN,
+                    selector_h - MARGIN
+                };
+
+                if (point_in_rect(mx, my, list_rect)) {
+
+                    int row_h = 22;
+                    int visible = (list_rect.h - 82) / row_h;
+                    if (visible < 1) visible = 1;
+
+                    Global_Analysis_List_Scroll -= event.wheel.y * 3;
+
+                    if (Global_Analysis_List_Scroll < 0) Global_Analysis_List_Scroll = 0;
+
+                    if (Global_Analysis_List_Scroll + visible > Global_Analysis_File_Count) {
+
+                        Global_Analysis_List_Scroll = Global_Analysis_File_Count - visible;
+                        if (Global_Analysis_List_Scroll < 0) Global_Analysis_List_Scroll = 0;
+
+                    }
+
+                }
+
+                else {
+
+                    double frac = (double)(mx - waterfall_rect.x) / (double)waterfall_rect.w;
+                    ANALYSIS_zoom_at_fraction(frac, event.wheel.y > 0);
+
+                }
+
+                continue;
+
+            }
+
             if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
                 int x = event.button.x;
                 int y = event.button.y;
+
+                if (Global_Analysis_Mode) {
+
+                    active = FIELD_NONE;
+
+                    int selector_h = (int)((double)win_h * 0.22);
+
+                    if (selector_h < 130) selector_h = 130;
+
+                    SDL_Rect list_rect = {
+                        MARGIN,
+                        MARGIN,
+                        win_w - 2 * MARGIN,
+                        selector_h - MARGIN
+                    };
+
+
+                    if (point_in_rect(x, y, list_rect)) {
+
+                        int row_h = 22;
+                        int list_y = list_rect.y + 70;
+                        int visible = (list_rect.h - 82) / row_h;
+                        if (visible < 1) visible = 1;
+
+                        int first = Global_Analysis_List_Scroll;
+                        if (first < 0) first = 0;
+
+                        if (first + visible > Global_Analysis_File_Count) {
+                            first = Global_Analysis_File_Count - visible;
+                            if (first < 0) first = 0;
+                        }
+
+                        Global_Analysis_List_Scroll = first;
+
+                        int idx = first + ((y - list_y) / row_h);
+
+                        if (y >= list_y && idx >= 0 && idx < Global_Analysis_File_Count) {
+
+                            Global_Analysis_Selected = idx;
+
+                            if (event.button.clicks >= 2) ANALYSIS_open_selected_recording();
+                            else {
+                                snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                                         "Selected %.180s | Press Enter to open",
+                                         Global_Analysis_Files[Global_Analysis_Selected]);
+                            }
+
+                        }
+
+                    }
+
+                    else if (Global_Analysis_Path[0] != '\0' && y > list_rect.y + list_rect.h + MARGIN) {
+
+                        Global_Analysis_Dragging = 1;
+                        Global_Analysis_Drag_Last_X = x;
+
+                    }
+
+                    continue;
+
+                }
 
                 if (event.button.clicks == 3 && y < CONTROL_PANEL_HEIGHT) {
               
@@ -2005,10 +3122,20 @@ int main(int argc, char **argv){
                 Global_Selector.dragging = 0;
                 Global_Selector.resizing_left = 0;
                 Global_Selector.resizing_right = 0;
+                Global_Analysis_Dragging = 0;
 
             }
 
             if (event.type == SDL_MOUSEMOTION) {
+
+              if (Global_Analysis_Mode && Global_Analysis_Dragging) {
+
+                  int dx = event.motion.x - Global_Analysis_Drag_Last_X;
+                  Global_Analysis_Drag_Last_X = event.motion.x;
+                  ANALYSIS_drag_move_view(dx, win_w - 2 * MARGIN);
+                  continue;
+
+              }
               
               if (!Global_Rec && Global_Selector.enabled && (Global_Selector.dragging || Global_Selector.resizing_left || 
                     Global_Selector.resizing_right)) {
@@ -2025,7 +3152,7 @@ int main(int argc, char **argv){
 
         if (frame_interval_ms < 1) frame_interval_ms = 1;
 
-        if (now_ms >= next_waterfall_ms) {
+        if (!Global_Analysis_Mode && now_ms >= next_waterfall_ms) {
 
             int rows_drawn = 0;
             int target_rows = normalize_rows_per_frame(Global_Rows_Per_Frame);
@@ -2049,35 +3176,101 @@ int main(int argc, char **argv){
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        draw_control_panel(
-            renderer,
-            font_medium,
-            win_w,
-            &freq_box,
-            &sr_box,
-            &display_box,
-            &lna_box,
-            &vga_box,
-            &fps_box,
-            &rows_box,
-            amp_box,
-            dc_box,
-            sel_button,
-            rec_button,
-            active
-        );
+        if (!Global_Analysis_Mode) {
 
-        SDL_RenderCopy(renderer, waterfall_texture, NULL, &waterfall_rect);
-        draw_selection_overlay(renderer, waterfall_rect);
-        draw_selector_bandwidth(renderer, font_small, waterfall_rect);
-        draw_border(renderer, waterfall_rect);
-        draw_frequency_axis(renderer, font_small, waterfall_rect);
+            draw_control_panel(
+                renderer,
+                font_medium,
+                win_w,
+                &freq_box,
+                &sr_box,
+                &display_box,
+                &lna_box,
+                &vga_box,
+                &fps_box,
+                &rows_box,
+                amp_box,
+                dc_box,
+                sel_button,
+                rec_button,
+                active
+            );
 
-        draw_text(renderer, font_medium, Global_Status_Msg, win_w / 2 - 192, win_h - 36, Global_Status_Color);
+        }
 
-        draw_antenna_recommendation(renderer, font_small, win_w, win_h);
+        if (Global_Analysis_Mode) {
 
-        draw_made_in_usa(renderer, font_medium, win_w, win_h);
+            ANALYSIS_draw_workstation(renderer,
+                                      font_small,
+                                      waterfall_texture,
+                                      pixels,
+                                      tex_w,
+                                      tex_h,
+                                      win_w,
+                                      win_h);
+
+        }
+
+        else {
+
+            SDL_RenderCopy(renderer, waterfall_texture, NULL, &waterfall_rect);
+            draw_selection_overlay(renderer, waterfall_rect);
+            draw_selector_bandwidth(renderer, font_small, waterfall_rect);
+            draw_border(renderer, waterfall_rect);
+            draw_frequency_axis(renderer, font_small, waterfall_rect);
+
+        }
+
+        if (!Global_Analysis_Mode) {
+
+            const char *analysis_hint_text = "Press G for Analysis";
+            int hint_text_w = 0;
+            int hint_text_h = 0;
+
+            if (font_small) {
+
+                TTF_SizeText(font_small, analysis_hint_text, &hint_text_w, &hint_text_h);
+
+            }
+
+            int hint_w = hint_text_w + 18;
+
+            if (hint_w < rec_button.w) hint_w = rec_button.w;
+            if (hint_w > win_w - 2 * MARGIN) hint_w = win_w - 2 * MARGIN;
+
+            SDL_Rect analysis_hint = {
+                rec_button.x + rec_button.w - hint_w,
+                rec_button.y - 34,
+                hint_w,
+                28
+            };
+
+            if (analysis_hint.x + analysis_hint.w > win_w - MARGIN) {
+
+                analysis_hint.x = win_w - MARGIN - analysis_hint.w;
+
+            }
+
+            if (analysis_hint.x < MARGIN) analysis_hint.x = MARGIN;
+            if (analysis_hint.y < 6) analysis_hint.y = 6;
+
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            draw_filled_rect(renderer, analysis_hint, (SDL_Color){0, 0, 0, 210});
+            draw_outline_rect(renderer, analysis_hint, (SDL_Color){0, 220, 80, 210});
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+            draw_text(renderer, font_small, analysis_hint_text, analysis_hint.x + 9, analysis_hint.y + 7, (SDL_Color){0, 255, 90, 255});
+            draw_text(renderer, font_medium, Global_Status_Msg, win_w / 2 - 192, win_h - 36, Global_Status_Color);
+
+        }
+
+        if (!Global_Analysis_Mode) {
+
+            draw_antenna_recommendation(renderer, font_small, win_w, win_h);
+
+            draw_made_in_usa(renderer, font_medium, win_w, win_h);
+
+        }
 
         SDL_RenderPresent(renderer);
 
