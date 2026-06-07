@@ -12,11 +12,11 @@
 #endif
 
 #ifndef ANALYSIS_MAX_RENDER_W
-#define ANALYSIS_MAX_RENDER_W            2048
+#define ANALYSIS_MAX_RENDER_W            8192
 #endif
 
 #ifndef ANALYSIS_MAX_CONST_POINTS
-#define ANALYSIS_MAX_CONST_POINTS          4096
+#define ANALYSIS_MAX_CONST_POINTS        4096
 #endif
 
 
@@ -94,6 +94,11 @@ extern float Global_Analysis_InstFreq_Line[ANALYSIS_MAX_RENDER_W];
 extern float Global_Analysis_Const_I[ANALYSIS_MAX_CONST_POINTS];
 extern float Global_Analysis_Const_Q[ANALYSIS_MAX_CONST_POINTS];
 extern int Global_Analysis_Const_Count;
+extern int Global_Analysis_Filter_Visible;
+extern int Global_Analysis_Filter_Selecting;
+extern int Global_Analysis_Filter_Active;
+extern double Global_Analysis_Filter_Y0;
+extern double Global_Analysis_Filter_Y1;
 
 
 // Functions still defined in RetroSpectrum.c but used by GUIs.c
@@ -231,6 +236,8 @@ void ANALYSIS_draw_loading_indicator(SDL_Renderer *renderer,
                                      SDL_Rect parent_rect);
 
 void ANALYSIS_draw_file_list(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect);
+
+void ANALYSIS_draw_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect spec_rect);
 
 void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
                                TTF_Font *font,

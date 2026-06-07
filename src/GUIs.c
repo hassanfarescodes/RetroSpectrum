@@ -1222,6 +1222,82 @@ void ANALYSIS_draw_file_list(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect re
 
 }
 
+
+void ANALYSIS_draw_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect spec_rect){
+
+    /*
+
+    Purpose: Draws the analysis frequency filter selector over the spectrogram
+
+    Return: No return
+
+    */
+
+    if (!Global_Analysis_Filter_Visible && !Global_Analysis_Filter_Active &&
+        !Global_Analysis_Filter_Selecting) {
+        return;
+    }
+
+    double y0f = limit_double(Global_Analysis_Filter_Y0, 0.0, 1.0);
+    double y1f = limit_double(Global_Analysis_Filter_Y1, 0.0, 1.0);
+
+    if (y1f < y0f) {
+        double tmp = y0f;
+        y0f = y1f;
+        y1f = tmp;
+    }
+
+    int y0 = spec_rect.y + (int)(y0f * (double)spec_rect.h);
+    int y1 = spec_rect.y + (int)(y1f * (double)spec_rect.h);
+
+    if (y1 <= y0) y1 = y0 + 2;
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    SDL_Rect band = {spec_rect.x, y0, spec_rect.w, y1 - y0};
+
+    SDL_SetRenderDrawColor(renderer, 0, 210, 255, 45);
+    SDL_RenderFillRect(renderer, &band);
+
+    SDL_SetRenderDrawColor(renderer, 0, 240, 255, 220);
+    SDL_RenderDrawLine(renderer, spec_rect.x, y0, spec_rect.x + spec_rect.w, y0);
+    SDL_RenderDrawLine(renderer, spec_rect.x, y1, spec_rect.x + spec_rect.w, y1);
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 150);
+    SDL_RenderDrawRect(renderer, &band);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    char msg[160];
+
+    if (Global_Analysis_Filter_Active) {
+        snprintf(msg, sizeof(msg), "Frequency filter active | Backspace clears");
+    } else {
+        snprintf(msg, sizeof(msg), "Ctrl+drag vertically here to select a frequency band");
+    }
+
+    int text_w = 0;
+    int text_h = 0;
+
+    if (font && TTF_SizeText(font, msg, &text_w, &text_h) != 0) {
+        text_w = 0;
+        text_h = 0;
+    }
+
+    SDL_Rect bg = {spec_rect.x + 12, spec_rect.y + spec_rect.h - text_h - 18,
+                   text_w + 16, text_h + 10};
+
+    if (bg.w > spec_rect.w - 24) bg.w = spec_rect.w - 24;
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, bg, (SDL_Color){0, 0, 0, 190});
+    draw_outline_rect(renderer, bg, (SDL_Color){0, 220, 255, 210});
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    draw_text(renderer, font, msg, bg.x + 8, bg.y + 5, (SDL_Color){210, 245, 255, 255});
+
+}
+
 void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
                                       TTF_Font *font,
                                       SDL_Texture *texture,
@@ -1337,7 +1413,7 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
     draw_text(renderer, font, "Magnitude Envelope", mag_rect.x + 10, top_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
-    draw_text(renderer, font, "Phase Delta", phase_rect.x + 10, top_title_y + 3,
+    draw_text(renderer, font, "Phase", phase_rect.x + 10, top_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
     draw_text(renderer, font, "Instantaneous Frequency", inst_rect.x + 10, mid_title_y + 3,
@@ -1346,8 +1422,8 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
     draw_text(renderer, font, "Constellation I/Q", const_rect.x + 10, mid_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
-    draw_text(renderer, font, "Greyscale Spectrogram", spec_rect.x + 10, spec_title_y + 3,
-              (SDL_Color){190, 190, 190, 255});
+    //draw_text(renderer, font, "Greyscale Spectrogram", spec_rect.x + 10, spec_title_y + 3,
+    //          (SDL_Color){190, 190, 190, 255});
 
     if (Global_Analysis_Path[0] == '\0') {
 
@@ -1407,6 +1483,7 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
 
     SDL_RenderCopy(renderer, texture, NULL, &spec_rect);
     draw_border(renderer, spec_rect);
+    ANALYSIS_draw_filter_overlay(renderer, font, spec_rect);
 
     if (Global_Analysis_IQ_Count > 0 && Global_Analysis_Sample_Rate > 0.0) {
 
@@ -1414,11 +1491,19 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
         double t0 = (double)Global_Analysis_View_Start / Global_Analysis_Sample_Rate;
         double t1 = (double)(Global_Analysis_View_Start + Global_Analysis_View_Len) / Global_Analysis_Sample_Rate;
 
-        snprintf(info, sizeof(info), "%.6f MHz | %.6f sec to %.6f sec | %.3f kS/s | Drag to pan | Wheel to zoom",
-                 Global_Analysis_Center_Hz / 1e6,
-                 t0,
-                 t1,
-                 Global_Analysis_Sample_Rate / 1e3);
+        if (Global_Analysis_Filter_Active) {
+            snprintf(info, sizeof(info), "%.6f MHz | %.6f sec to %.6f sec | %.3f kS/s | Filtered graph mode | Backspace clear",
+                     Global_Analysis_Center_Hz / 1e6,
+                     t0,
+                     t1,
+                     Global_Analysis_Sample_Rate / 1e3);
+        } else {
+            snprintf(info, sizeof(info), "%.6f MHz | %.6f sec to %.6f sec | %.3f kS/s | Drag pan | Wheel zoom | Ctrl+drag filter",
+                     Global_Analysis_Center_Hz / 1e6,
+                     t0,
+                     t1,
+                     Global_Analysis_Sample_Rate / 1e3);
+        }
 
         SDL_Rect bg = {spec_rect.x + 10, spec_rect.y + 10, spec_rect.w - 20, 32};
 
@@ -1446,6 +1531,9 @@ void ANALYSIS_exit_mode(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *tex
     Global_Analysis_Mode = 0;
     Global_Analysis_Dirty = 0;
     Global_Analysis_Dragging = 0;
+    Global_Analysis_Filter_Visible = 0;
+    Global_Analysis_Filter_Selecting = 0;
+    Global_Analysis_Filter_Active = 0;
 
     clear_waterfall(pixels, tex_w, tex_h);
     SDL_UpdateTexture(texture, NULL, pixels, tex_w * sizeof(uint32_t));
