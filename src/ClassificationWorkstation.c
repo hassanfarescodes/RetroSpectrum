@@ -484,40 +484,6 @@ static void CLASSIFICATION_short_text(TTF_Font *font,
 }
 
 
-static void CLASSIFICATION_visible_text_tail(TTF_Font *font,
-                                             const char *src,
-                                             char *dst,
-                                             size_t dst_size,
-                                             int max_px)
-{
-    if (!dst || dst_size == 0) return;
-
-    if (!src) src = "";
-
-    snprintf(dst, dst_size, "%s", src);
-
-    if (!font || max_px <= 0) return;
-
-    int text_w = 0;
-    int text_h = 0;
-
-    if (TTF_SizeText(font, dst, &text_w, &text_h) != 0 || text_w <= max_px) return;
-
-    size_t len = strlen(src);
-    size_t start = 0;
-
-    while (start + 1 < len) {
-        snprintf(dst, dst_size, "< %s", src + start);
-
-        if (TTF_SizeText(font, dst, &text_w, &text_h) != 0 || text_w <= max_px) return;
-
-        start++;
-    }
-
-    snprintf(dst, dst_size, "<");
-}
-
-
 static void CLASSIFICATION_draw_multiline_notes(SDL_Renderer *renderer,
                                                 TTF_Font *font,
                                                 SDL_Rect rect,
