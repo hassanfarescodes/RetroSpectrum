@@ -21,6 +21,7 @@
 #include <math.h>
 
 #include "GUIs.h"
+#include "AnalysisWorkstation.h"
 #include "IQs.h"
 
 #define CONTROL_PANEL_HEIGHT            95
@@ -1322,34 +1323,50 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
 
     if (selector_h < 130) selector_h = 130;
 
+    int gap = 10;
+    int title_h = 22;
+    int col_gap = 12;
+    int panel_h = selector_h - MARGIN;
+    int work_x = MARGIN;
+    int work_w = win_w - 2 * MARGIN;
+
+    if (work_w < 100) return;
+
+    int half_w = (work_w - col_gap) / 2;
+
+    if (half_w < 60) half_w = work_w / 2;
+
     SDL_Rect list_rect = {
         MARGIN,
         MARGIN,
-        win_w - 2 * MARGIN,
-        selector_h - MARGIN
+        half_w,
+        panel_h
     };
+
+    SDL_Rect psd_rect = {
+        MARGIN + half_w + col_gap,
+        MARGIN + title_h,
+        work_w - half_w - col_gap,
+        panel_h - title_h
+    };
+
+    if (psd_rect.h < 70) psd_rect.h = 70;
 
     ANALYSIS_draw_file_list(renderer, font, list_rect);
 
-    int work_x = MARGIN;
     int work_y = list_rect.y + list_rect.h + MARGIN;
-    int work_w = win_w - 2 * MARGIN;
     int work_h = win_h - work_y - MARGIN;
 
     if (work_w < 100 || work_h < 260) return;
 
-    int gap = 10;
-    int title_h = 22;
-    int col_gap = 12;
-    int top_row_h = work_h / 4;
-    int mid_row_h = work_h / 4;
+    int top_row_h = psd_rect.h;
+    int mid_row_h = psd_rect.h;
     int spec_h = work_h - top_row_h - mid_row_h - (gap * 2) - (title_h * 3);
 
     if (top_row_h < 70) top_row_h = 70;
     if (mid_row_h < 70) mid_row_h = 70;
     if (spec_h < 110) spec_h = 110;
 
-    int half_w = (work_w - col_gap) / 2;
     int top_title_y = work_y;
 
     SDL_Rect mag_rect = {
@@ -1410,6 +1427,9 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
 
     }
 
+    draw_text(renderer, font, "Frequency Spectrum", psd_rect.x + 10, MARGIN + 3,
+              (SDL_Color){190, 190, 190, 255});
+
     draw_text(renderer, font, "Magnitude Envelope", mag_rect.x + 10, top_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
@@ -1422,14 +1442,17 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
     draw_text(renderer, font, "Constellation I/Q", const_rect.x + 10, mid_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
-    //draw_text(renderer, font, "Greyscale Spectrogram", spec_rect.x + 10, spec_title_y + 3,
-    //          (SDL_Color){190, 190, 190, 255});
+    draw_text(renderer, font, "Greyscale Spectrogram", spec_rect.x + 10, spec_title_y + 3,
+              (SDL_Color){190, 190, 190, 255});
 
     if (Global_Analysis_Path[0] == '\0') {
 
+        draw_filled_rect(renderer, psd_rect, (SDL_Color){5, 5, 5, 255});
+        draw_outline_rect(renderer, psd_rect, (SDL_Color){120, 120, 120, 255});
+
         draw_filled_rect(renderer, mag_rect, (SDL_Color){5, 5, 5, 255});
         draw_outline_rect(renderer, mag_rect, (SDL_Color){120, 120, 120, 255});
-        draw_text(renderer, font, "Select a recording above, then press Enter to open it.",
+        draw_text(renderer, font, "Select a recording, then press Enter to open it.",
           mag_rect.x + 12, mag_rect.y + 42, (SDL_Color){200, 200, 200, 255});
 
         draw_filled_rect(renderer, phase_rect, (SDL_Color){5, 5, 5, 255});
@@ -1446,6 +1469,15 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
         return;
 
     }
+
+    ANALYSIS_draw_line_plot(renderer,
+                            psd_rect,
+                            Global_Analysis_PSD_Line,
+                            Global_Analysis_Render_W,
+                            0,
+                            (SDL_Color){0, 255, 90, 255},
+                            NULL,
+                            font);
 
     ANALYSIS_draw_line_plot(renderer,
                             mag_rect,

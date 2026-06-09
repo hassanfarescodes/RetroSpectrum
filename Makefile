@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2 -std=c11 -Iinclude
 LDLIBS = -lhackrf -lfftw3 -lSDL2 -lSDL2_ttf -lm -lpthread
 
-SRC = src/RetroSpectrum.c src/GUIs.c
+SRC = src/RetroSpectrum.c src/GUIs.c src/ClassificationWorkstation.c src/AnalysisWorkstation.c
 OBJ = $(SRC:src/%.c=build/%.o)
 
 TARGET = RetroSpectrum

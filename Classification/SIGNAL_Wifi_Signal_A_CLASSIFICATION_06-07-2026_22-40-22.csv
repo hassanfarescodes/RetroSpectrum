@@ -1,0 +1,2 @@
+signal_name,frequency_mhz,start_time,end_time,calculated_modulation,signal_class,notes,file_name
+"Wifi_Signal_A","2412.000000","0.000000","6.7","Pulse-like","Wi-Fi-like","seems to be a wifi-like signal","06-07-2026_22-40-22_CAPTURE_2412.000000MHz_BW_20000.000kHz_SR_20000.000k_Decimation_1.complex16"
