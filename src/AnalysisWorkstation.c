@@ -34,6 +34,7 @@
 #define ANALYSIS_MAX_FILES 512
 #define ANALYSIS_FFT_SIZE 2048
 #define ANALYSIS_MAX_CONST_POINTS 4096
+#define ANALYSIS_WORKSPACE_COUNT 5
 
 static char Global_Analysis_Record_Dir[512] = "Recordings";
 static uint64_t Global_Analysis_Fallback_Center_Hz = 0;
@@ -107,6 +108,171 @@ float                   Global_Analysis_InstFreq_Line[ANALYSIS_MAX_RENDER_W];
 float                   Global_Analysis_PSD_Line[ANALYSIS_MAX_RENDER_W];
 float                   Global_Analysis_Const_I[ANALYSIS_MAX_CONST_POINTS];
 float                   Global_Analysis_Const_Q[ANALYSIS_MAX_CONST_POINTS];
+
+
+typedef struct Type_Analysis_Workspace_State {
+    int dirty;
+    int file_count;
+    int selected;
+    int list_scroll;
+    int dragging;
+    int drag_last_x;
+    int loading;
+    int load_frame;
+    int loaded_index;
+    int render_w;
+    size_t iq_count;
+    size_t view_start;
+    size_t view_len;
+    double sample_rate;
+    double center_hz;
+    char path[1024];
+    int const_count;
+    int filter_visible;
+    int filter_selecting;
+    int filter_active;
+    double filter_y0;
+    double filter_y1;
+    int marker_active;
+    size_t marker_sample;
+    double marker_time;
+    int column_selecting;
+    int column_visible;
+    int column_active;
+    double column_x0;
+    double column_x1;
+    char status[256];
+    char files[ANALYSIS_MAX_FILES][512];
+    float mag_line[ANALYSIS_MAX_RENDER_W];
+    float phase_line[ANALYSIS_MAX_RENDER_W];
+    float inst_freq_line[ANALYSIS_MAX_RENDER_W];
+    float psd_line[ANALYSIS_MAX_RENDER_W];
+    float const_i[ANALYSIS_MAX_CONST_POINTS];
+    float const_q[ANALYSIS_MAX_CONST_POINTS];
+} Type_Analysis_Workspace_State;
+
+static Type_Analysis_Workspace_State Global_Analysis_Workspaces[ANALYSIS_WORKSPACE_COUNT];
+static int Global_Analysis_Active_Workspace = 0;
+static int Global_Analysis_Workspaces_Initialized = 0;
+
+static void ANALYSIS_save_workspace_state(int index){
+
+    if (index < 0 || index >= ANALYSIS_WORKSPACE_COUNT) return;
+
+    Type_Analysis_Workspace_State *ws = &Global_Analysis_Workspaces[index];
+
+    ws->dirty = Global_Analysis_Dirty;
+    ws->file_count = Global_Analysis_File_Count;
+    ws->selected = Global_Analysis_Selected;
+    ws->list_scroll = Global_Analysis_List_Scroll;
+    ws->dragging = Global_Analysis_Dragging;
+    ws->drag_last_x = Global_Analysis_Drag_Last_X;
+    ws->loading = Global_Analysis_Loading;
+    ws->load_frame = Global_Analysis_Load_Frame;
+    ws->loaded_index = Global_Analysis_Loaded_Index;
+    ws->render_w = Global_Analysis_Render_W;
+    ws->iq_count = Global_Analysis_IQ_Count;
+    ws->view_start = Global_Analysis_View_Start;
+    ws->view_len = Global_Analysis_View_Len;
+    ws->sample_rate = Global_Analysis_Sample_Rate;
+    ws->center_hz = Global_Analysis_Center_Hz;
+    snprintf(ws->path, sizeof(ws->path), "%s", Global_Analysis_Path);
+    ws->const_count = Global_Analysis_Const_Count;
+    ws->filter_visible = Global_Analysis_Filter_Visible;
+    ws->filter_selecting = Global_Analysis_Filter_Selecting;
+    ws->filter_active = Global_Analysis_Filter_Active;
+    ws->filter_y0 = Global_Analysis_Filter_Y0;
+    ws->filter_y1 = Global_Analysis_Filter_Y1;
+    ws->marker_active = Global_Analysis_Marker_Active;
+    ws->marker_sample = Global_Analysis_Marker_Sample;
+    ws->marker_time = Global_Analysis_Marker_Time;
+    ws->column_selecting = Global_Analysis_Column_Selecting;
+    ws->column_visible = Global_Analysis_Column_Visible;
+    ws->column_active = Global_Analysis_Column_Active;
+    ws->column_x0 = Global_Analysis_Column_X0;
+    ws->column_x1 = Global_Analysis_Column_X1;
+    snprintf(ws->status, sizeof(ws->status), "%s", Global_Analysis_Status);
+    memcpy(ws->files, Global_Analysis_Files, sizeof(ws->files));
+    memcpy(ws->mag_line, Global_Analysis_Mag_Line, sizeof(ws->mag_line));
+    memcpy(ws->phase_line, Global_Analysis_Phase_Line, sizeof(ws->phase_line));
+    memcpy(ws->inst_freq_line, Global_Analysis_InstFreq_Line, sizeof(ws->inst_freq_line));
+    memcpy(ws->psd_line, Global_Analysis_PSD_Line, sizeof(ws->psd_line));
+    memcpy(ws->const_i, Global_Analysis_Const_I, sizeof(ws->const_i));
+    memcpy(ws->const_q, Global_Analysis_Const_Q, sizeof(ws->const_q));
+
+}
+
+static void ANALYSIS_load_workspace_state(int index){
+
+    if (index < 0 || index >= ANALYSIS_WORKSPACE_COUNT) return;
+
+    Type_Analysis_Workspace_State *ws = &Global_Analysis_Workspaces[index];
+
+    Global_Analysis_Dirty = ws->dirty;
+    Global_Analysis_File_Count = ws->file_count;
+    Global_Analysis_Selected = ws->selected;
+    Global_Analysis_List_Scroll = ws->list_scroll;
+    Global_Analysis_Dragging = ws->dragging;
+    Global_Analysis_Drag_Last_X = ws->drag_last_x;
+    Global_Analysis_Loading = ws->loading;
+    Global_Analysis_Load_Frame = ws->load_frame;
+    Global_Analysis_Loaded_Index = ws->loaded_index;
+    Global_Analysis_Render_W = ws->render_w;
+    Global_Analysis_IQ_Count = ws->iq_count;
+    Global_Analysis_View_Start = ws->view_start;
+    Global_Analysis_View_Len = ws->view_len;
+    Global_Analysis_Sample_Rate = ws->sample_rate;
+    Global_Analysis_Center_Hz = ws->center_hz;
+    snprintf(Global_Analysis_Path, sizeof(Global_Analysis_Path), "%s", ws->path);
+    Global_Analysis_Const_Count = ws->const_count;
+    Global_Analysis_Filter_Visible = ws->filter_visible;
+    Global_Analysis_Filter_Selecting = ws->filter_selecting;
+    Global_Analysis_Filter_Active = ws->filter_active;
+    Global_Analysis_Filter_Y0 = ws->filter_y0;
+    Global_Analysis_Filter_Y1 = ws->filter_y1;
+    Global_Analysis_Marker_Active = ws->marker_active;
+    Global_Analysis_Marker_Sample = ws->marker_sample;
+    Global_Analysis_Marker_Time = ws->marker_time;
+    Global_Analysis_Column_Selecting = ws->column_selecting;
+    Global_Analysis_Column_Visible = ws->column_visible;
+    Global_Analysis_Column_Active = ws->column_active;
+    Global_Analysis_Column_X0 = ws->column_x0;
+    Global_Analysis_Column_X1 = ws->column_x1;
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s", ws->status);
+    memcpy(Global_Analysis_Files, ws->files, sizeof(Global_Analysis_Files));
+    memcpy(Global_Analysis_Mag_Line, ws->mag_line, sizeof(Global_Analysis_Mag_Line));
+    memcpy(Global_Analysis_Phase_Line, ws->phase_line, sizeof(Global_Analysis_Phase_Line));
+    memcpy(Global_Analysis_InstFreq_Line, ws->inst_freq_line, sizeof(Global_Analysis_InstFreq_Line));
+    memcpy(Global_Analysis_PSD_Line, ws->psd_line, sizeof(Global_Analysis_PSD_Line));
+    memcpy(Global_Analysis_Const_I, ws->const_i, sizeof(Global_Analysis_Const_I));
+    memcpy(Global_Analysis_Const_Q, ws->const_q, sizeof(Global_Analysis_Const_Q));
+
+}
+
+static void ANALYSIS_switch_workspace(int delta){
+
+    if (delta == 0) return;
+
+    ANALYSIS_save_workspace_state(Global_Analysis_Active_Workspace);
+
+    Global_Analysis_Active_Workspace += delta;
+
+    if (Global_Analysis_Active_Workspace < 0) {
+        Global_Analysis_Active_Workspace = ANALYSIS_WORKSPACE_COUNT - 1;
+    }
+
+    if (Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
+        Global_Analysis_Active_Workspace = 0;
+    }
+
+    ANALYSIS_load_workspace_state(Global_Analysis_Active_Workspace);
+
+    Global_Analysis_Dragging = 0;
+    Global_Analysis_Filter_Selecting = 0;
+    Global_Analysis_Column_Selecting = 0;
+    Global_Analysis_Dirty = 1;
+
+}
 
 // ==========================
 // Greyscale Recordings Viewer
@@ -894,8 +1060,8 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer,
                 }
 
                 SDL_Rect label_bg = {
-                    psd_rect.x + psd_rect.w - text_w - 18,
-                    psd_rect.y - text_h - 8,
+                    psd_rect.x + psd_rect.w - text_w - 192,//18
+                    psd_rect.y - text_h - 16,//8
                     text_w + 14,
                     text_h + 6
                 };
@@ -908,7 +1074,7 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer,
                 draw_text(renderer,
                           font,
                           freq_label,
-                          label_bg.x + 7,
+                          label_bg.x + 7,//7
                           label_bg.y + 3,
                           (SDL_Color){0, 200, 255, 255});
 
@@ -1249,6 +1415,31 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
+    char workspace_label[64];
+    snprintf(workspace_label,
+             sizeof(workspace_label),
+             "Workspace %d/%d",
+             Global_Analysis_Active_Workspace + 1,
+             ANALYSIS_WORKSPACE_COUNT);
+
+    SDL_Rect workspace_bg = {
+        win_w - 150,
+        8,
+        130,
+        24
+    };
+
+    if (workspace_bg.x < MARGIN) workspace_bg.x = MARGIN;
+
+    draw_filled_rect(renderer, workspace_bg, (SDL_Color){0, 0, 0, 210});
+    draw_outline_rect(renderer, workspace_bg, (SDL_Color){120, 120, 120, 220});
+    draw_text(renderer,
+              font,
+              workspace_label,
+              workspace_bg.x + 8,
+              workspace_bg.y + 5,
+              (SDL_Color){230, 230, 230, 255});
+
     if (texture && tex_w > 0 && tex_h > 0 && spec_rect.w > 0 && spec_rect.h > 0) {
 
         int clear_h = 42;
@@ -1478,7 +1669,7 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
                  end_sec - start_sec);
 
         SDL_Rect column_bg = {
-            spec_rect.x + spec_rect.w - 225 - 100,
+            spec_rect.x + spec_rect.w - 225 - 192,
             spec_rect.y - 30,
             310,//240
             24
@@ -2379,22 +2570,48 @@ void ANALYSIS_enter_mode(const char *record_dir,
                          fallback_sample_rate_hz);
 
     Global_Analysis_Mode = 1;
-    Global_Analysis_Dragging = 0;
-    ANALYSIS_clear_loaded_file();
 
-    if (ANALYSIS_scan_recordings()) {
+    if (Global_Analysis_Workspaces_Initialized) {
 
-        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
-                 "Found %d recording(s). Select one and press Enter.",
-                 Global_Analysis_File_Count);
-
-    }
-
-    else {
-
+        Global_Analysis_Dragging = 0;
+        Global_Analysis_Filter_Selecting = 0;
+        Global_Analysis_Column_Selecting = 0;
         Global_Analysis_Dirty = 1;
 
+        set_status("Analysis workstation", (SDL_Color){220, 220, 220, 255});
+        return;
+
     }
+
+    Global_Analysis_Active_Workspace = 0;
+
+    for (int i = 0; i < ANALYSIS_WORKSPACE_COUNT; i++) {
+
+        Global_Analysis_Active_Workspace = i;
+        ANALYSIS_clear_loaded_file();
+
+        if (ANALYSIS_scan_recordings()) {
+
+            snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                     "Found %d recording(s). Select one and press Enter.",
+                     Global_Analysis_File_Count);
+
+        }
+
+        else {
+
+            Global_Analysis_Dirty = 1;
+
+        }
+
+        ANALYSIS_save_workspace_state(i);
+
+    }
+
+    Global_Analysis_Workspaces_Initialized = 1;
+    Global_Analysis_Active_Workspace = 0;
+    ANALYSIS_load_workspace_state(Global_Analysis_Active_Workspace);
+    Global_Analysis_Dragging = 0;
 
     set_status("Analysis workstation", (SDL_Color){220, 220, 220, 255});
 
@@ -2417,6 +2634,24 @@ int ANALYSIS_handle_event(SDL_Event *event,
     if (event->type == SDL_KEYDOWN) {
 
         SDL_Keycode key = event->key.keysym.sym;
+
+        if (active && *active == FIELD_NONE && (SDL_GetModState() & KMOD_CTRL)) {
+
+            if (key == SDLK_RIGHT) {
+
+                ANALYSIS_switch_workspace(1);
+                return ANALYSIS_EVENT_HANDLED;
+
+            }
+
+            else if (key == SDLK_LEFT) {
+
+                ANALYSIS_switch_workspace(-1);
+                return ANALYSIS_EVENT_HANDLED;
+
+            }
+
+        }
 
         if (active && *active == FIELD_NONE) {
 

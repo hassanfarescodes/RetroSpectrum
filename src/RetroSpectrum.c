@@ -2073,7 +2073,18 @@ int main(int argc, char **argv){
 
             if (Global_Classification_Mode) {
 
-                CLASSIFICATION_handle_event(&event, win_w, win_h);
+                int classification_event_result = CLASSIFICATION_handle_event(&event, win_w, win_h);
+
+                if (classification_event_result == 2) {
+
+                    CLASSIFICATION_exit_mode();
+                    ANALYSIS_enter_mode(Global_Record_Dir,
+                                        Global_Center_Freq_Hz,
+                                        Global_Rec_Out_Rate_Hz,
+                                        Global_Sample_Rate_Hz);
+
+                }
+
                 continue;
 
             }
@@ -2464,43 +2475,6 @@ int main(int argc, char **argv){
 
         if (!Global_Analysis_Mode && !Global_Classification_Mode) {
 
-            const char *analysis_hint_text = "Press G for Analysis | H for Classification";
-            int hint_text_w = 0;
-            int hint_text_h = 0;
-
-            if (font_small) {
-
-                TTF_SizeText(font_small, analysis_hint_text, &hint_text_w, &hint_text_h);
-
-            }
-
-            int hint_w = hint_text_w + 18;
-
-            if (hint_w < rec_button.w) hint_w = rec_button.w;
-            if (hint_w > win_w - 2 * MARGIN) hint_w = win_w - 2 * MARGIN;
-
-            SDL_Rect analysis_hint = {
-                rec_button.x + rec_button.w - hint_w,
-                rec_button.y - 34,
-                hint_w,
-                28
-            };
-
-            if (analysis_hint.x + analysis_hint.w > win_w - MARGIN) {
-
-                analysis_hint.x = win_w - MARGIN - analysis_hint.w;
-
-            }
-
-            if (analysis_hint.x < MARGIN) analysis_hint.x = MARGIN;
-            if (analysis_hint.y < 6) analysis_hint.y = 6;
-
-            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-            draw_filled_rect(renderer, analysis_hint, (SDL_Color){0, 0, 0, 210});
-            draw_outline_rect(renderer, analysis_hint, (SDL_Color){0, 220, 80, 210});
-            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-
-            draw_text(renderer, font_small, analysis_hint_text, analysis_hint.x + 9, analysis_hint.y + 7, (SDL_Color){0, 255, 90, 255});
             draw_text(renderer, font_medium, Global_Status_Msg, win_w / 2 - 192, win_h - 36, Global_Status_Color);
 
         }

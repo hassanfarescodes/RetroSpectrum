@@ -1563,9 +1563,7 @@ void ANALYSIS_exit_mode(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *tex
     Global_Analysis_Mode = 0;
     Global_Analysis_Dirty = 0;
     Global_Analysis_Dragging = 0;
-    Global_Analysis_Filter_Visible = 0;
     Global_Analysis_Filter_Selecting = 0;
-    Global_Analysis_Filter_Active = 0;
 
     clear_waterfall(pixels, tex_w, tex_h);
     SDL_UpdateTexture(texture, NULL, pixels, tex_w * sizeof(uint32_t));

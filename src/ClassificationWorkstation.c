@@ -1054,7 +1054,9 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
             return 1;
         }
 
-        if (key == SDLK_q || key == SDLK_g) return 1;
+        if (key == SDLK_g) return 2;
+
+        if (key == SDLK_q) return 1;
 
         if (key == SDLK_r) {
             CLASSIFICATION_scan_recordings();
