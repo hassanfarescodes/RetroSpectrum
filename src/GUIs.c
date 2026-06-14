@@ -1271,11 +1271,9 @@ void ANALYSIS_draw_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, SDL_Re
 
     char msg[160];
 
-    if (Global_Analysis_Filter_Active) {
-        snprintf(msg, sizeof(msg), "Frequency filter active | Backspace clears");
-    } else {
-        snprintf(msg, sizeof(msg), "Ctrl+drag vertically here to select a frequency band");
-    }
+    snprintf(msg, sizeof(msg), "Ctrl+drag vertically here to select a frequency band");
+
+    if (!Global_Analysis_Filter_Active){
 
     int text_w = 0;
     int text_h = 0;
@@ -1296,6 +1294,8 @@ void ANALYSIS_draw_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, SDL_Re
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
     draw_text(renderer, font, msg, bg.x + 8, bg.y + 5, (SDL_Color){210, 245, 255, 255});
+
+    }
 
 }
 

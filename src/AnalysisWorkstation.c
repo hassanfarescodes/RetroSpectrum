@@ -745,12 +745,13 @@ static void ANALYSIS_get_hover_graph_layout(int win_w,
 }
 
 static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer,
+                                          TTF_Font *font,
                                           int win_w,
                                           int win_h){
 
     /*
 
-    Purpose: Draws one synchronized hover line across every analysis graph except I/Q
+    Purpose: Draws synchronized hover markers across related analysis views
 
     Return: No return
 
@@ -779,48 +780,141 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer,
     int mouse_y = 0;
     SDL_GetMouseState(&mouse_x, &mouse_y);
 
-    SDL_Rect hover_rects[5] = {
-        psd_rect,
+    SDL_Rect time_rects[4] = {
         mag_rect,
         phase_rect,
         inst_rect,
         spec_rect
     };
 
-    int found_hover = 0;
-    double frac = 0.0;
+    int found_time_hover = 0;
+    double time_frac = 0.0;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
 
-        if (point_in_rect(mouse_x, mouse_y, hover_rects[i]) && hover_rects[i].w > 0) {
+        if (point_in_rect(mouse_x, mouse_y, time_rects[i]) && time_rects[i].w > 0) {
 
-            frac = (double)(mouse_x - hover_rects[i].x) / (double)hover_rects[i].w;
-            found_hover = 1;
+            time_frac = (double)(mouse_x - time_rects[i].x) / (double)time_rects[i].w;
+            found_time_hover = 1;
             break;
 
         }
 
     }
 
-    if (!found_hover) return;
-
-    frac = ANALYSIS_limit_double(frac, 0.0, 1.0);
-
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 255, 90, 190);
 
-    for (int i = 0; i < 5; i++) {
+    if (found_time_hover) {
 
-        SDL_Rect r = hover_rects[i];
+        time_frac = ANALYSIS_limit_double(time_frac, 0.0, 1.0);
 
-        if (r.w <= 0 || r.h <= 0) continue;
+        SDL_SetRenderDrawColor(renderer, 0, 255, 90, 190);
 
-        int line_x = r.x + (int)(frac * (double)r.w);
+        for (int i = 0; i < 4; i++) {
 
-        if (line_x < r.x) line_x = r.x;
-        if (line_x > r.x + r.w - 1) line_x = r.x + r.w - 1;
+            SDL_Rect r = time_rects[i];
 
-        SDL_RenderDrawLine(renderer, line_x, r.y, line_x, r.y + r.h);
+            if (r.w <= 0 || r.h <= 0) continue;
+
+            int line_x = r.x + (int)(time_frac * (double)r.w);
+
+            if (line_x < r.x) line_x = r.x;
+            if (line_x > r.x + r.w - 1) line_x = r.x + r.w - 1;
+
+            SDL_RenderDrawLine(renderer, line_x, r.y, line_x, r.y + r.h);
+
+        }
+
+    }
+
+    int found_freq_hover = 0;
+    double freq_frac = 0.0;
+
+    if (point_in_rect(mouse_x, mouse_y, spec_rect) && spec_rect.h > 0) {
+
+        freq_frac = (double)(mouse_y - spec_rect.y) / (double)spec_rect.h;
+        found_freq_hover = 1;
+
+    }
+
+    else if (point_in_rect(mouse_x, mouse_y, psd_rect) && psd_rect.w > 0) {
+
+        double psd_frac = (double)(mouse_x - psd_rect.x) / (double)psd_rect.w;
+        freq_frac = 1.0 - psd_frac;
+        found_freq_hover = 1;
+
+    }
+
+    if (found_freq_hover) {
+
+        freq_frac = ANALYSIS_limit_double(freq_frac, 0.0, 1.0);
+
+        SDL_SetRenderDrawColor(renderer, 0, 170, 255, 210);
+
+        if (spec_rect.w > 0 && spec_rect.h > 0) {
+
+            int line_y = spec_rect.y + (int)(freq_frac * (double)spec_rect.h);
+
+            if (line_y < spec_rect.y) line_y = spec_rect.y;
+            if (line_y > spec_rect.y + spec_rect.h - 1) line_y = spec_rect.y + spec_rect.h - 1;
+
+            SDL_RenderDrawLine(renderer, spec_rect.x, line_y, spec_rect.x + spec_rect.w, line_y);
+
+        }
+
+        if (psd_rect.w > 0 && psd_rect.h > 0) {
+
+            int line_x = psd_rect.x + (int)((1.0 - freq_frac) * (double)psd_rect.w);
+
+            if (line_x < psd_rect.x) line_x = psd_rect.x;
+            if (line_x > psd_rect.x + psd_rect.w - 1) line_x = psd_rect.x + psd_rect.w - 1;
+
+            SDL_RenderDrawLine(renderer, line_x, psd_rect.y, line_x, psd_rect.y + psd_rect.h);
+
+            if (font) {
+
+                double hover_freq_hz = Global_Analysis_Center_Hz +
+                                       ((0.5 - freq_frac) * Global_Analysis_Sample_Rate);
+
+                char freq_label[96];
+
+                snprintf(freq_label,
+                         sizeof(freq_label),
+                         "%.6f MHz",
+                         hover_freq_hz / 1e6);
+
+                int text_w = 0;
+                int text_h = 0;
+
+                if (TTF_SizeText(font, freq_label, &text_w, &text_h) != 0) {
+
+                    text_w = 0;
+                    text_h = 0;
+
+                }
+
+                SDL_Rect label_bg = {
+                    psd_rect.x + psd_rect.w - text_w - 18,
+                    psd_rect.y - text_h - 8,
+                    text_w + 14,
+                    text_h + 6
+                };
+
+                if (label_bg.y < 0) label_bg.y = psd_rect.y + 4;
+                if (label_bg.x < psd_rect.x + 4) label_bg.x = psd_rect.x + 4;
+
+                draw_filled_rect(renderer, label_bg, (SDL_Color){0, 0, 0, 210});
+                draw_outline_rect(renderer, label_bg, (SDL_Color){0, 170, 255, 220});
+                draw_text(renderer,
+                          font,
+                          freq_label,
+                          label_bg.x + 7,
+                          label_bg.y + 3,
+                          (SDL_Color){0, 200, 255, 255});
+
+            }
+
+        }
 
     }
 
@@ -1378,14 +1472,15 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
 
         snprintf(column_label,
                  sizeof(column_label),
-                 "Column %.6f s - %.6f s",
+                 "%.6f s - %.6f s     (%.6f s)",
                  start_sec,
-                 end_sec);
+                 end_sec,
+                 end_sec - start_sec);
 
         SDL_Rect column_bg = {
-            spec_rect.x + spec_rect.w - 225 - 4,
+            spec_rect.x + spec_rect.w - 225 - 100,
             spec_rect.y - 30,
-            240,
+            310,//240
             24
         };
 
@@ -1452,7 +1547,7 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
 
     }
 
-    ANALYSIS_draw_hover_sync_line(renderer, win_w, win_h);
+    ANALYSIS_draw_hover_sync_line(renderer, font, win_w, win_h);
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
@@ -1589,6 +1684,8 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
     double *filter_mag = NULL;
     double *filter_re = NULL;
     double *filter_im = NULL;
+    double *filter_td_phase = NULL;
+    double *filter_td_inst_freq = NULL;
 
     int time_filter_active = Global_Analysis_Column_Active || Global_Analysis_Column_Selecting;
     int time_col_low = 0;
@@ -1642,8 +1739,11 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
         filter_mag = calloc((size_t)render_w, sizeof(double));
         filter_re = calloc((size_t)render_w, sizeof(double));
         filter_im = calloc((size_t)render_w, sizeof(double));
+        filter_td_phase = calloc((size_t)render_w, sizeof(double));
+        filter_td_inst_freq = calloc((size_t)render_w, sizeof(double));
 
-        if (!filter_mag || !filter_re || !filter_im) {
+        if (!filter_mag || !filter_re || !filter_im ||
+            !filter_td_phase || !filter_td_inst_freq) {
             filter_active = 0;
         }
 
@@ -1691,6 +1791,91 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
         }
 
         double avg_mag = sum_mag / (double)ANALYSIS_FFT_SIZE;
+
+        if (filter_active && Global_Analysis_Sample_Rate > 0.0) {
+
+            double bin_center = ((double)filter_bin_low + (double)filter_bin_high) * 0.5;
+            double center_offset_hz = (bin_center - ((double)ANALYSIS_FFT_SIZE * 0.5)) *
+                                      (Global_Analysis_Sample_Rate / (double)ANALYSIS_FFT_SIZE);
+            double bin_width_hz = Global_Analysis_Sample_Rate / (double)ANALYSIS_FFT_SIZE;
+            double filter_width_hz = (double)(filter_bin_high - filter_bin_low + 1) * bin_width_hz;
+            double cutoff_hz = filter_width_hz * 0.5;
+
+            if (cutoff_hz < bin_width_hz) cutoff_hz = bin_width_hz;
+            if (cutoff_hz > Global_Analysis_Sample_Rate * 0.45) cutoff_hz = Global_Analysis_Sample_Rate * 0.45;
+
+            double alpha = (2.0 * M_PI * cutoff_hz) /
+                           (Global_Analysis_Sample_Rate + (2.0 * M_PI * cutoff_hz));
+            double omega = 2.0 * M_PI * center_offset_hz / Global_Analysis_Sample_Rate;
+            double phase_sum_i = 0.0;
+            double phase_sum_q = 0.0;
+            double inst_freq_sum = 0.0;
+            int    inst_freq_count = 0;
+            double lp_i = 0.0;
+            double lp_q = 0.0;
+            double prev_i = 0.0;
+            double prev_q = 0.0;
+            size_t samples_per_column = render_w > 0 ?
+                                        Global_Analysis_View_Len / (size_t)render_w :
+                                        (size_t)ANALYSIS_FFT_SIZE;
+            int inst_sample_count = (int)samples_per_column;
+
+            if (inst_sample_count < 8) inst_sample_count = 8;
+            if (inst_sample_count > 512) inst_sample_count = 512;
+            if (inst_sample_count > ANALYSIS_FFT_SIZE) inst_sample_count = ANALYSIS_FFT_SIZE;
+
+            for (int k = 0; k < inst_sample_count; k++) {
+
+                double I = (double)block[k * 2] / 32768.0;
+                double Q = (double)block[k * 2 + 1] / 32768.0;
+                double angle = -omega * (double)k;
+                double c = cos(angle);
+                double s = sin(angle);
+                double mix_i = I * c - Q * s;
+                double mix_q = I * s + Q * c;
+
+                if (k == 0) {
+
+                    lp_i = mix_i;
+                    lp_q = mix_q;
+
+                }
+
+                else {
+
+                    lp_i += alpha * (mix_i - lp_i);
+                    lp_q += alpha * (mix_q - lp_q);
+
+                }
+
+                phase_sum_i += lp_i;
+                phase_sum_q += lp_q;
+
+                if (k > 0) {
+
+                    double prod_i = lp_i * prev_i + lp_q * prev_q;
+                    double prod_q = lp_q * prev_i - lp_i * prev_q;
+                    double dphase = ANALYSIS_wrap_phase(atan2(prod_q, prod_i));
+
+                    inst_freq_sum += dphase * Global_Analysis_Sample_Rate / (2.0 * M_PI);
+                    inst_freq_count++;
+
+                }
+
+                prev_i = lp_i;
+                prev_q = lp_q;
+
+            }
+
+            filter_td_phase[x] = atan2(phase_sum_q, phase_sum_i);
+
+            if (inst_freq_count > 0) {
+
+                filter_td_inst_freq[x] = inst_freq_sum / (double)inst_freq_count;
+
+            }
+
+        }
 
         Global_Analysis_Mag_Line[x] = (float)avg_mag;
 
@@ -1741,15 +1926,6 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
         int bin_count = filter_bin_high - filter_bin_low + 1;
         if (bin_count < 1) bin_count = 1;
 
-        double samples_per_column = render_w > 1 ?
-                                    (double)Global_Analysis_View_Len / (double)(render_w - 1) :
-                                    (double)ANALYSIS_FFT_SIZE;
-        double seconds_per_column = Global_Analysis_Sample_Rate > 0.0 ?
-                                    samples_per_column / Global_Analysis_Sample_Rate :
-                                    1.0;
-
-        if (seconds_per_column <= 0.0) seconds_per_column = 1.0;
-
         for (int x = 0; x < render_w; x++) {
 
             double avg_mag = filter_mag[x] / (double)bin_count;
@@ -1784,6 +1960,113 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
         }
 
+        /*
+         * Make the phase graph useful as a general phase-deviation view.
+         *
+         * The raw atan2() phase is wrapped to -pi..pi and usually draws as
+         * vertical jumps. After a selected band is mixed to baseband, any
+         * residual center-frequency error appears as a steady linear phase
+         * ramp. For display, unwrap phase across each valid burst/segment and
+         * remove the best-fit linear ramp from that segment. This leaves the
+         * phase changes caused by modulation while hiding the unhelpful carrier
+         * rotation.
+         */
+
+        int seg_start = -1;
+
+        while (seg_start < render_w) {
+
+            while (seg_start < render_w && !valid_phase[seg_start]) seg_start++;
+            if (seg_start >= render_w) break;
+
+            int seg_end = seg_start;
+
+            while (seg_end + 1 < render_w && valid_phase[seg_end + 1]) seg_end++;
+
+            double unwrapped = filter_td_phase[seg_start];
+            double prev_raw = filter_td_phase[seg_start];
+            filter_td_phase[seg_start] = unwrapped;
+
+            for (int x = seg_start + 1; x <= seg_end; x++) {
+
+                double raw = filter_td_phase[x];
+                unwrapped += ANALYSIS_wrap_phase(raw - prev_raw);
+                filter_td_phase[x] = unwrapped;
+                prev_raw = raw;
+
+            }
+
+            int n = seg_end - seg_start + 1;
+
+            if (n >= 2) {
+
+                double sum_x = 0.0;
+                double sum_y = 0.0;
+                double sum_xx = 0.0;
+                double sum_xy = 0.0;
+
+                for (int x = seg_start; x <= seg_end; x++) {
+
+                    double dx = (double)(x - seg_start);
+                    double y = filter_td_phase[x];
+
+                    sum_x += dx;
+                    sum_y += y;
+                    sum_xx += dx * dx;
+                    sum_xy += dx * y;
+
+                }
+
+                double denom = ((double)n * sum_xx) - (sum_x * sum_x);
+                double slope = 0.0;
+                double intercept = sum_y / (double)n;
+
+                if (fabs(denom) > 1e-12) {
+
+                    slope = (((double)n * sum_xy) - (sum_x * sum_y)) / denom;
+                    intercept = (sum_y - slope * sum_x) / (double)n;
+
+                }
+
+                for (int x = seg_start; x <= seg_end; x++) {
+
+                    double dx = (double)(x - seg_start);
+                    filter_td_phase[x] -= intercept + slope * dx;
+
+                }
+
+            }
+
+            else {
+
+                filter_td_phase[seg_start] = 0.0;
+
+            }
+
+            seg_start = seg_end + 1;
+
+        }
+
+        double inst_freq_mean = 0.0;
+        int inst_freq_mean_count = 0;
+
+        for (int x = 0; x < render_w; x++) {
+
+            if (valid_phase[x]) {
+
+                inst_freq_mean += filter_td_inst_freq[x];
+                inst_freq_mean_count++;
+
+            }
+
+        }
+
+        if (inst_freq_mean_count > 0) {
+
+            inst_freq_mean /= (double)inst_freq_mean_count;
+
+        }
+
         for (int x = 0; x < render_w; x++) {
 
             double phase = 0.0;
@@ -1791,17 +2074,8 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
             if (valid_phase[x]) {
 
-                phase = atan2(filter_im[x], filter_re[x]);
-
-                if (x > 0 && valid_phase[x - 1]) {
-
-                    double prev_phase = atan2(filter_im[x - 1], filter_re[x - 1]);
-                    double curr_phase = phase;
-                    double dphase = ANALYSIS_wrap_phase(curr_phase - prev_phase);
-
-                    inst_freq_hz = dphase / (2.0 * M_PI * seconds_per_column);
-
-                }
+                phase = filter_td_phase[x];
+                inst_freq_hz = filter_td_inst_freq[x] - inst_freq_mean;
 
                 if (fabs(phase) > max_phase_abs) max_phase_abs = fabs(phase);
                 if (fabs(inst_freq_hz) > max_inst_freq_abs) max_inst_freq_abs = fabs(inst_freq_hz);
@@ -2078,6 +2352,8 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
     free(filter_mag);
     free(filter_re);
     free(filter_im);
+    free(filter_td_phase);
+    free(filter_td_inst_freq);
     fftw_free(in);
     fftw_free(out);
     fclose(fp);
