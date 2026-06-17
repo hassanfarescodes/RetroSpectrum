@@ -1389,6 +1389,144 @@ static void ANALYSIS_apply_column_selection(void){
 
 }
 
+
+int ANALYSIS_export_classification_fields(char *file_name,
+                                          size_t file_name_size,
+                                          double *frequency_mhz,
+                                          double *bandwidth_khz,
+                                          double *start_time,
+                                          double *end_time){
+
+    /*
+
+    Purpose: Exports the currently loaded analysis selection as classification fields
+
+    Return: Export status
+
+    */
+
+    if (!file_name || file_name_size == 0 ||
+        !frequency_mhz || !bandwidth_khz || !start_time || !end_time) {
+
+        return 0;
+
+    }
+
+    file_name[0] = '\0';
+    *frequency_mhz = 0.0;
+    *bandwidth_khz = 0.0;
+    *start_time = 0.0;
+    *end_time = 0.0;
+
+    if (Global_Analysis_IQ_Count == 0 ||
+        Global_Analysis_View_Len == 0 ||
+        Global_Analysis_Path[0] == '\0' ||
+        Global_Analysis_Sample_Rate <= 0.0) {
+
+        snprintf(Global_Analysis_Status,
+                 sizeof(Global_Analysis_Status),
+                 "Open a recording before exporting to classification");
+        return 0;
+
+    }
+
+    const char *name = Global_Analysis_Path;
+
+    for (const char *p = Global_Analysis_Path; *p; p++) {
+
+        if (*p == '/' || *p == '\\') {
+
+            name = p + 1;
+
+        }
+
+    }
+
+    if (Global_Analysis_Loaded_Index >= 0 &&
+        Global_Analysis_Loaded_Index < Global_Analysis_File_Count &&
+        Global_Analysis_Files[Global_Analysis_Loaded_Index][0] != '\0') {
+
+        name = Global_Analysis_Files[Global_Analysis_Loaded_Index];
+
+    }
+
+    snprintf(file_name, file_name_size, "%s", name);
+
+    double center_hz = Global_Analysis_Center_Hz;
+    double bw_hz = Global_Analysis_Sample_Rate;
+
+    if (Global_Analysis_Filter_Active || Global_Analysis_Filter_Visible) {
+
+        double y0 = Global_Analysis_Filter_Y0;
+        double y1 = Global_Analysis_Filter_Y1;
+
+        if (y1 < y0) {
+
+            double tmp = y0;
+            y0 = y1;
+            y1 = tmp;
+
+        }
+
+        y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
+        y1 = ANALYSIS_limit_double(y1, 0.0, 1.0);
+
+        double center_y = (y0 + y1) * 0.5;
+        center_hz = ANALYSIS_frequency_from_spec_frac(center_y);
+        bw_hz = fabs(y1 - y0) * Global_Analysis_Sample_Rate;
+
+    }
+
+    double x0 = 0.0;
+    double x1 = 1.0;
+
+    if (Global_Analysis_Column_Active || Global_Analysis_Column_Visible) {
+
+        x0 = Global_Analysis_Column_X0;
+        x1 = Global_Analysis_Column_X1;
+
+        if (x1 < x0) {
+
+            double tmp = x0;
+            x0 = x1;
+            x1 = tmp;
+
+        }
+
+        x0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
+        x1 = ANALYSIS_limit_double(x1, 0.0, 1.0);
+
+    }
+
+    size_t start_sample = Global_Analysis_View_Start +
+                          (size_t)(x0 * (double)Global_Analysis_View_Len);
+    size_t end_sample = Global_Analysis_View_Start +
+                        (size_t)(x1 * (double)Global_Analysis_View_Len);
+
+    if (start_sample > Global_Analysis_IQ_Count) start_sample = Global_Analysis_IQ_Count;
+    if (end_sample > Global_Analysis_IQ_Count) end_sample = Global_Analysis_IQ_Count;
+
+    if (end_sample < start_sample) {
+
+        size_t tmp = start_sample;
+        start_sample = end_sample;
+        end_sample = tmp;
+
+    }
+
+    *frequency_mhz = center_hz / 1e6;
+    *bandwidth_khz = bw_hz / 1e3;
+    *start_time = (double)start_sample / Global_Analysis_Sample_Rate;
+    *end_time = (double)end_sample / Global_Analysis_Sample_Rate;
+
+    snprintf(Global_Analysis_Status,
+             sizeof(Global_Analysis_Status),
+             "Exported selection to classification fields");
+
+    return 1;
+
+}
+
 void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
                                                TTF_Font *font,
                                                SDL_Texture *texture,

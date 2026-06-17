@@ -736,6 +736,62 @@ static void CLASSIFICATION_load_selected_file_into_fields(void)
              file_name);
 }
 
+
+void CLASSIFICATION_prefill_from_analysis_selection(const char *file_name,
+                                                    double frequency_mhz,
+                                                    double bandwidth_khz,
+                                                    double start_time,
+                                                    double end_time)
+{
+    if (file_name && file_name[0]) {
+        snprintf(Global_Classification_Field_Text[CLASSIFICATION_FIELD_FILE_NAME],
+                 CLASSIFICATION_MAX_TEXT,
+                 "%s",
+                 file_name);
+
+        for (int i = 0; i < Global_Classification_File_Count; i++) {
+            if (strcmp(Global_Classification_Files[i], file_name) == 0) {
+                Global_Classification_Selected_File = i;
+                Global_Classification_File_Scroll = i - 4;
+                if (Global_Classification_File_Scroll < 0) {
+                    Global_Classification_File_Scroll = 0;
+                }
+                break;
+            }
+        }
+    }
+
+    snprintf(Global_Classification_Field_Text[CLASSIFICATION_FIELD_FREQUENCY_MHZ],
+             CLASSIFICATION_MAX_TEXT,
+             "%.6f",
+             frequency_mhz);
+
+    snprintf(Global_Classification_Field_Text[CLASSIFICATION_FIELD_BANDWIDTH],
+             CLASSIFICATION_MAX_TEXT,
+             "%.3f kHz",
+             bandwidth_khz);
+
+    snprintf(Global_Classification_Field_Text[CLASSIFICATION_FIELD_START_TIME],
+             CLASSIFICATION_MAX_TEXT,
+             "%.6f",
+             start_time);
+
+    snprintf(Global_Classification_Field_Text[CLASSIFICATION_FIELD_END_TIME],
+             CLASSIFICATION_MAX_TEXT,
+             "%.6f",
+             end_time);
+
+    Global_Classification_Active_Field = CLASSIFICATION_FIELD_NONE;
+    Global_Classification_Open_Dropdown = CLASSIFICATION_DROPDOWN_NONE;
+    Global_Classification_Dropdown_Scroll = 0;
+    Global_Classification_Dropdown_Hover = -1;
+    CLASSIFICATION_clamp_notes_cursor();
+
+    snprintf(Global_Classification_Status,
+             sizeof(Global_Classification_Status),
+             "Exported analysis selection. Fill Signal Name, Modulation/Class, Notes, then Save.");
+}
+
 static int CLASSIFICATION_scan_recordings(void)
 {
     DIR *dir = opendir(Global_Classification_Record_Dir);

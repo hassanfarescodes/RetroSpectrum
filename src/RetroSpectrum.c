@@ -63,6 +63,19 @@
 
 void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, double *db);
 
+int ANALYSIS_export_classification_fields(char *file_name,
+                                          size_t file_name_size,
+                                          double *frequency_mhz,
+                                          double *bandwidth_khz,
+                                          double *start_time,
+                                          double *end_time);
+
+void CLASSIFICATION_prefill_from_analysis_selection(const char *file_name,
+                                                    double frequency_mhz,
+                                                    double bandwidth_khz,
+                                                    double start_time,
+                                                    double end_time);
+
 // ======================
 // Global Initializations
 // ======================
@@ -2142,6 +2155,43 @@ int main(int argc, char **argv){
                         }
 
                         CLASSIFICATION_enter_mode(Global_Record_Dir);
+
+                        set_status("Classification Workstation",
+                                   (SDL_Color){0, 255, 80, 255});
+
+                    }
+
+                    continue;
+
+                }
+
+                if (key == SDLK_c &&
+                    active == FIELD_NONE &&
+                    Global_Analysis_Mode &&
+                    !(SDL_GetModState() & KMOD_CTRL)) {
+
+                    char export_file_name[512];
+                    double export_frequency_mhz = 0.0;
+                    double export_bandwidth_khz = 0.0;
+                    double export_start_time = 0.0;
+                    double export_end_time = 0.0;
+
+                    if (ANALYSIS_export_classification_fields(export_file_name,
+                                                              sizeof(export_file_name),
+                                                              &export_frequency_mhz,
+                                                              &export_bandwidth_khz,
+                                                              &export_start_time,
+                                                              &export_end_time)) {
+
+                        ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
+                        next_waterfall_ms = SDL_GetTicks64();
+
+                        CLASSIFICATION_enter_mode(Global_Record_Dir);
+                        CLASSIFICATION_prefill_from_analysis_selection(export_file_name,
+                                                                       export_frequency_mhz,
+                                                                       export_bandwidth_khz,
+                                                                       export_start_time,
+                                                                       export_end_time);
 
                         set_status("Classification Workstation",
                                    (SDL_Color){0, 255, 80, 255});
