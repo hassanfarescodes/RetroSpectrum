@@ -1773,6 +1773,267 @@ static int apply_from_inputs(
 }
 
 
+// ==========================
+// Main Text Box Cursor Helpers
+// ==========================
+
+static int main_field_index(Type_Active_Fields field){
+
+    switch (field) {
+        case FIELD_FREQ:    return 0;
+        case FIELD_SR:      return 1;
+        case FIELD_DISPLAY: return 2;
+        case FIELD_LNA:     return 3;
+        case FIELD_VGA:     return 4;
+        case FIELD_FPS:     return 5;
+        case FIELD_ROWS:    return 6;
+        default:            return -1;
+    }
+
+}
+
+static char *main_field_text_by_index(int index,
+                                      Type_Input_Box *freq_box,
+                                      Type_Input_Box *sr_box,
+                                      Type_Input_Box *display_box,
+                                      Type_Input_Box *lna_box,
+                                      Type_Input_Box *vga_box,
+                                      Type_Input_Box *fps_box,
+                                      Type_Input_Box *rows_box,
+                                      size_t *text_size){
+
+    if (text_size) *text_size = 0;
+
+    switch (index) {
+        case 0:
+            if (text_size) *text_size = sizeof(freq_box->text);
+            return freq_box->text;
+        case 1:
+            if (text_size) *text_size = sizeof(sr_box->text);
+            return sr_box->text;
+        case 2:
+            if (text_size) *text_size = sizeof(display_box->text);
+            return display_box->text;
+        case 3:
+            if (text_size) *text_size = sizeof(lna_box->text);
+            return lna_box->text;
+        case 4:
+            if (text_size) *text_size = sizeof(vga_box->text);
+            return vga_box->text;
+        case 5:
+            if (text_size) *text_size = sizeof(fps_box->text);
+            return fps_box->text;
+        case 6:
+            if (text_size) *text_size = sizeof(rows_box->text);
+            return rows_box->text;
+        default:
+            return NULL;
+    }
+
+}
+
+static char *main_field_text(Type_Active_Fields field,
+                             Type_Input_Box *freq_box,
+                             Type_Input_Box *sr_box,
+                             Type_Input_Box *display_box,
+                             Type_Input_Box *lna_box,
+                             Type_Input_Box *vga_box,
+                             Type_Input_Box *fps_box,
+                             Type_Input_Box *rows_box,
+                             size_t *text_size){
+
+    return main_field_text_by_index(main_field_index(field),
+                                    freq_box,
+                                    sr_box,
+                                    display_box,
+                                    lna_box,
+                                    vga_box,
+                                    fps_box,
+                                    rows_box,
+                                    text_size);
+
+}
+
+static void main_clamp_cursor_for_text(const char *text, int *cursor){
+
+    if (!text || !cursor) return;
+
+    int len = (int)strlen(text);
+
+    if (*cursor < 0) *cursor = 0;
+    if (*cursor > len) *cursor = len;
+
+}
+
+static void main_reset_input_cursors(int cursors[7],
+                                     Type_Input_Box *freq_box,
+                                     Type_Input_Box *sr_box,
+                                     Type_Input_Box *display_box,
+                                     Type_Input_Box *lna_box,
+                                     Type_Input_Box *vga_box,
+                                     Type_Input_Box *fps_box,
+                                     Type_Input_Box *rows_box){
+
+    Type_Input_Box *boxes[7] = {
+        freq_box,
+        sr_box,
+        display_box,
+        lna_box,
+        vga_box,
+        fps_box,
+        rows_box
+    };
+
+    for (int i = 0; i < 7; i++) {
+        cursors[i] = boxes[i] ? (int)strlen(boxes[i]->text) : 0;
+    }
+
+}
+
+static void main_set_active_cursor_end(Type_Active_Fields field,
+                                       int cursors[7],
+                                       Type_Input_Box *freq_box,
+                                       Type_Input_Box *sr_box,
+                                       Type_Input_Box *display_box,
+                                       Type_Input_Box *lna_box,
+                                       Type_Input_Box *vga_box,
+                                       Type_Input_Box *fps_box,
+                                       Type_Input_Box *rows_box){
+
+    int index = main_field_index(field);
+
+    if (index < 0 || index >= 7) return;
+
+    size_t text_size = 0;
+    char *text = main_field_text_by_index(index,
+                                          freq_box,
+                                          sr_box,
+                                          display_box,
+                                          lna_box,
+                                          vga_box,
+                                          fps_box,
+                                          rows_box,
+                                          &text_size);
+    (void)text_size;
+
+    cursors[index] = text ? (int)strlen(text) : 0;
+
+}
+
+static void main_insert_text_at_cursor(char *dst, size_t dst_size, int *cursor, const char *src){
+
+    if (!dst || dst_size == 0 || !cursor || !src) return;
+
+    main_clamp_cursor_for_text(dst, cursor);
+
+    while (*src) {
+        char c = *src++;
+
+        if (!((c >= '0' && c <= '9') || c == '.')) continue;
+
+        size_t len = strlen(dst);
+
+        if (len + 1 >= dst_size) break;
+
+        int pos = *cursor;
+
+        if (pos < 0) pos = 0;
+        if (pos > (int)len) pos = (int)len;
+
+        memmove(dst + pos + 1, dst + pos, len - (size_t)pos + 1);
+        dst[pos] = c;
+        *cursor = pos + 1;
+    }
+
+}
+
+static void main_backspace_at_cursor(char *dst, int *cursor){
+
+    if (!dst || !cursor) return;
+
+    main_clamp_cursor_for_text(dst, cursor);
+
+    if (*cursor <= 0) return;
+
+    size_t len = strlen(dst);
+    int pos = *cursor;
+
+    memmove(dst + pos - 1, dst + pos, len - (size_t)pos + 1);
+    *cursor = pos - 1;
+
+}
+
+static void main_move_active_cursor(Type_Active_Fields field,
+                                    int cursors[7],
+                                    int delta,
+                                    Type_Input_Box *freq_box,
+                                    Type_Input_Box *sr_box,
+                                    Type_Input_Box *display_box,
+                                    Type_Input_Box *lna_box,
+                                    Type_Input_Box *vga_box,
+                                    Type_Input_Box *fps_box,
+                                    Type_Input_Box *rows_box){
+
+    int index = main_field_index(field);
+
+    if (index < 0 || index >= 7) return;
+
+    size_t text_size = 0;
+    char *text = main_field_text_by_index(index,
+                                          freq_box,
+                                          sr_box,
+                                          display_box,
+                                          lna_box,
+                                          vga_box,
+                                          fps_box,
+                                          rows_box,
+                                          &text_size);
+    (void)text_size;
+
+    if (!text) return;
+
+    cursors[index] += delta;
+    main_clamp_cursor_for_text(text, &cursors[index]);
+
+}
+
+static void main_make_cursor_box(Type_Input_Box *dst,
+                                 const Type_Input_Box *src,
+                                 int active,
+                                 int cursor){
+
+    if (!dst || !src) return;
+
+    *dst = *src;
+
+    if (!active) return;
+
+    const char *text = src->text;
+    int len = (int)strlen(text);
+
+    if (cursor < 0) cursor = 0;
+    if (cursor > len) cursor = len;
+
+    size_t out_size = sizeof(dst->text);
+    size_t out = 0;
+
+    for (int i = 0; i < cursor && out + 1 < out_size; i++) {
+        dst->text[out++] = text[i];
+    }
+
+    if (out + 1 < out_size) {
+        dst->text[out++] = '_';
+    }
+
+    for (int i = cursor; text[i] && out + 1 < out_size; i++) {
+        dst->text[out++] = text[i];
+    }
+
+    dst->text[out] = '\0';
+
+}
+
+
 // =====================
 // Command Line Handling
 // =====================
@@ -1791,36 +2052,20 @@ static int parse_command_line_args(int argc, char **argv){
 
     if (argc <= 1) {
 
-        fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+        fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
         fprintf(stderr, "  -o record_dir   Required directory used to save and scan recordings.\n");
-        fprintf(stderr, "  -C 0|1          Optional cached recording toggle: 0 disables cache, 1 enables 5-second cache.\n");
         return 0;
 
     }
 
     for (int i = 1; i < argc; i++) {
 
-        if (strcmp(argv[i], "-C") == 0) {
-
-            if (i + 1 >= argc) {
-
-                fprintf(stderr, "Missing value for -C. Use -C 0 or -C 1.\n");
-                fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
-                return 0;
-
-            }
-
-            Global_Cached_Recording = atoi(argv[i + 1]) ? 1 : 0;
-            i++;
-
-        }
-
-        else if (strcmp(argv[i], "-o") == 0) {
+        if (strcmp(argv[i], "-o") == 0) {
 
             if (i + 1 >= argc) {
 
                 fprintf(stderr, "Missing value for -o record directory.\n");
-                fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+                fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
                 return 0;
 
             }
@@ -1834,10 +2079,9 @@ static int parse_command_line_args(int argc, char **argv){
         else {
 
             fprintf(stderr, "Unknown argument: %s\n", argv[i]);
-            fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+            fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
             fprintf(stderr, "  -o record_dir   Required directory used to save and scan recordings.\n");
-            fprintf(stderr, "  -C 0|1          Optional cached recording toggle: 0 disables cache, 1 enables 5-second cache.\n");
-            return 0;
+                return 0;
 
         }
 
@@ -1846,9 +2090,8 @@ static int parse_command_line_args(int argc, char **argv){
     if (!output_dir_provided) {
 
         fprintf(stderr, "Missing required -o record directory.\n");
-        fprintf(stderr, "Usage: %s -o record_dir [-C 0|1]\n", argv[0]);
+        fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
         fprintf(stderr, "  -o record_dir   Required directory used to save and scan recordings.\n");
-        fprintf(stderr, "  -C 0|1          Optional cached recording toggle: 0 disables cache, 1 enables 5-second cache.\n");
         return 0;
 
     }
@@ -2043,6 +2286,17 @@ int main(int argc, char **argv){
     snprintf(rows_box.text, sizeof(rows_box.text), "%d", Global_Rows_Per_Frame);
 
     Type_Active_Fields active = FIELD_NONE;
+    int main_input_cursors[7];
+
+    main_reset_input_cursors(main_input_cursors,
+                             &freq_box,
+                             &sr_box,
+                             &display_box,
+                             &lna_box,
+                             &vga_box,
+                             &fps_box,
+                             &rows_box);
+
     uint64_t next_waterfall_ms = SDL_GetTicks64();
 
 
@@ -2052,6 +2306,7 @@ int main(int argc, char **argv){
 
         SDL_Rect amp_box;
         SDL_Rect dc_box;
+        SDL_Rect cache_box;
         SDL_Rect sel_button;
         SDL_Rect rec_button;
 
@@ -2069,6 +2324,11 @@ int main(int argc, char **argv){
             &sel_button,
             &rec_button
         );
+
+        cache_box = amp_box;
+        amp_box.y = 12;
+        cache_box.y = 40;
+        dc_box.y = 68;
 
         int waterfall_x = MARGIN;
         int waterfall_y = CONTROL_PANEL_HEIGHT + 12;
@@ -2104,6 +2364,32 @@ int main(int argc, char **argv){
 
             if (event.type == SDL_KEYDOWN) {
                 SDL_Keycode key = event.key.keysym.sym;
+
+                if (Global_Analysis_Mode) {
+
+                    int analysis_event_result = ANALYSIS_handle_event(&event,
+                                                                      win_w,
+                                                                      win_h,
+                                                                      pixels,
+                                                                      tex_w,
+                                                                      tex_h,
+                                                                      waterfall_texture,
+                                                                      &next_waterfall_ms,
+                                                                      &active);
+
+                    if (analysis_event_result == ANALYSIS_EVENT_QUIT) {
+
+                        Global_Running = 0;
+
+                    }
+
+                    if (analysis_event_result != ANALYSIS_EVENT_IGNORED) {
+
+                        continue;
+
+                    }
+
+                }
 
                 if (key == SDLK_g && active == FIELD_NONE) {
 
@@ -2240,14 +2526,55 @@ int main(int argc, char **argv){
                     else if (active == FIELD_VGA) active = FIELD_FPS;
                     else if (active == FIELD_FPS) active = FIELD_ROWS;
                     else active = FIELD_FREQ;
+
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                } else if (event.key.keysym.sym == SDLK_LEFT && active != FIELD_NONE) {
+                    main_move_active_cursor(active,
+                                            main_input_cursors,
+                                            -1,
+                                            &freq_box,
+                                            &sr_box,
+                                            &display_box,
+                                            &lna_box,
+                                            &vga_box,
+                                            &fps_box,
+                                            &rows_box);
+                } else if (event.key.keysym.sym == SDLK_RIGHT && active != FIELD_NONE) {
+                    main_move_active_cursor(active,
+                                            main_input_cursors,
+                                            1,
+                                            &freq_box,
+                                            &sr_box,
+                                            &display_box,
+                                            &lna_box,
+                                            &vga_box,
+                                            &fps_box,
+                                            &rows_box);
                 } else if (event.key.keysym.sym == SDLK_BACKSPACE) {
-                    if (active == FIELD_FREQ) backspace_text(freq_box.text);
-                    else if (active == FIELD_SR) backspace_text(sr_box.text);
-                    else if (active == FIELD_DISPLAY) backspace_text(display_box.text);
-                    else if (active == FIELD_LNA) backspace_text(lna_box.text);
-                    else if (active == FIELD_VGA) backspace_text(vga_box.text);
-                    else if (active == FIELD_FPS) backspace_text(fps_box.text);
-                    else if (active == FIELD_ROWS) backspace_text(rows_box.text);
+                    size_t text_size = 0;
+                    int index = main_field_index(active);
+                    char *text = main_field_text(active,
+                                                 &freq_box,
+                                                 &sr_box,
+                                                 &display_box,
+                                                 &lna_box,
+                                                 &vga_box,
+                                                 &fps_box,
+                                                 &rows_box,
+                                                 &text_size);
+                    (void)text_size;
+
+                    if (index >= 0 && index < 7 && text) {
+                        main_backspace_at_cursor(text, &main_input_cursors[index]);
+                    }
                 } else if (
                     event.key.keysym.sym == SDLK_RETURN ||
                     event.key.keysym.sym == SDLK_KP_ENTER
@@ -2265,6 +2592,15 @@ int main(int argc, char **argv){
                         tex_w,
                         tex_h
                     );
+
+                    main_reset_input_cursors(main_input_cursors,
+                                             &freq_box,
+                                             &sr_box,
+                                             &display_box,
+                                             &lna_box,
+                                             &vga_box,
+                                             &fps_box,
+                                             &rows_box);
 
                     next_waterfall_ms = SDL_GetTicks64();
                 } else if (event.key.keysym.sym == SDLK_q && active == FIELD_NONE) {
@@ -2300,27 +2636,24 @@ int main(int argc, char **argv){
 
             if (event.type == SDL_TEXTINPUT) {
 
-                if (active == FIELD_FREQ) append_text(freq_box.text, sizeof(freq_box.text), 
-                                                      event.text.text);
+                size_t text_size = 0;
+                int index = main_field_index(active);
+                char *text = main_field_text(active,
+                                             &freq_box,
+                                             &sr_box,
+                                             &display_box,
+                                             &lna_box,
+                                             &vga_box,
+                                             &fps_box,
+                                             &rows_box,
+                                             &text_size);
 
-                else if (active == FIELD_SR) append_text(sr_box.text, sizeof(sr_box.text), 
-                                                         event.text.text);
-
-                else if (active == FIELD_DISPLAY) append_text(display_box.text, 
-                                                              sizeof(display_box.text), 
-                                                              event.text.text);
-
-                else if (active == FIELD_LNA) append_text(lna_box.text, sizeof(lna_box.text), 
-                                                          event.text.text);
-
-                else if (active == FIELD_VGA) append_text(vga_box.text, sizeof(vga_box.text), 
-                                                          event.text.text);
-
-                else if (active == FIELD_FPS) append_text(fps_box.text, sizeof(fps_box.text), 
-                                                          event.text.text);
-
-                else if (active == FIELD_ROWS) append_text(rows_box.text, sizeof(rows_box.text), 
-                                                           event.text.text);
+                if (index >= 0 && index < 7 && text) {
+                    main_insert_text_at_cursor(text,
+                                               text_size,
+                                               &main_input_cursors[index],
+                                               event.text.text);
+                }
 
             }
 
@@ -2335,13 +2668,99 @@ int main(int argc, char **argv){
                     continue;
                 }
 
-                if (point_in_rect(x, y, freq_box.rect)) active = FIELD_FREQ;
-                else if (point_in_rect(x, y, sr_box.rect)) active = FIELD_SR;
-                else if (point_in_rect(x, y, display_box.rect)) active = FIELD_DISPLAY;
-                else if (point_in_rect(x, y, lna_box.rect)) active = FIELD_LNA;
-                else if (point_in_rect(x, y, vga_box.rect)) active = FIELD_VGA;
-                else if (point_in_rect(x, y, fps_box.rect)) active = FIELD_FPS;
-                else if (point_in_rect(x, y, rows_box.rect)) active = FIELD_ROWS;
+                if (point_in_rect(x, y, freq_box.rect)) {
+                    active = FIELD_FREQ;
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                }
+                else if (point_in_rect(x, y, sr_box.rect)) {
+                    active = FIELD_SR;
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                }
+                else if (point_in_rect(x, y, display_box.rect)) {
+                    active = FIELD_DISPLAY;
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                }
+                else if (point_in_rect(x, y, lna_box.rect)) {
+                    active = FIELD_LNA;
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                }
+                else if (point_in_rect(x, y, vga_box.rect)) {
+                    active = FIELD_VGA;
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                }
+                else if (point_in_rect(x, y, fps_box.rect)) {
+                    active = FIELD_FPS;
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                }
+                else if (point_in_rect(x, y, rows_box.rect)) {
+                    active = FIELD_ROWS;
+                    main_set_active_cursor_end(active,
+                                               main_input_cursors,
+                                               &freq_box,
+                                               &sr_box,
+                                               &display_box,
+                                               &lna_box,
+                                               &vga_box,
+                                               &fps_box,
+                                               &rows_box);
+                }
+                else if (point_in_rect(x, y, cache_box)) {
+                    active = FIELD_NONE;
+                    Global_Cached_Recording = !Global_Cached_Recording;
+
+                    set_status(Global_Cached_Recording ? "Cached recording enabled" : "Cached recording disabled",
+                               Global_Cached_Recording ?
+                               (SDL_Color){0, 255, 90, 255} :
+                               (SDL_Color){150, 150, 150, 255});
+                }
                 else if (point_in_rect(x, y, amp_box)) {
                     Global_Amp_Enable = !Global_Amp_Enable;
 
@@ -2358,6 +2777,15 @@ int main(int argc, char **argv){
                         tex_w,
                         tex_h
                     );
+
+                    main_reset_input_cursors(main_input_cursors,
+                                             &freq_box,
+                                             &sr_box,
+                                             &display_box,
+                                             &lna_box,
+                                             &vga_box,
+                                             &fps_box,
+                                             &rows_box);
 
                     next_waterfall_ms = SDL_GetTicks64();
                 } 
@@ -2463,23 +2891,62 @@ int main(int argc, char **argv){
 
         if (!Global_Analysis_Mode && !Global_Classification_Mode) {
 
+            Type_Input_Box draw_freq_box;
+            Type_Input_Box draw_sr_box;
+            Type_Input_Box draw_display_box;
+            Type_Input_Box draw_lna_box;
+            Type_Input_Box draw_vga_box;
+            Type_Input_Box draw_fps_box;
+            Type_Input_Box draw_rows_box;
+
+            main_make_cursor_box(&draw_freq_box,
+                                 &freq_box,
+                                 active == FIELD_FREQ,
+                                 main_input_cursors[0]);
+            main_make_cursor_box(&draw_sr_box,
+                                 &sr_box,
+                                 active == FIELD_SR,
+                                 main_input_cursors[1]);
+            main_make_cursor_box(&draw_display_box,
+                                 &display_box,
+                                 active == FIELD_DISPLAY,
+                                 main_input_cursors[2]);
+            main_make_cursor_box(&draw_lna_box,
+                                 &lna_box,
+                                 active == FIELD_LNA,
+                                 main_input_cursors[3]);
+            main_make_cursor_box(&draw_vga_box,
+                                 &vga_box,
+                                 active == FIELD_VGA,
+                                 main_input_cursors[4]);
+            main_make_cursor_box(&draw_fps_box,
+                                 &fps_box,
+                                 active == FIELD_FPS,
+                                 main_input_cursors[5]);
+            main_make_cursor_box(&draw_rows_box,
+                                 &rows_box,
+                                 active == FIELD_ROWS,
+                                 main_input_cursors[6]);
+
             draw_control_panel(
                 renderer,
                 font_medium,
                 win_w,
-                &freq_box,
-                &sr_box,
-                &display_box,
-                &lna_box,
-                &vga_box,
-                &fps_box,
-                &rows_box,
+                &draw_freq_box,
+                &draw_sr_box,
+                &draw_display_box,
+                &draw_lna_box,
+                &draw_vga_box,
+                &draw_fps_box,
+                &draw_rows_box,
                 amp_box,
                 dc_box,
                 sel_button,
                 rec_button,
                 active
             );
+
+            draw_checkbox(renderer, font_medium, cache_box, "Cache 5 sec", Global_Cached_Recording);
 
         }
 
@@ -2525,7 +2992,23 @@ int main(int argc, char **argv){
 
         if (!Global_Analysis_Mode && !Global_Classification_Mode) {
 
-            draw_text(renderer, font_medium, Global_Status_Msg, win_w / 2 - 192, win_h - 36, Global_Status_Color);
+            int status_w = 0;
+            int status_h = 0;
+
+            if (font_medium &&
+                TTF_SizeText(font_medium, Global_Status_Msg, &status_w, &status_h) != 0) {
+
+                status_w = 0;
+                status_h = 0;
+
+            }
+
+            draw_text(renderer,
+                      font_medium,
+                      Global_Status_Msg,
+                      (win_w - status_w) / 2,
+                      win_h - 36,
+                      Global_Status_Color);
 
         }
 
