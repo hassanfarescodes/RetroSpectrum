@@ -41,6 +41,15 @@
 #define ANALYSIS_SIGNAL_DECIMATION_FIELD 5
 #define ANALYSIS_SIGNAL_FILENAME_FIELD 6
 
+#ifndef RETROSPECTRUM_DASHBOARD_TAB_BAR_H
+#define RETROSPECTRUM_DASHBOARD_TAB_BAR_H 56
+#endif
+
+static void ANALYSIS_get_adjusted_mouse_state(int *x, int *y){
+    SDL_GetMouseState(x, y);
+    if (y) *y -= RETROSPECTRUM_DASHBOARD_TAB_BAR_H;
+}
+
 
 static char Global_Analysis_Record_Dir[512] = "Recordings";
 static uint64_t Global_Analysis_Fallback_Center_Hz = 0;
@@ -1018,7 +1027,7 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer,
 
     int mouse_x = 0;
     int mouse_y = 0;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
 
     SDL_Rect time_rects[4] = {
         mag_rect,
@@ -2257,7 +2266,7 @@ static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer,
 
     }
 
-    if (active) {
+    if (active && ((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
 
         ANALYSIS_signal_clamp_file_cursor();
 
@@ -2858,7 +2867,7 @@ static void ANALYSIS_draw_signal_settings_icon(SDL_Renderer *renderer,
 
     int mouse_x = 0;
     int mouse_y = 0;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
 
     int hover = point_in_rect(mouse_x, mouse_y, icon_rect);
 
@@ -2929,7 +2938,7 @@ static void ANALYSIS_draw_signal_trash_icon(SDL_Renderer *renderer,
 
     int mouse_x = 0;
     int mouse_y = 0;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
 
     int hover = point_in_rect(mouse_x, mouse_y, trash_rect);
 
@@ -3034,7 +3043,7 @@ static void ANALYSIS_draw_delete_confirm_menu(SDL_Renderer *renderer,
 
     int mouse_x = 0;
     int mouse_y = 0;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
 
     int yes_hover = point_in_rect(mouse_x, mouse_y, yes_rect);
     int no_hover = point_in_rect(mouse_x, mouse_y, no_rect);
@@ -3366,7 +3375,7 @@ static void ANALYSIS_draw_signal_menu(SDL_Renderer *renderer,
 
     int mouse_x = 0;
     int mouse_y = 0;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
 
     SDL_Rect start_marker_rect;
     SDL_Rect end_marker_rect;
@@ -5510,6 +5519,12 @@ void ANALYSIS_enter_mode(const char *record_dir,
 
 
 
+int ANALYSIS_is_text_entry_active(void)
+{
+    return Global_Analysis_Signal_Menu_Open &&
+           Global_Analysis_Signal_Active_Field != ANALYSIS_SIGNAL_FIELD_NONE;
+}
+
 int ANALYSIS_handle_event(SDL_Event *event,
                           int win_w,
                           int win_h,
@@ -5643,7 +5658,7 @@ int ANALYSIS_handle_event(SDL_Event *event,
             if (Global_Analysis_Filter_Selecting) {
 
                 int my = 0;
-                SDL_GetMouseState(NULL, &my);
+                ANALYSIS_get_adjusted_mouse_state(NULL, &my);
 
                 SDL_Rect list_rect;
                 SDL_Rect spec_rect;
@@ -5674,7 +5689,7 @@ int ANALYSIS_handle_event(SDL_Event *event,
 
         int mx = 0;
         int my = 0;
-        SDL_GetMouseState(&mx, &my);
+        ANALYSIS_get_adjusted_mouse_state(&mx, &my);
 
         SDL_Rect list_rect;
         SDL_Rect spec_rect;

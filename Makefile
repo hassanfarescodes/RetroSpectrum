@@ -1,44 +1,59 @@
-CC = gcc
+# ============================================================================
+# RetroSpectrum Makefile
+# Project layout:
+#   include/*.h
+#   src/*.c
+#   build/
+#
+# Important:
+#   - RetroSpectrum.c is the dashboard entry point.
+#   - world_map_bin_loader.c is included inside RetroSpectrum.c with
+#     WORLD_MAP_NO_DEMO, so DO NOT compile it separately.
+#   - RetroSpectrum_dashboard_only.c is an extra copy/backup, so DO NOT compile it.
+# ============================================================================
 
-CFLAGS = -Wall -Wextra -O2 -std=c11 -Iinclude
-LDLIBS = -lhackrf -lfftw3 -lSDL2 -lSDL2_ttf -lm -lpthread
+CC      := gcc
+TARGET  := build/retrospectrum
 
-SRC = src/RetroSpectrum.c src/GUIs.c src/ClassificationWorkstation.c src/AnalysisWorkstation.c
-OBJ = $(SRC:src/%.c=build/%.o)
+SRC_DIR := src
+INC_DIR := include
+BUILD_DIR := build
 
-TARGET = RetroSpectrum
+SRCS := \
+	$(SRC_DIR)/RetroSpectrum.c \
+	$(SRC_DIR)/GUIs.c \
+	$(SRC_DIR)/AnalysisWorkstation.c \
+	$(SRC_DIR)/ClassificationWorkstation.c
 
-YELLOW = \033[1;33m
-GREEN  = \033[1;32m
-RESET  = \033[0m
+OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-TOTAL_STEPS := $(shell echo $$(($(words $(OBJ)) + 1)))
-STEP_FILE = build/.build_step
+CFLAGS  := -Wall -Wextra -O2 -std=c11 -I$(INC_DIR)
+LDFLAGS :=
+LDLIBS  := -lhackrf -lfftw3 -lSDL2 -lSDL2_ttf -lSDL2_image -lm -lpthread
 
-all: init_progress $(TARGET)
-	@printf "$(GREEN)[100%%] Build complete: ./$(TARGET)$(RESET)\n"
+MAP_SRC := $(SRC_DIR)/world_map.bin
+MAP_DST := $(BUILD_DIR)/world_map.bin
 
-init_progress:
-	@mkdir -p build
-	@echo 0 > $(STEP_FILE)
+.PHONY: all clean run assets
 
-$(TARGET): $(OBJ)
-	@step=$$(cat $(STEP_FILE)); \
-	step=$$((step + 1)); \
-	echo $$step > $(STEP_FILE); \
-	percent=$$((step * 100 / $(TOTAL_STEPS))); \
-	printf "$(YELLOW)[%3d%%] Linking $(TARGET)$(RESET)\n" $$percent
-	$(CC) $(OBJ) -o $(TARGET) $(LDLIBS)
+all: $(TARGET) assets
 
-build/%.o: src/%.c
-	@mkdir -p build
-	@step=$$(cat $(STEP_FILE) 2>/dev/null || echo 0); \
-	step=$$((step + 1)); \
-	echo $$step > $(STEP_FILE); \
-	percent=$$((step * 100 / $(TOTAL_STEPS))); \
-	printf "$(YELLOW)[%3d%%] Compiling $<$(RESET)\n" $$percent
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(TARGET): $(OBJS) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(OBJS) -o $@ $(LDFLAGS) $(LDLIBS)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+assets: | $(BUILD_DIR)
+	@if [ -f "$(MAP_SRC)" ]; then cp "$(MAP_SRC)" "$(MAP_DST)"; fi
+	@if [ -d "$(SRC_DIR)/flags" ]; then cp -r "$(SRC_DIR)/flags" "$(BUILD_DIR)/flags"; fi
+	@if [ -d "flags" ]; then cp -r "flags" "$(BUILD_DIR)/flags"; fi
+
+run: all
+	cd $(BUILD_DIR) && ./retrospectrum
+
 clean:
-	rm -f build/*.o build/.build_step $(TARGET)
-	@printf "$(GREEN)Clean complete$(RESET)\n"
+	rm -rf $(BUILD_DIR)/*.o $(TARGET) $(MAP_DST) $(BUILD_DIR)/flags

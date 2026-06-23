@@ -1,0 +1,635 @@
+--- RetroSpectrum(39).c
++++ RetroSpectrum_dashboard_only.c
+@@ -42,6 +42,7 @@
+ // SDL (GUI) Library
+ #include <SDL2/SDL_ttf.h>
+ #include <SDL2/SDL.h>
++#include <SDL2/SDL_image.h>
+ 
+ // ============
+ // Header Files
+@@ -58,6 +59,10 @@
+ 
+ // Responsible for the AnalysisWorkstation
+ #include "AnalysisWorkstation.h"
++
++// Embedded binary world map loader used directly by RetroSpectrum's dashboard.
++#define WORLD_MAP_NO_DEMO
++#include "world_map_bin_loader.c"
+ 
+ // GUI functions implemented in GUIs.c and called from this main logic file
+ 
+@@ -75,6 +80,398 @@
+                                                     double bandwidth_khz,
+                                                     double start_time,
+                                                     double end_time);
++
++
++// ==============================
++// Embedded Dashboard / Map Shell
++// ==============================
++
++typedef enum Type_Dashboard_Event {
++    DASHBOARD_EVENT_NONE = 0,
++    DASHBOARD_EVENT_QUIT,
++    DASHBOARD_EVENT_RETROSPECTRUM,
++    DASHBOARD_EVENT_ANALYSIS,
++    DASHBOARD_EVENT_CLASSIFICATION,
++    DASHBOARD_EVENT_MAP
++} Type_Dashboard_Event;
++
++typedef struct Type_Dashboard_State {
++    int enabled;
++    int map_loaded;
++    int current_tab;
++    char status[256];
++} Type_Dashboard_State;
++
++typedef struct Type_Dashboard_Tab {
++    SDL_Rect rect;
++    const char *label;
++    int event_id;
++} Type_Dashboard_Tab;
++
++#define DASHBOARD_MARGIN              20
++#define DASHBOARD_TOP_H               92
++#define DASHBOARD_TAB_H               42
++#define DASHBOARD_TAB_GAP             10
++#define DASHBOARD_CARD_H              86
++#define DASHBOARD_MIN_MAP_H           280
++
++static SDL_Color Dashboard_BG         = {0,   0,   0,   255};
++static SDL_Color Dashboard_Panel      = {0,   12,  5,   255};
++static SDL_Color Dashboard_Panel_2    = {0,   20,  8,   255};
++static SDL_Color Dashboard_Grid       = {0,   50,  20,  120};
++static SDL_Color Dashboard_Border     = {0,   150, 60,  255};
++static SDL_Color Dashboard_Border_Hi  = {0,   255, 90,  255};
++static SDL_Color Dashboard_Text       = {0,   255, 90,  255};
++static SDL_Color Dashboard_Muted      = {0,   155, 65,  255};
++static SDL_Color Dashboard_Warn       = {255, 180, 40,  255};
++static SDL_Color Dashboard_Red        = {255, 70,  55,  255};
++static SDL_Color Dashboard_Blue       = {0,   190, 255, 255};
++
++static int dashboard_point_in_rect(int x, int y, SDL_Rect r){
++    return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
++}
++
++static void dashboard_draw_text_centered(SDL_Renderer *renderer,
++                                         TTF_Font *font,
++                                         const char *text,
++                                         SDL_Rect rect,
++                                         SDL_Color color){
++    int text_w = 0;
++    int text_h = 0;
++
++    if (!font || !text) return;
++
++    if (TTF_SizeText(font, text, &text_w, &text_h) != 0) {
++        text_w = 0;
++        text_h = 0;
++    }
++
++    draw_text(renderer,
++              font,
++              text,
++              rect.x + (rect.w - text_w) / 2,
++              rect.y + (rect.h - text_h) / 2,
++              color);
++}
++
++static void dashboard_draw_grid(SDL_Renderer *renderer, int win_w, int win_h){
++    SDL_SetRenderDrawColor(renderer,
++                           Dashboard_Grid.r,
++                           Dashboard_Grid.g,
++                           Dashboard_Grid.b,
++                           Dashboard_Grid.a);
++
++    for (int x = 0; x < win_w; x += 48) {
++        SDL_RenderDrawLine(renderer, x, 0, x, win_h);
++    }
++
++    for (int y = 0; y < win_h; y += 48) {
++        SDL_RenderDrawLine(renderer, 0, y, win_w, y);
++    }
++
++    SDL_SetRenderDrawColor(renderer, 0, 90, 35, 90);
++    SDL_RenderDrawLine(renderer, 0, DASHBOARD_TOP_H, win_w, DASHBOARD_TOP_H);
++    SDL_RenderDrawLine(renderer, 0, win_h - 58, win_w, win_h - 58);
++}
++
++static SDL_Rect dashboard_top_rect(int win_w){
++    SDL_Rect rect = {DASHBOARD_MARGIN,
++                     14,
++                     win_w - 2 * DASHBOARD_MARGIN,
++                     DASHBOARD_TOP_H - 24};
++    return rect;
++}
++
++static SDL_Rect dashboard_content_rect(int win_w, int win_h){
++    SDL_Rect rect = {
++        DASHBOARD_MARGIN,
++        DASHBOARD_TOP_H + DASHBOARD_MARGIN,
++        win_w - 2 * DASHBOARD_MARGIN,
++        win_h - DASHBOARD_TOP_H - 2 * DASHBOARD_MARGIN - 50
++    };
++
++    if (rect.h < DASHBOARD_MIN_MAP_H) rect.h = DASHBOARD_MIN_MAP_H;
++    return rect;
++}
++
++static void dashboard_make_tabs(int win_w, Type_Dashboard_Tab tabs[4]){
++    int total_gap = DASHBOARD_TAB_GAP * 3;
++    int tab_w = (win_w - 2 * DASHBOARD_MARGIN - total_gap) / 4;
++    int y = DASHBOARD_TOP_H - DASHBOARD_TAB_H - 6;
++    int x = DASHBOARD_MARGIN;
++
++    tabs[0].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
++    tabs[0].label = "MAP";
++    tabs[0].event_id = DASHBOARD_EVENT_MAP;
++
++    x += tab_w + DASHBOARD_TAB_GAP;
++    tabs[1].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
++    tabs[1].label = "RETROSPECTRUM";
++    tabs[1].event_id = DASHBOARD_EVENT_RETROSPECTRUM;
++
++    x += tab_w + DASHBOARD_TAB_GAP;
++    tabs[2].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
++    tabs[2].label = "ANALYSIS";
++    tabs[2].event_id = DASHBOARD_EVENT_ANALYSIS;
++
++    x += tab_w + DASHBOARD_TAB_GAP;
++    tabs[3].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
++    tabs[3].label = "CLASSIFICATION";
++    tabs[3].event_id = DASHBOARD_EVENT_CLASSIFICATION;
++}
++
++static void dashboard_draw_tab(SDL_Renderer *renderer,
++                               TTF_Font *font,
++                               Type_Dashboard_Tab tab,
++                               int active,
++                               int hovered){
++    SDL_Color fill = active ? Dashboard_Panel_2 : Dashboard_Panel;
++    SDL_Color border = (active || hovered) ? Dashboard_Border_Hi : Dashboard_Border;
++    SDL_Color text = (active || hovered) ? Dashboard_Text : Dashboard_Muted;
++
++    draw_filled_rect(renderer, tab.rect, fill);
++    draw_outline_rect(renderer, tab.rect, border);
++
++    if (active || hovered) {
++        SDL_Rect inner = {tab.rect.x + 3,
++                          tab.rect.y + 3,
++                          tab.rect.w - 6,
++                          tab.rect.h - 6};
++        draw_outline_rect(renderer, inner, border);
++    }
++
++    dashboard_draw_text_centered(renderer, font, tab.label, tab.rect, text);
++}
++
++static void dashboard_draw_top_bar(SDL_Renderer *renderer,
++                                   TTF_Font *font_small,
++                                   TTF_Font *font_medium,
++                                   int win_w,
++                                   int mouse_x,
++                                   int mouse_y,
++                                   int active_tab){
++    SDL_Rect top = dashboard_top_rect(win_w);
++
++    draw_filled_rect(renderer, top, (SDL_Color){0, 8, 3, 235});
++    draw_outline_rect(renderer, top, Dashboard_Border);
++
++    draw_text(renderer,
++              font_medium,
++              "RETROSPECTRUM COMMAND DASHBOARD",
++              top.x + 14,
++              top.y + 8,
++              Dashboard_Text);
++
++    draw_text(renderer,
++              font_small,
++              "World map launch hub | 1 Map | 2 RetroSpectrum | 3 Analysis | 4 Classification | Ctrl+D returns here | Esc resets map",
++              top.x + 14,
++              top.y + 34,
++              Dashboard_Muted);
++
++    Type_Dashboard_Tab tabs[4];
++    dashboard_make_tabs(win_w, tabs);
++
++    for (int i = 0; i < 4; i++) {
++        dashboard_draw_tab(renderer,
++                           font_small,
++                           tabs[i],
++                           tabs[i].event_id == active_tab,
++                           dashboard_point_in_rect(mouse_x, mouse_y, tabs[i].rect));
++    }
++}
++
++static void dashboard_draw_station_card(SDL_Renderer *renderer,
++                                        TTF_Font *font_small,
++                                        TTF_Font *font_medium,
++                                        SDL_Rect rect,
++                                        const char *title,
++                                        const char *body,
++                                        SDL_Color accent){
++    draw_filled_rect(renderer, rect, (SDL_Color){0, 10, 4, 240});
++    draw_outline_rect(renderer, rect, accent);
++
++    SDL_Rect stripe = {rect.x, rect.y, 5, rect.h};
++    draw_filled_rect(renderer, stripe, accent);
++
++    draw_text(renderer, font_medium, title, rect.x + 16, rect.y + 12, Dashboard_Text);
++    draw_text(renderer, font_small, body, rect.x + 16, rect.y + 42, Dashboard_Muted);
++}
++
++static int dashboard_init(Type_Dashboard_State *dashboard, const char *map_bin_path){
++    if (!dashboard) return 0;
++
++    memset(dashboard, 0, sizeof(*dashboard));
++    dashboard->enabled = 1;
++    dashboard->current_tab = DASHBOARD_EVENT_MAP;
++
++    if (!map_bin_path || map_bin_path[0] == '\0') {
++        map_bin_path = "world_map.bin";
++    }
++
++    dashboard->map_loaded = WORLD_MAP_load(map_bin_path);
++
++    if (dashboard->map_loaded) {
++        snprintf(dashboard->status,
++                 sizeof(dashboard->status),
++                 "Loaded map data: %s",
++                 map_bin_path);
++    } else {
++        snprintf(dashboard->status,
++                 sizeof(dashboard->status),
++                 "Map data not loaded. Put world_map.bin next to the executable.");
++    }
++
++    return dashboard->map_loaded;
++}
++
++static void dashboard_shutdown(void){
++    WORLD_MAP_free();
++}
++
++static int dashboard_handle_event(Type_Dashboard_State *dashboard,
++                                  const SDL_Event *event,
++                                  int win_w,
++                                  int win_h){
++    if (!dashboard || !event || !dashboard->enabled) return DASHBOARD_EVENT_NONE;
++
++    if (event->type == SDL_QUIT) return DASHBOARD_EVENT_QUIT;
++
++    if (event->type == SDL_KEYDOWN) {
++        SDL_Keycode key = event->key.keysym.sym;
++
++        if (key == SDLK_q) return DASHBOARD_EVENT_QUIT;
++        if (key == SDLK_1 || key == SDLK_F1) return DASHBOARD_EVENT_MAP;
++        if (key == SDLK_2 || key == SDLK_F2) return DASHBOARD_EVENT_RETROSPECTRUM;
++        if (key == SDLK_3 || key == SDLK_F3) return DASHBOARD_EVENT_ANALYSIS;
++        if (key == SDLK_4 || key == SDLK_F4) return DASHBOARD_EVENT_CLASSIFICATION;
++    }
++
++    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
++        Type_Dashboard_Tab tabs[4];
++        dashboard_make_tabs(win_w, tabs);
++
++        for (int i = 0; i < 4; i++) {
++            if (dashboard_point_in_rect(event->button.x, event->button.y, tabs[i].rect)) {
++                dashboard->current_tab = tabs[i].event_id;
++                return tabs[i].event_id;
++            }
++        }
++    }
++
++    if (dashboard->current_tab == DASHBOARD_EVENT_MAP && dashboard->map_loaded) {
++        SDL_Rect content = dashboard_content_rect(win_w, win_h);
++        SDL_Rect map = {content.x + 12,
++                        content.y + 12,
++                        content.w - WORLD_MAP_SIDEBAR_W - 40,
++                        content.h - DASHBOARD_CARD_H - 38};
++
++        if (map.h < DASHBOARD_MIN_MAP_H) {
++            map.h = content.h - 24;
++        }
++
++        WORLD_MAP_handle_event(event, map);
++    }
++
++    return DASHBOARD_EVENT_NONE;
++}
++
++static void dashboard_draw(Type_Dashboard_State *dashboard,
++                           SDL_Renderer *renderer,
++                           TTF_Font *font_small,
++                           TTF_Font *font_medium,
++                           int win_w,
++                           int win_h,
++                           int mouse_x,
++                           int mouse_y){
++    if (!dashboard || !renderer) return;
++
++    SDL_SetRenderDrawColor(renderer,
++                           Dashboard_BG.r,
++                           Dashboard_BG.g,
++                           Dashboard_BG.b,
++                           Dashboard_BG.a);
++    SDL_RenderClear(renderer);
++
++    dashboard_draw_grid(renderer, win_w, win_h);
++    dashboard_draw_top_bar(renderer,
++                           font_small,
++                           font_medium,
++                           win_w,
++                           mouse_x,
++                           mouse_y,
++                           dashboard->current_tab);
++
++    SDL_Rect content = dashboard_content_rect(win_w, win_h);
++    draw_filled_rect(renderer, content, (SDL_Color){0, 6, 3, 235});
++    draw_outline_rect(renderer, content, Dashboard_Border);
++
++    if (dashboard->map_loaded) {
++        SDL_Rect sidebar = {content.x + content.w - WORLD_MAP_SIDEBAR_W,
++                            content.y + 12,
++                            WORLD_MAP_SIDEBAR_W,
++                            content.h - 24};
++        SDL_Rect map = {content.x + 12,
++                        content.y + 12,
++                        content.w - WORLD_MAP_SIDEBAR_W - 40,
++                        content.h - DASHBOARD_CARD_H - 38};
++
++        if (map.h < DASHBOARD_MIN_MAP_H) {
++            map.h = content.h - 24;
++        }
++
++        WORLD_MAP_draw(renderer, font_small, map, sidebar, mouse_x, mouse_y, "flags");
++
++        if (content.h > DASHBOARD_MIN_MAP_H + DASHBOARD_CARD_H) {
++            int card_y = map.y + map.h + 14;
++            int card_w = (map.w - 20) / 3;
++
++            dashboard_draw_station_card(renderer,
++                                        font_small,
++                                        font_medium,
++                                        (SDL_Rect){map.x, card_y, card_w, DASHBOARD_CARD_H},
++                                        "RETROSPECTRUM",
++                                        "Live waterfall, RF controls, selector, recording.",
++                                        Dashboard_Border_Hi);
++
++            dashboard_draw_station_card(renderer,
++                                        font_small,
++                                        font_medium,
++                                        (SDL_Rect){map.x + card_w + 10, card_y, card_w, DASHBOARD_CARD_H},
++                                        "ANALYSIS",
++                                        "Open recordings, inspect magnitude, phase, PSD, IQ.",
++                                        Dashboard_Blue);
++
++            dashboard_draw_station_card(renderer,
++                                        font_small,
++                                        font_medium,
++                                        (SDL_Rect){map.x + 2 * (card_w + 10), card_y, card_w, DASHBOARD_CARD_H},
++                                        "CLASSIFICATION",
++                                        "Label signals and save classification CSV records.",
++                                        Dashboard_Red);
++        }
++    } else {
++        draw_text(renderer,
++                  font_medium,
++                  "world_map.bin was not loaded",
++                  content.x + 24,
++                  content.y + 26,
++                  Dashboard_Warn);
++        draw_text(renderer,
++                  font_small,
++                  "Put world_map.bin in the working directory, or change the path passed to dashboard_init().",
++                  content.x + 24,
++                  content.y + 58,
++                  Dashboard_Muted);
++    }
++
++    draw_text(renderer,
++              font_small,
++              dashboard->status,
++              DASHBOARD_MARGIN + 8,
++              win_h - 38,
++              dashboard->map_loaded ? Dashboard_Muted : Dashboard_Warn);
++}
+ 
+ // ======================
+ // Global Initializations
+@@ -2204,6 +2601,10 @@
+         return 1;
+     }
+ 
++    if ((IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG) == 0) {
++        fprintf(stderr, "IMG_Init PNG warning: %s\n", IMG_GetError());
++    }
++
+     SDL_Window *window_sdl = SDL_CreateWindow(
+         "HackRF",
+         SDL_WINDOWPOS_CENTERED,
+@@ -2263,6 +2664,15 @@
+     TTF_Font *font_medium = load_font(16);
+ 
+     SDL_StartTextInput();
++
++    Type_Dashboard_State dashboard;
++
++    if (!dashboard_init(&dashboard, "world_map.bin")) {
++
++        set_status("Dashboard map not loaded: world_map.bin",
++                   (SDL_Color){255, 180, 40, 255});
++
++    }
+ 
+     Type_Input_Box freq_box = {.label = "Center MHz", .id = FIELD_FREQ};
+     snprintf(freq_box.text, sizeof(freq_box.text), "%.3f", Global_Center_Freq_Hz / 1e6);
+@@ -2344,7 +2754,77 @@
+         while (SDL_PollEvent(&event)) {
+             if (event.type == SDL_QUIT) Global_Running = 0;
+ 
++            if (dashboard.enabled) {
++
++                int dashboard_event_result = dashboard_handle_event(&dashboard,
++                                                                    &event,
++                                                                    win_w,
++                                                                    win_h);
++
++                if (dashboard_event_result == DASHBOARD_EVENT_QUIT) {
++
++                    Global_Running = 0;
++
++                }
++
++                else if (dashboard_event_result == DASHBOARD_EVENT_RETROSPECTRUM) {
++
++                    dashboard.enabled = 0;
++                    dashboard.current_tab = DASHBOARD_EVENT_RETROSPECTRUM;
++                    Global_Analysis_Mode = 0;
++                    Global_Classification_Mode = 0;
++                    set_status("RetroSpectrum Workstation",
++                               (SDL_Color){0, 255, 80, 255});
++
++                }
++
++                else if (dashboard_event_result == DASHBOARD_EVENT_ANALYSIS) {
++
++                    dashboard.enabled = 0;
++                    dashboard.current_tab = DASHBOARD_EVENT_ANALYSIS;
++                    Global_Classification_Mode = 0;
++
++                    ANALYSIS_enter_mode(Global_Record_Dir,
++                                        Global_Center_Freq_Hz,
++                                        Global_Rec_Out_Rate_Hz,
++                                        Global_Sample_Rate_Hz);
++
++                }
++
++                else if (dashboard_event_result == DASHBOARD_EVENT_CLASSIFICATION) {
++
++                    dashboard.enabled = 0;
++                    dashboard.current_tab = DASHBOARD_EVENT_CLASSIFICATION;
++                    Global_Analysis_Mode = 0;
++                    CLASSIFICATION_enter_mode(Global_Record_Dir);
++                    set_status("Classification Workstation",
++                               (SDL_Color){0, 255, 80, 255});
++
++                }
++
++                else if (dashboard_event_result == DASHBOARD_EVENT_MAP) {
++
++                    dashboard.current_tab = DASHBOARD_EVENT_MAP;
++
++                }
++
++                continue;
++
++            }
++
+             if (Global_Classification_Mode) {
++
++                if (event.type == SDL_KEYDOWN &&
++                    event.key.keysym.sym == SDLK_d &&
++                    (SDL_GetModState() & KMOD_CTRL)) {
++
++                    CLASSIFICATION_exit_mode();
++                    dashboard.enabled = 1;
++                    dashboard.current_tab = DASHBOARD_EVENT_MAP;
++                    set_status("Dashboard", (SDL_Color){0, 255, 80, 255});
++                    continue;
++
++                }
+ 
+                 int classification_event_result = CLASSIFICATION_handle_event(&event, win_w, win_h);
+ 
+@@ -2364,6 +2844,30 @@
+ 
+             if (event.type == SDL_KEYDOWN) {
+                 SDL_Keycode key = event.key.keysym.sym;
++
++                if (key == SDLK_d &&
++                    active == FIELD_NONE &&
++                    (SDL_GetModState() & KMOD_CTRL)) {
++
++                    if (Global_Classification_Mode) {
++
++                        CLASSIFICATION_exit_mode();
++
++                    }
++
++                    if (Global_Analysis_Mode) {
++
++                        ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
++                        next_waterfall_ms = SDL_GetTicks64();
++
++                    }
++
++                    dashboard.enabled = 1;
++                    dashboard.current_tab = DASHBOARD_EVENT_MAP;
++                    set_status("Dashboard", (SDL_Color){0, 255, 80, 255});
++                    continue;
++
++                }
+ 
+                 if (Global_Analysis_Mode) {
+ 
+@@ -2865,7 +3369,7 @@
+ 
+         if (frame_interval_ms < 1) frame_interval_ms = 1;
+ 
+-        if (!Global_Analysis_Mode && !Global_Classification_Mode && now_ms >= next_waterfall_ms) {
++        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && now_ms >= next_waterfall_ms) {
+ 
+             int rows_drawn = 0;
+             int target_rows = normalize_rows_per_frame(Global_Rows_Per_Frame);
+@@ -2889,7 +3393,7 @@
+         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+         SDL_RenderClear(renderer);
+ 
+-        if (!Global_Analysis_Mode && !Global_Classification_Mode) {
++        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode) {
+ 
+             Type_Input_Box draw_freq_box;
+             Type_Input_Box draw_sr_box;
+@@ -2950,7 +3454,24 @@
+ 
+         }
+ 
+-        if (Global_Analysis_Mode) {
++        if (dashboard.enabled) {
++
++            int mouse_x = 0;
++            int mouse_y = 0;
++            SDL_GetMouseState(&mouse_x, &mouse_y);
++
++            dashboard_draw(&dashboard,
++                           renderer,
++                           font_small,
++                           font_medium,
++                           win_w,
++                           win_h,
++                           mouse_x,
++                           mouse_y);
++
++        }
++
++        else if (Global_Analysis_Mode) {
+ 
+             ANALYSIS_draw_workstation(renderer,
+                                       font_small,
+@@ -2990,7 +3511,7 @@
+ 
+         }
+ 
+-        if (!Global_Analysis_Mode && !Global_Classification_Mode) {
++        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode) {
+ 
+             int status_w = 0;
+             int status_h = 0;
+@@ -3012,7 +3533,7 @@
+ 
+         }
+ 
+-        if (!Global_Analysis_Mode && !Global_Classification_Mode) {
++        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode) {
+ 
+             draw_antenna_recommendation(renderer, font_small, win_w, win_h);
+ 
+@@ -3026,6 +3547,8 @@
+     }
+ 
+     SDL_StopTextInput();
++
++    dashboard_shutdown();
+ 
+     stop_recording();
+ 
+@@ -3041,6 +3564,7 @@
+     SDL_DestroyRenderer(renderer);
+     SDL_DestroyWindow(window_sdl);
+ 
++    IMG_Quit();
+     TTF_Quit();
+     SDL_Quit();
+ 

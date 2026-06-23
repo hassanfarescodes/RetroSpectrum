@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <SDL2/SDL_image.h>
 
 #define CLASSIFICATION_MAX_FILES          512
 #define CLASSIFICATION_MAX_PATH           1024
@@ -38,16 +40,33 @@
 #define CLASSIFICATION_DROPDOWN_OPTION_H 28
 #define CLASSIFICATION_DROPDOWN_MAX_VISIBLE 9
 #define CLASSIFICATION_NOTES_LINE_H       19
+#define CLASSIFICATION_COUNTRY_MAX_VISIBLE 7
+#define CLASSIFICATION_COUNTRY_OPTION_H    42
+#define CLASSIFICATION_CASE_MAX_VISIBLE    7
+#define CLASSIFICATION_CASE_OPTION_H       32
+
+#ifndef RETROSPECTRUM_DASHBOARD_TAB_BAR_H
+#define RETROSPECTRUM_DASHBOARD_TAB_BAR_H 56
+#endif
+
+static void CLASSIFICATION_get_adjusted_mouse_state(int *x, int *y){
+    SDL_GetMouseState(x, y);
+    if (y) *y -= RETROSPECTRUM_DASHBOARD_TAB_BAR_H;
+}
 
 enum {
     CLASSIFICATION_FIELD_NONE = -1,
-    CLASSIFICATION_FIELD_SIGNAL_NAME = 0,
+    CLASSIFICATION_FIELD_CASE_NUMBER = 0,
+    CLASSIFICATION_FIELD_SIGNAL_NAME,
     CLASSIFICATION_FIELD_FREQUENCY_MHZ,
     CLASSIFICATION_FIELD_BANDWIDTH,
     CLASSIFICATION_FIELD_START_TIME,
     CLASSIFICATION_FIELD_END_TIME,
     CLASSIFICATION_FIELD_CALCULATED_MODULATION,
     CLASSIFICATION_FIELD_SIGNAL_CLASS,
+    CLASSIFICATION_FIELD_COUNTRY,
+    CLASSIFICATION_FIELD_LATITUDE,
+    CLASSIFICATION_FIELD_LONGITUDE,
     CLASSIFICATION_FIELD_NOTES,
     CLASSIFICATION_FIELD_FILE_NAME,
     CLASSIFICATION_FIELD_COUNT
@@ -64,16 +83,25 @@ static int  Global_Classification_Active_Field = CLASSIFICATION_FIELD_NONE;
 static int  Global_Classification_Open_Dropdown = CLASSIFICATION_DROPDOWN_NONE;
 static int  Global_Classification_Dropdown_Scroll = 0;
 static int  Global_Classification_Dropdown_Hover = -1;
+static int  Global_Classification_Country_Scroll = 0;
+static int  Global_Classification_Country_Hover = -1;
+static char Global_Classification_Case_Options[CLASSIFICATION_MAX_FILES][128];
+static int  Global_Classification_Case_Count = 0;
+static int  Global_Classification_Case_Scroll = 0;
+static int  Global_Classification_Case_Hover = -1;
 static int  Global_Classification_Notes_Cursor = 0;
 static char Global_Classification_Status[512] = "Press R to scan recordings";
 static char Global_Classification_Save_Message[512] = "";
 static Uint64 Global_Classification_Save_Message_Time = 0;
 
+static int CLASSIFICATION_name_compare(const void *a, const void *b);
+
 static char Global_Classification_Field_Text[CLASSIFICATION_FIELD_COUNT][CLASSIFICATION_MAX_TEXT] = {
-    "", "", "", "", "", "Unknown", "Unknown", "", ""
+    "", "", "", "", "", "", "Unknown", "Unknown", "", "", "", "", ""
 };
 
 static const char *CLASSIFICATION_FIELD_LABELS[CLASSIFICATION_FIELD_COUNT] = {
+    "Case #",
     "Signal Name",
     "Frequency MHz",
     "Bandwidth",
@@ -81,6 +109,9 @@ static const char *CLASSIFICATION_FIELD_LABELS[CLASSIFICATION_FIELD_COUNT] = {
     "End Time",
     "Calculated Modulation",
     "Signal Class",
+    "Country",
+    "Latitude",
+    "Longitude",
     "Notes",
     "File Name"
 };
@@ -146,6 +177,597 @@ static const char *CLASSIFICATION_SIGNAL_CLASS_OPTIONS[] = {
     "Noise / RFI-like",
     "Test Signal"
 };
+
+
+typedef struct Type_Classification_Country_Option {
+    const char *name;
+    const char *alpha2;
+} Type_Classification_Country_Option;
+
+static const Type_Classification_Country_Option CLASSIFICATION_COUNTRIES[] = {
+    {"Afghanistan", "af"},
+    {"Albania", "al"},
+    {"Algeria", "dz"},
+    {"American Samoa", "as"},
+    {"Andorra", "ad"},
+    {"Angola", "ao"},
+    {"Anguilla", "ai"},
+    {"Antarctica", "aq"},
+    {"Antigua and Barbuda", "ag"},
+    {"Argentina", "ar"},
+    {"Armenia", "am"},
+    {"Aruba", "aw"},
+    {"Australia", "au"},
+    {"Austria", "at"},
+    {"Azerbaijan", "az"},
+    {"Bahamas", "bs"},
+    {"Bahrain", "bh"},
+    {"Bangladesh", "bd"},
+    {"Barbados", "bb"},
+    {"Belarus", "by"},
+    {"Belgium", "be"},
+    {"Belize", "bz"},
+    {"Benin", "bj"},
+    {"Bermuda", "bm"},
+    {"Bhutan", "bt"},
+    {"Bolivia", "bo"},
+    {"Bonaire, Sint Eustatius and Saba", "bq"},
+    {"Bosnia and Herzegovina", "ba"},
+    {"Botswana", "bw"},
+    {"Bouvet Island", "bv"},
+    {"Brazil", "br"},
+    {"British Indian Ocean Territory", "io"},
+    {"Brunei", "bn"},
+    {"Bulgaria", "bg"},
+    {"Burkina Faso", "bf"},
+    {"Burundi", "bi"},
+    {"Cambodia", "kh"},
+    {"Cameroon", "cm"},
+    {"Canada", "ca"},
+    {"Cape Verde", "cv"},
+    {"Cayman Islands", "ky"},
+    {"Central African Republic", "cf"},
+    {"Chad", "td"},
+    {"Chile", "cl"},
+    {"China", "cn"},
+    {"Christmas Island", "cx"},
+    {"Cocos (Keeling) Islands", "cc"},
+    {"Colombia", "co"},
+    {"Comoros", "km"},
+    {"Cook Islands", "ck"},
+    {"Costa Rica", "cr"},
+    {"Cote dIvoire", "ci"},
+    {"Croatia", "hr"},
+    {"Cuba", "cu"},
+    {"Curaçao", "cw"},
+    {"Cyprus", "cy"},
+    {"Czech Republic", "cz"},
+    {"Democratic Republic of the Congo", "cd"},
+    {"Denmark", "dk"},
+    {"Djibouti", "dj"},
+    {"Dominica", "dm"},
+    {"Dominican Republic", "do"},
+    {"Ecuador", "ec"},
+    {"Egypt", "eg"},
+    {"El Salvador", "sv"},
+    {"Equatorial Guinea", "gq"},
+    {"Eritrea", "er"},
+    {"Estonia", "ee"},
+    {"Eswatini", "sz"},
+    {"Ethiopia", "et"},
+    {"Falkland Islands (Malvinas)", "fk"},
+    {"Faroe Islands", "fo"},
+    {"Fiji", "fj"},
+    {"Finland", "fi"},
+    {"France", "fr"},
+    {"French Guiana", "gf"},
+    {"French Polynesia", "pf"},
+    {"French Southern Territories", "tf"},
+    {"Gabon", "ga"},
+    {"Gambia", "gm"},
+    {"Georgia", "ge"},
+    {"Germany", "de"},
+    {"Ghana", "gh"},
+    {"Gibraltar", "gi"},
+    {"Greece", "gr"},
+    {"Greenland", "gl"},
+    {"Grenada", "gd"},
+    {"Guadeloupe", "gp"},
+    {"Guam", "gu"},
+    {"Guatemala", "gt"},
+    {"Guernsey", "gg"},
+    {"Guinea", "gn"},
+    {"Guinea-Bissau", "gw"},
+    {"Guyana", "gy"},
+    {"Haiti", "ht"},
+    {"Heard Island and McDonald Islands", "hm"},
+    {"Honduras", "hn"},
+    {"Hong Kong", "hk"},
+    {"Hungary", "hu"},
+    {"Iceland", "is"},
+    {"India", "in"},
+    {"Indonesia", "id"},
+    {"Iran", "ir"},
+    {"Iraq", "iq"},
+    {"Ireland", "ie"},
+    {"Isle of Man", "im"},
+    {"Israel", "il"},
+    {"Italy", "it"},
+    {"Jamaica", "jm"},
+    {"Japan", "jp"},
+    {"Jersey", "je"},
+    {"Jordan", "jo"},
+    {"Kazakhstan", "kz"},
+    {"Kenya", "ke"},
+    {"Kiribati", "ki"},
+    {"Kuwait", "kw"},
+    {"Kyrgyzstan", "kg"},
+    {"Laos", "la"},
+    {"Latvia", "lv"},
+    {"Lebanon", "lb"},
+    {"Lesotho", "ls"},
+    {"Liberia", "lr"},
+    {"Libya", "ly"},
+    {"Liechtenstein", "li"},
+    {"Lithuania", "lt"},
+    {"Luxembourg", "lu"},
+    {"Macao", "mo"},
+    {"Madagascar", "mg"},
+    {"Malawi", "mw"},
+    {"Malaysia", "my"},
+    {"Maldives", "mv"},
+    {"Mali", "ml"},
+    {"Malta", "mt"},
+    {"Marshall Islands", "mh"},
+    {"Martinique", "mq"},
+    {"Mauritania", "mr"},
+    {"Mauritius", "mu"},
+    {"Mayotte", "yt"},
+    {"Mexico", "mx"},
+    {"Micronesia", "fm"},
+    {"Moldova", "md"},
+    {"Monaco", "mc"},
+    {"Mongolia", "mn"},
+    {"Montenegro", "me"},
+    {"Montserrat", "ms"},
+    {"Morocco", "ma"},
+    {"Mozambique", "mz"},
+    {"Myanmar", "mm"},
+    {"Namibia", "na"},
+    {"Nauru", "nr"},
+    {"Nepal", "np"},
+    {"Netherlands", "nl"},
+    {"New Caledonia", "nc"},
+    {"New Zealand", "nz"},
+    {"Nicaragua", "ni"},
+    {"Niger", "ne"},
+    {"Nigeria", "ng"},
+    {"Niue", "nu"},
+    {"Norfolk Island", "nf"},
+    {"North Korea", "kp"},
+    {"North Macedonia", "mk"},
+    {"Northern Mariana Islands", "mp"},
+    {"Norway", "no"},
+    {"Oman", "om"},
+    {"Pakistan", "pk"},
+    {"Palau", "pw"},
+    {"Palestine", "ps"},
+    {"Panama", "pa"},
+    {"Papua New Guinea", "pg"},
+    {"Paraguay", "py"},
+    {"Peru", "pe"},
+    {"Philippines", "ph"},
+    {"Pitcairn", "pn"},
+    {"Poland", "pl"},
+    {"Portugal", "pt"},
+    {"Puerto Rico", "pr"},
+    {"Qatar", "qa"},
+    {"Republic of the Congo", "cg"},
+    {"Romania", "ro"},
+    {"Russia", "ru"},
+    {"Rwanda", "rw"},
+    {"Réunion", "re"},
+    {"Saint Barthélemy", "bl"},
+    {"Saint Helena, Ascension and Tristan da Cunha", "sh"},
+    {"Saint Kitts and Nevis", "kn"},
+    {"Saint Lucia", "lc"},
+    {"Saint Martin (French part)", "mf"},
+    {"Saint Pierre and Miquelon", "pm"},
+    {"Saint Vincent and the Grenadines", "vc"},
+    {"Samoa", "ws"},
+    {"San Marino", "sm"},
+    {"Sao Tome and Principe", "st"},
+    {"Saudi Arabia", "sa"},
+    {"Senegal", "sn"},
+    {"Serbia", "rs"},
+    {"Seychelles", "sc"},
+    {"Sierra Leone", "sl"},
+    {"Singapore", "sg"},
+    {"Sint Maarten (Dutch part)", "sx"},
+    {"Slovakia", "sk"},
+    {"Slovenia", "si"},
+    {"Solomon Islands", "sb"},
+    {"Somalia", "so"},
+    {"South Africa", "za"},
+    {"South Georgia and the South Sandwich Islands", "gs"},
+    {"South Korea", "kr"},
+    {"South Sudan", "ss"},
+    {"Spain", "es"},
+    {"Sri Lanka", "lk"},
+    {"Sudan", "sd"},
+    {"Suriname", "sr"},
+    {"Svalbard and Jan Mayen", "sj"},
+    {"Sweden", "se"},
+    {"Switzerland", "ch"},
+    {"Syria", "sy"},
+    {"Taiwan", "tw"},
+    {"Tajikistan", "tj"},
+    {"Tanzania", "tz"},
+    {"Thailand", "th"},
+    {"Timor-Leste", "tl"},
+    {"Togo", "tg"},
+    {"Tokelau", "tk"},
+    {"Tonga", "to"},
+    {"Trinidad and Tobago", "tt"},
+    {"Tunisia", "tn"},
+    {"Turkmenistan", "tm"},
+    {"Turks and Caicos Islands", "tc"},
+    {"Tuvalu", "tv"},
+    {"Türkiye", "tr"},
+    {"Uganda", "ug"},
+    {"Ukraine", "ua"},
+    {"United Arab Emirates", "ae"},
+    {"United Kingdom", "gb"},
+    {"United States", "us"},
+    {"United States Minor Outlying Islands", "um"},
+    {"Uruguay", "uy"},
+    {"Uzbekistan", "uz"},
+    {"Vanuatu", "vu"},
+    {"Vatican City", "va"},
+    {"Venezuela", "ve"},
+    {"Vietnam", "vn"},
+    {"Virgin Islands, British", "vg"},
+    {"Virgin Islands, U.S.", "vi"},
+    {"Wallis and Futuna", "wf"},
+    {"Western Sahara", "eh"},
+    {"Yemen", "ye"},
+    {"Zambia", "zm"},
+    {"Zimbabwe", "zw"},
+    {"Åland Islands", "ax"},
+};
+
+static SDL_Texture *Global_Classification_Flag_Texture = NULL;
+static char Global_Classification_Flag_Alpha2[8] = "";
+
+static int CLASSIFICATION_country_count(void)
+{
+    return (int)(sizeof(CLASSIFICATION_COUNTRIES) / sizeof(CLASSIFICATION_COUNTRIES[0]));
+}
+
+static int CLASSIFICATION_char_lower(int c)
+{
+    return tolower((unsigned char)c);
+}
+
+static int CLASSIFICATION_text_contains_ci(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle) return 0;
+    if (!needle[0]) return 1;
+
+    for (const char *h = haystack; *h; h++) {
+        const char *a = h;
+        const char *b = needle;
+
+        while (*a && *b && CLASSIFICATION_char_lower(*a) == CLASSIFICATION_char_lower(*b)) {
+            a++;
+            b++;
+        }
+
+        if (!*b) return 1;
+    }
+
+    return 0;
+}
+
+static int CLASSIFICATION_text_equals_ci(const char *a, const char *b)
+{
+    if (!a || !b) return 0;
+
+    while (*a && *b) {
+        if (CLASSIFICATION_char_lower(*a) != CLASSIFICATION_char_lower(*b)) return 0;
+        a++;
+        b++;
+    }
+
+    return *a == '\0' && *b == '\0';
+}
+
+
+static void CLASSIFICATION_trim_text(char *text)
+{
+    if (!text) return;
+
+    char *start = text;
+    while (*start && isspace((unsigned char)*start)) start++;
+
+    if (start != text) memmove(text, start, strlen(start) + 1);
+
+    size_t len = strlen(text);
+    while (len > 0 && isspace((unsigned char)text[len - 1])) {
+        text[len - 1] = '\0';
+        len--;
+    }
+}
+
+static int CLASSIFICATION_csv_first_field(const char *line, char *dst, size_t dst_size)
+{
+    if (!line || !dst || dst_size == 0) return 0;
+
+    dst[0] = '\0';
+    size_t out = 0;
+    int quoted = 0;
+    const char *p = line;
+
+    if (*p == '"') {
+        quoted = 1;
+        p++;
+    }
+
+    while (*p) {
+        if (quoted) {
+            if (*p == '"') {
+                if (p[1] == '"') {
+                    if (out + 1 < dst_size) dst[out++] = '"';
+                    p += 2;
+                    continue;
+                }
+                p++;
+                break;
+            }
+        }
+        else if (*p == ',' || *p == '\n' || *p == '\r') {
+            break;
+        }
+
+        if (out + 1 < dst_size) dst[out++] = *p;
+        p++;
+    }
+
+    dst[out] = '\0';
+    CLASSIFICATION_trim_text(dst);
+    return dst[0] != '\0';
+}
+
+static int CLASSIFICATION_case_name_from_filename(const char *name, char *dst, size_t dst_size)
+{
+    if (!name || !dst || dst_size == 0) return 0;
+    dst[0] = '\0';
+
+    const char *prefix = "CASE_";
+    const char *suffix = ".csv";
+    size_t prefix_len = strlen(prefix);
+    size_t suffix_len = strlen(suffix);
+    size_t len = strlen(name);
+
+    if (strncmp(name, prefix, prefix_len) != 0) return 0;
+    if (strcmp(name, "CASE_DESCRIPTIONS.csv") == 0) return 0;
+    if (len <= prefix_len + suffix_len) return 0;
+    if (strcmp(name + len - suffix_len, suffix) != 0) return 0;
+
+    size_t n = len - prefix_len - suffix_len;
+    if (n >= dst_size) n = dst_size - 1;
+    memcpy(dst, name + prefix_len, n);
+    dst[n] = '\0';
+    CLASSIFICATION_trim_text(dst);
+    return dst[0] != '\0';
+}
+
+static int CLASSIFICATION_read_case_number_from_csv(const char *path, char *dst, size_t dst_size)
+{
+    if (!path || !dst || dst_size == 0) return 0;
+
+    FILE *fp = fopen(path, "r");
+    if (!fp) return 0;
+
+    char line[2048];
+    if (!fgets(line, sizeof(line), fp)) {
+        fclose(fp);
+        return 0;
+    }
+
+    while (fgets(line, sizeof(line), fp)) {
+        if (CLASSIFICATION_csv_first_field(line, dst, dst_size)) {
+            fclose(fp);
+            return 1;
+        }
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+static int CLASSIFICATION_case_option_exists(const char *case_number)
+{
+    if (!case_number || !case_number[0]) return 1;
+
+    for (int i = 0; i < Global_Classification_Case_Count; i++) {
+        if (CLASSIFICATION_text_equals_ci(Global_Classification_Case_Options[i], case_number)) return 1;
+    }
+
+    return 0;
+}
+
+static void CLASSIFICATION_add_case_option(const char *case_number)
+{
+    if (!case_number || !case_number[0]) return;
+    if (Global_Classification_Case_Count >= CLASSIFICATION_MAX_FILES) return;
+    if (CLASSIFICATION_case_option_exists(case_number)) return;
+
+    snprintf(Global_Classification_Case_Options[Global_Classification_Case_Count],
+             sizeof(Global_Classification_Case_Options[Global_Classification_Case_Count]),
+             "%s",
+             case_number);
+    Global_Classification_Case_Count++;
+}
+
+static void CLASSIFICATION_scan_case_files(void)
+{
+    Global_Classification_Case_Count = 0;
+    Global_Classification_Case_Scroll = 0;
+    Global_Classification_Case_Hover = -1;
+
+    DIR *dir = opendir(CLASSIFICATION_OUTPUT_DIR);
+    if (!dir) return;
+
+    struct dirent *entry = NULL;
+    while ((entry = readdir(dir)) != NULL && Global_Classification_Case_Count < CLASSIFICATION_MAX_FILES) {
+        char fallback_case[128];
+        if (!CLASSIFICATION_case_name_from_filename(entry->d_name, fallback_case, sizeof(fallback_case))) continue;
+
+        char path[CLASSIFICATION_MAX_CSV_PATH];
+        snprintf(path, sizeof(path), "%s/%s", CLASSIFICATION_OUTPUT_DIR, entry->d_name);
+
+        char csv_case[128];
+        if (CLASSIFICATION_read_case_number_from_csv(path, csv_case, sizeof(csv_case))) {
+            CLASSIFICATION_add_case_option(csv_case);
+        }
+        else {
+            CLASSIFICATION_add_case_option(fallback_case);
+        }
+    }
+
+    closedir(dir);
+
+    qsort(Global_Classification_Case_Options,
+          (size_t)Global_Classification_Case_Count,
+          sizeof(Global_Classification_Case_Options[0]),
+          CLASSIFICATION_name_compare);
+}
+
+static int CLASSIFICATION_build_case_matches(int *matches, int max_matches)
+{
+    if (!matches || max_matches <= 0) return 0;
+
+    const char *query = Global_Classification_Field_Text[CLASSIFICATION_FIELD_CASE_NUMBER];
+    int out = 0;
+
+    for (int i = 0; i < Global_Classification_Case_Count && out < max_matches; i++) {
+        if (!query || !query[0] ||
+            CLASSIFICATION_text_contains_ci(Global_Classification_Case_Options[i], query)) {
+            matches[out++] = i;
+        }
+    }
+
+    return out;
+}
+
+static void CLASSIFICATION_select_case(int case_index)
+{
+    if (case_index < 0 || case_index >= Global_Classification_Case_Count) return;
+
+    snprintf(Global_Classification_Field_Text[CLASSIFICATION_FIELD_CASE_NUMBER],
+             CLASSIFICATION_MAX_TEXT,
+             "%s",
+             Global_Classification_Case_Options[case_index]);
+
+    Global_Classification_Case_Scroll = 0;
+    Global_Classification_Case_Hover = -1;
+    Global_Classification_Active_Field = CLASSIFICATION_FIELD_NONE;
+}
+
+static const Type_Classification_Country_Option *CLASSIFICATION_find_country_exact(const char *text)
+{
+    if (!text || !text[0]) return NULL;
+
+    int count = CLASSIFICATION_country_count();
+    for (int i = 0; i < count; i++) {
+        if (CLASSIFICATION_text_equals_ci(text, CLASSIFICATION_COUNTRIES[i].name)) return &CLASSIFICATION_COUNTRIES[i];
+        if (CLASSIFICATION_text_equals_ci(text, CLASSIFICATION_COUNTRIES[i].alpha2)) return &CLASSIFICATION_COUNTRIES[i];
+    }
+
+    return NULL;
+}
+
+static int CLASSIFICATION_build_country_matches(int *matches, int max_matches)
+{
+    if (!matches || max_matches <= 0) return 0;
+
+    const char *query = Global_Classification_Field_Text[CLASSIFICATION_FIELD_COUNTRY];
+    int count = CLASSIFICATION_country_count();
+    int out = 0;
+
+    for (int i = 0; i < count && out < max_matches; i++) {
+        if (!query || !query[0] ||
+            CLASSIFICATION_text_contains_ci(CLASSIFICATION_COUNTRIES[i].name, query) ||
+            CLASSIFICATION_text_contains_ci(CLASSIFICATION_COUNTRIES[i].alpha2, query)) {
+            matches[out++] = i;
+        }
+    }
+
+    return out;
+}
+
+static void CLASSIFICATION_select_country(int country_index)
+{
+    if (country_index < 0 || country_index >= CLASSIFICATION_country_count()) return;
+
+    snprintf(Global_Classification_Field_Text[CLASSIFICATION_FIELD_COUNTRY],
+             CLASSIFICATION_MAX_TEXT,
+             "%s",
+             CLASSIFICATION_COUNTRIES[country_index].name);
+
+    Global_Classification_Country_Scroll = 0;
+    Global_Classification_Country_Hover = -1;
+    Global_Classification_Active_Field = CLASSIFICATION_FIELD_NONE;
+}
+
+static SDL_Texture *CLASSIFICATION_get_flag_texture(SDL_Renderer *renderer, const char *alpha2)
+{
+    if (!renderer || !alpha2 || !alpha2[0]) return NULL;
+
+    if (Global_Classification_Flag_Texture && strcmp(Global_Classification_Flag_Alpha2, alpha2) == 0) {
+        return Global_Classification_Flag_Texture;
+    }
+
+    if (Global_Classification_Flag_Texture) {
+        SDL_DestroyTexture(Global_Classification_Flag_Texture);
+        Global_Classification_Flag_Texture = NULL;
+        Global_Classification_Flag_Alpha2[0] = '\0';
+    }
+
+    char path[64];
+    snprintf(path, sizeof(path), "flags/%s.png", alpha2);
+
+    Global_Classification_Flag_Texture = IMG_LoadTexture(renderer, path);
+    if (Global_Classification_Flag_Texture) {
+        snprintf(Global_Classification_Flag_Alpha2, sizeof(Global_Classification_Flag_Alpha2), "%s", alpha2);
+    }
+
+    return Global_Classification_Flag_Texture;
+}
+
+static void CLASSIFICATION_draw_flag_box(SDL_Renderer *renderer,
+                                         TTF_Font *font,
+                                         SDL_Rect rect,
+                                         const char *alpha2)
+{
+    draw_filled_rect(renderer, rect, (SDL_Color){0, 0, 0, 255});
+    draw_outline_rect(renderer, rect, (SDL_Color){0, 150, 60, 255});
+
+    SDL_Texture *flag = CLASSIFICATION_get_flag_texture(renderer, alpha2);
+    if (flag) {
+        SDL_RenderCopy(renderer, flag, NULL, &rect);
+        draw_outline_rect(renderer, rect, (SDL_Color){0, 150, 60, 255});
+        return;
+    }
+
+    if (alpha2 && alpha2[0]) {
+        char code[8];
+        snprintf(code, sizeof(code), "%s", alpha2);
+        for (int i = 0; code[i]; i++) code[i] = (char)toupper((unsigned char)code[i]);
+        draw_text(renderer, font, code, rect.x + 6, rect.y + 7, (SDL_Color){0, 255, 90, 255});
+    }
+}
 
 static int CLASSIFICATION_is_dropdown_field(int field)
 {
@@ -496,26 +1118,10 @@ static void CLASSIFICATION_draw_multiline_notes(SDL_Renderer *renderer,
     char local[CLASSIFICATION_MAX_TEXT + 8];
 
     if (src[0]) {
-        int src_len = (int)strlen(src);
-        int cursor = Global_Classification_Notes_Cursor;
-
-        if (cursor < 0) cursor = 0;
-        if (cursor > src_len) cursor = src_len;
-
-        if (active) {
-            snprintf(local,
-                     sizeof(local),
-                     "%.*s_%s",
-                     cursor,
-                     src,
-                     src + cursor);
-        }
-        else {
-            snprintf(local, sizeof(local), "%.*s", CLASSIFICATION_MAX_TEXT - 1, src);
-        }
+        snprintf(local, sizeof(local), "%.*s", CLASSIFICATION_MAX_TEXT - 1, src);
     }
     else {
-        snprintf(local, sizeof(local), "%s", active ? "_" : "Click to type");
+        local[0] = '\0';
     }
 
     int line_h = CLASSIFICATION_NOTES_LINE_H;
@@ -526,13 +1132,18 @@ static void CLASSIFICATION_draw_multiline_notes(SDL_Renderer *renderer,
     const char *line_starts[128];
     int line_count = 0;
 
-    line_starts[line_count++] = local;
+    if (src[0]) {
+        line_starts[line_count++] = local;
 
-    for (char *p = local; *p && line_count < 128; p++) {
-        if (*p == '\n') {
-            *p = '\0';
-            line_starts[line_count++] = p + 1;
+        for (char *p = local; *p && line_count < 128; p++) {
+            if (*p == '\n') {
+                *p = '\0';
+                line_starts[line_count++] = p + 1;
+            }
         }
+    }
+    else {
+        line_starts[line_count++] = active ? "" : "Click to type";
     }
 
     int first_line = 0;
@@ -565,6 +1176,59 @@ static void CLASSIFICATION_draw_multiline_notes(SDL_Renderer *renderer,
 
         if (y + line_h > rect.y + rect.h) break;
     }
+
+    if (active && ((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
+        int starts[128];
+        int ends[128];
+        int raw_line_count = CLASSIFICATION_notes_build_lines(starts, ends);
+        int cursor = Global_Classification_Notes_Cursor;
+        int src_len = (int)strlen(src);
+
+        if (cursor < 0) cursor = 0;
+        if (cursor > src_len) cursor = src_len;
+
+        int cursor_line = 0;
+        for (int i = 0; i < raw_line_count; i++) {
+            if (cursor >= starts[i] && cursor <= ends[i]) {
+                cursor_line = i;
+                break;
+            }
+            if (i == raw_line_count - 1 && cursor > ends[i]) {
+                cursor_line = i;
+            }
+        }
+
+        int raw_first_line = 0;
+        if (raw_line_count > max_lines) raw_first_line = raw_line_count - max_lines;
+
+        if (cursor_line >= raw_first_line && cursor_line < raw_first_line + max_lines) {
+            int line_start = starts[cursor_line];
+            int line_end = ends[cursor_line];
+            if (cursor < line_start) cursor = line_start;
+            if (cursor > line_end) cursor = line_end;
+
+            int text_w = 0;
+            int text_h = 0;
+            if (cursor > line_start) {
+                char before[CLASSIFICATION_MAX_TEXT + 8];
+                int before_len = cursor - line_start;
+                if (before_len >= (int)sizeof(before)) before_len = (int)sizeof(before) - 1;
+                memcpy(before, src + line_start, (size_t)before_len);
+                before[before_len] = '\0';
+                if (TTF_SizeText(font, before, &text_w, &text_h) != 0) text_w = before_len * 8;
+            }
+
+            int cx = rect.x + 9 + text_w;
+            int cy0 = rect.y + 7 + ((cursor_line - raw_first_line) * line_h);
+            int cy1 = cy0 + line_h - 2;
+            if (cx < rect.x + 9) cx = rect.x + 9;
+            if (cx > rect.x + rect.w - 9) cx = rect.x + rect.w - 9;
+
+            SDL_SetRenderDrawColor(renderer, 0, 170, 255, 255);
+            SDL_RenderDrawLine(renderer, cx, cy0, cx, cy1);
+            SDL_RenderDrawLine(renderer, cx + 1, cy0, cx + 1, cy1);
+        }
+    }
 }
 
 static void CLASSIFICATION_get_layout(int win_w,
@@ -575,12 +1239,12 @@ static void CLASSIFICATION_get_layout(int win_w,
                                       SDL_Rect *save_rect)
 {
     int gap = 14;
-    int top = CLASSIFICATION_MARGIN + 58;
+    int top = CLASSIFICATION_MARGIN + 74;
     int usable_w = win_w - (2 * CLASSIFICATION_MARGIN);
     int usable_h = win_h - top - CLASSIFICATION_MARGIN;
 
     /* Left half: recording file selector. Right half: classification fields. */
-    int list_w = (usable_w - gap) / 2;
+    int list_w = ((usable_w - gap) * 44) / 100;
     int form_w = usable_w - list_w - gap;
 
     if (usable_h < 300) usable_h = 300;
@@ -592,18 +1256,19 @@ static void CLASSIFICATION_get_layout(int win_w,
     if (form_rect) *form_rect = local_form;
 
     if (field_rects) {
-        int label_w = 230;
-        int field_h = 36;
-        int row_gap = 12;
+        int label_w = 220;
+        int field_h = 30;
+        int row_gap = 6;
         int x = local_form.x + label_w + 20;
-        int y = local_form.y + 50;
+        int y = local_form.y + 48;
         int w = local_form.w - label_w - 40;
 
         if (w < 180) w = 180;
 
         for (int i = 0; i < CLASSIFICATION_FIELD_COUNT; i++) {
             int h = field_h;
-            if (i == CLASSIFICATION_FIELD_NOTES) h = 140;
+            if (i == CLASSIFICATION_FIELD_COUNTRY) h = 40;
+            if (i == CLASSIFICATION_FIELD_NOTES) h = 96;
 
             field_rects[i] = (SDL_Rect){x, y, w, h};
             y += h + row_gap;
@@ -789,7 +1454,7 @@ void CLASSIFICATION_prefill_from_analysis_selection(const char *file_name,
 
     snprintf(Global_Classification_Status,
              sizeof(Global_Classification_Status),
-             "Exported analysis selection. Fill Signal Name, Modulation/Class, Notes, then Save.");
+             "Exported analysis selection. Fill Case #, Signal Name, Modulation/Class, Country, Latitude/Longitude, Notes, then Save.");
 }
 
 static int CLASSIFICATION_scan_recordings(void)
@@ -931,29 +1596,24 @@ static int CLASSIFICATION_append_csv_row(void)
         return 0;
     }
 
-    char safe_signal_name[CLASSIFICATION_MAX_TEXT];
-    char signal_datetime[128];
+    char safe_case[CLASSIFICATION_MAX_TEXT];
     char csv_name[CLASSIFICATION_MAX_CSV_NAME];
     char csv_path[CLASSIFICATION_MAX_CSV_PATH];
 
-    CLASSIFICATION_make_filename_safe(Global_Classification_Field_Text[CLASSIFICATION_FIELD_SIGNAL_NAME],
-                                      safe_signal_name,
-                                      sizeof(safe_signal_name));
-
-    CLASSIFICATION_get_signal_datetime(signal_datetime, sizeof(signal_datetime));
+    CLASSIFICATION_make_filename_safe(Global_Classification_Field_Text[CLASSIFICATION_FIELD_CASE_NUMBER],
+                                      safe_case,
+                                      sizeof(safe_case));
 
     int csv_name_written = snprintf(csv_name,
                                     sizeof(csv_name),
-                                    "SIGNAL_%.*s_CLASSIFICATION_%.*s.csv",
+                                    "CASE_%.*s.csv",
                                     CLASSIFICATION_MAX_TEXT - 1,
-                                    safe_signal_name,
-                                    127,
-                                    signal_datetime);
+                                    safe_case);
 
     if (csv_name_written < 0 || (size_t)csv_name_written >= sizeof(csv_name)) {
         snprintf(Global_Classification_Status,
                  sizeof(Global_Classification_Status),
-                 "Classification CSV name too long");
+                 "Case CSV name too long");
         return 0;
     }
 
@@ -966,20 +1626,28 @@ static int CLASSIFICATION_append_csv_row(void)
     if (csv_path_written < 0 || (size_t)csv_path_written >= sizeof(csv_path)) {
         snprintf(Global_Classification_Status,
                  sizeof(Global_Classification_Status),
-                 "Classification CSV path too long");
+                 "Case CSV path too long");
         return 0;
     }
 
-    FILE *fp = fopen(csv_path, "w");
+    int write_header = 0;
+    struct stat st;
+    if (stat(csv_path, &st) != 0 || st.st_size <= 0) {
+        write_header = 1;
+    }
+
+    FILE *fp = fopen(csv_path, "a");
     if (!fp) {
         snprintf(Global_Classification_Status,
                  sizeof(Global_Classification_Status),
-                 "Failed to open Classification CSV");
+                 "Failed to open case CSV");
         return 0;
     }
 
-    fprintf(fp,
-            "signal_name,frequency_mhz,bandwidth,start_time,end_time,calculated_modulation,signal_class,notes,file_name\n");
+    if (write_header) {
+        fprintf(fp,
+                "case_number,signal_name,frequency_mhz,bandwidth,start_time,end_time,calculated_modulation,signal_class,country,latitude,longitude,notes,file_name\n");
+    }
 
     for (int i = 0; i < CLASSIFICATION_FIELD_COUNT; i++) {
         if (i > 0) fputc(',', fp);
@@ -991,15 +1659,23 @@ static int CLASSIFICATION_append_csv_row(void)
 
     snprintf(Global_Classification_Status,
              sizeof(Global_Classification_Status),
-             "Classification saved");
+             "Saved to Classification/%s",
+             csv_name);
 
     snprintf(Global_Classification_Save_Message,
              sizeof(Global_Classification_Save_Message),
-             "Classification saved successfully");
+             "Case signal appended successfully");
 
     Global_Classification_Save_Message_Time = SDL_GetTicks64();
 
+    CLASSIFICATION_scan_case_files();
+
     return 1;
+}
+
+int CLASSIFICATION_is_text_entry_active(void)
+{
+    return Global_Classification_Active_Field != CLASSIFICATION_FIELD_NONE;
 }
 
 void CLASSIFICATION_enter_mode(const char *record_dir)
@@ -1009,6 +1685,10 @@ void CLASSIFICATION_enter_mode(const char *record_dir)
     Global_Classification_Open_Dropdown = CLASSIFICATION_DROPDOWN_NONE;
     Global_Classification_Dropdown_Scroll = 0;
     Global_Classification_Dropdown_Hover = -1;
+    Global_Classification_Country_Scroll = 0;
+    Global_Classification_Country_Hover = -1;
+    Global_Classification_Case_Scroll = 0;
+    Global_Classification_Case_Hover = -1;
     Global_Classification_Notes_Cursor = 0;
     Global_Classification_Save_Message[0] = '\0';
     Global_Classification_Save_Message_Time = 0;
@@ -1022,6 +1702,7 @@ void CLASSIFICATION_enter_mode(const char *record_dir)
 
     SDL_StartTextInput();
     CLASSIFICATION_scan_recordings();
+    CLASSIFICATION_scan_case_files();
 }
 
 void CLASSIFICATION_exit_mode(void)
@@ -1031,6 +1712,10 @@ void CLASSIFICATION_exit_mode(void)
     Global_Classification_Open_Dropdown = CLASSIFICATION_DROPDOWN_NONE;
     Global_Classification_Dropdown_Scroll = 0;
     Global_Classification_Dropdown_Hover = -1;
+    Global_Classification_Country_Scroll = 0;
+    Global_Classification_Country_Hover = -1;
+    Global_Classification_Case_Scroll = 0;
+    Global_Classification_Case_Hover = -1;
     Global_Classification_Notes_Cursor = 0;
     /* Keep SDL text input enabled for the main/interception workstation. */
 }
@@ -1049,6 +1734,14 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
                 }
                 else {
                     CLASSIFICATION_backspace_text(Global_Classification_Field_Text[Global_Classification_Active_Field]);
+                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
+                        Global_Classification_Country_Scroll = 0;
+                        Global_Classification_Country_Hover = -1;
+                    }
+                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_CASE_NUMBER) {
+                        Global_Classification_Case_Scroll = 0;
+                        Global_Classification_Case_Hover = -1;
+                    }
                 }
             }
             else if (key == SDLK_DELETE) {
@@ -1057,6 +1750,14 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
                 }
                 else {
                     Global_Classification_Field_Text[Global_Classification_Active_Field][0] = '\0';
+                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
+                        Global_Classification_Country_Scroll = 0;
+                        Global_Classification_Country_Hover = -1;
+                    }
+                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_CASE_NUMBER) {
+                        Global_Classification_Case_Scroll = 0;
+                        Global_Classification_Case_Hover = -1;
+                    }
                 }
             }
             else if (key == SDLK_LEFT && Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
@@ -1074,13 +1775,13 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
             else if (key == SDLK_TAB) {
                 Global_Classification_Active_Field++;
                 if (Global_Classification_Active_Field >= CLASSIFICATION_FIELD_COUNT) {
-                    Global_Classification_Active_Field = CLASSIFICATION_FIELD_SIGNAL_NAME;
+                    Global_Classification_Active_Field = CLASSIFICATION_FIELD_CASE_NUMBER;
                 }
 
                 while (CLASSIFICATION_is_dropdown_field(Global_Classification_Active_Field)) {
                     Global_Classification_Active_Field++;
                     if (Global_Classification_Active_Field >= CLASSIFICATION_FIELD_COUNT) {
-                        Global_Classification_Active_Field = CLASSIFICATION_FIELD_SIGNAL_NAME;
+                        Global_Classification_Active_Field = CLASSIFICATION_FIELD_CASE_NUMBER;
                     }
                 }
             }
@@ -1125,7 +1826,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
         }
 
         if (key == SDLK_TAB) {
-            Global_Classification_Active_Field = CLASSIFICATION_FIELD_SIGNAL_NAME;
+            Global_Classification_Active_Field = CLASSIFICATION_FIELD_CASE_NUMBER;
             return 1;
         }
 
@@ -1160,6 +1861,14 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
                 CLASSIFICATION_append_text(Global_Classification_Field_Text[Global_Classification_Active_Field],
                                            CLASSIFICATION_MAX_TEXT,
                                            event->text.text);
+                if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
+                    Global_Classification_Country_Scroll = 0;
+                    Global_Classification_Country_Hover = -1;
+                }
+                if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_CASE_NUMBER) {
+                    Global_Classification_Case_Scroll = 0;
+                    Global_Classification_Case_Hover = -1;
+                }
             }
         }
         return 1;
@@ -1168,12 +1877,57 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
     if (event->type == SDL_MOUSEWHEEL) {
         int mx = 0;
         int my = 0;
-        SDL_GetMouseState(&mx, &my);
+        CLASSIFICATION_get_adjusted_mouse_state(&mx, &my);
 
         SDL_Rect file_rect;
         SDL_Rect field_rects[CLASSIFICATION_FIELD_COUNT];
         CLASSIFICATION_get_layout(win_w, win_h, &file_rect, NULL, field_rects, NULL);
 
+
+        if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_CASE_NUMBER) {
+            int matches[CLASSIFICATION_MAX_FILES];
+            int count = CLASSIFICATION_build_case_matches(matches, CLASSIFICATION_MAX_FILES);
+            int max_scroll = count - CLASSIFICATION_CASE_MAX_VISIBLE;
+            if (max_scroll < 0) max_scroll = 0;
+
+            SDL_Rect case_base = field_rects[CLASSIFICATION_FIELD_CASE_NUMBER];
+            SDL_Rect case_dd = {case_base.x,
+                                case_base.y + case_base.h,
+                                case_base.w,
+                                CLASSIFICATION_CASE_MAX_VISIBLE * CLASSIFICATION_CASE_OPTION_H};
+            if (point_in_rect(mx, my, case_base) || point_in_rect(mx, my, case_dd)) {
+                Global_Classification_Case_Scroll -= event->wheel.y * 3;
+                if (Global_Classification_Case_Scroll < 0) Global_Classification_Case_Scroll = 0;
+                if (Global_Classification_Case_Scroll > max_scroll) Global_Classification_Case_Scroll = max_scroll;
+                return 1;
+            }
+        }
+
+        if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
+            int matches[512];
+            int count = CLASSIFICATION_build_country_matches(matches, 512);
+            int max_scroll = count - CLASSIFICATION_COUNTRY_MAX_VISIBLE;
+            if (max_scroll < 0) max_scroll = 0;
+
+            if (point_in_rect(mx, my, field_rects[CLASSIFICATION_FIELD_COUNTRY])) {
+                Global_Classification_Country_Scroll -= event->wheel.y * 3;
+                if (Global_Classification_Country_Scroll < 0) Global_Classification_Country_Scroll = 0;
+                if (Global_Classification_Country_Scroll > max_scroll) Global_Classification_Country_Scroll = max_scroll;
+                return 1;
+            }
+
+            SDL_Rect country_base = field_rects[CLASSIFICATION_FIELD_COUNTRY];
+            SDL_Rect country_dd = {country_base.x,
+                                   country_base.y + country_base.h,
+                                   country_base.w,
+                                   CLASSIFICATION_COUNTRY_MAX_VISIBLE * CLASSIFICATION_COUNTRY_OPTION_H};
+            if (point_in_rect(mx, my, country_dd)) {
+                Global_Classification_Country_Scroll -= event->wheel.y * 3;
+                if (Global_Classification_Country_Scroll < 0) Global_Classification_Country_Scroll = 0;
+                if (Global_Classification_Country_Scroll > max_scroll) Global_Classification_Country_Scroll = max_scroll;
+                return 1;
+            }
+        }
         if (Global_Classification_Open_Dropdown != CLASSIFICATION_DROPDOWN_NONE) {
             int dropdown_field = Global_Classification_Open_Dropdown;
             SDL_Rect base = field_rects[dropdown_field];
@@ -1215,6 +1969,60 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
         SDL_Rect save_rect;
         CLASSIFICATION_get_layout(win_w, win_h, &file_rect, &form_rect, field_rects, &save_rect);
         (void)form_rect;
+
+        if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_CASE_NUMBER) {
+            int matches[CLASSIFICATION_MAX_FILES];
+            int count = CLASSIFICATION_build_case_matches(matches, CLASSIFICATION_MAX_FILES);
+            if (Global_Classification_Case_Scroll < 0) Global_Classification_Case_Scroll = 0;
+            if (Global_Classification_Case_Scroll > count - CLASSIFICATION_CASE_MAX_VISIBLE) {
+                Global_Classification_Case_Scroll = count - CLASSIFICATION_CASE_MAX_VISIBLE;
+            }
+            if (Global_Classification_Case_Scroll < 0) Global_Classification_Case_Scroll = 0;
+
+            SDL_Rect base = field_rects[CLASSIFICATION_FIELD_CASE_NUMBER];
+            int visible = count - Global_Classification_Case_Scroll;
+            if (visible > CLASSIFICATION_CASE_MAX_VISIBLE) visible = CLASSIFICATION_CASE_MAX_VISIBLE;
+            if (visible < 0) visible = 0;
+
+            for (int i = 0; i < visible; i++) {
+                int match_index = Global_Classification_Case_Scroll + i;
+                SDL_Rect option_rect = {base.x,
+                                        base.y + base.h + (i * CLASSIFICATION_CASE_OPTION_H),
+                                        base.w,
+                                        CLASSIFICATION_CASE_OPTION_H};
+                if (match_index >= 0 && match_index < count && point_in_rect(x, y, option_rect)) {
+                    CLASSIFICATION_select_case(matches[match_index]);
+                    return 1;
+                }
+            }
+        }
+
+        if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
+            int matches[512];
+            int count = CLASSIFICATION_build_country_matches(matches, 512);
+            if (Global_Classification_Country_Scroll < 0) Global_Classification_Country_Scroll = 0;
+            if (Global_Classification_Country_Scroll > count - CLASSIFICATION_COUNTRY_MAX_VISIBLE) {
+                Global_Classification_Country_Scroll = count - CLASSIFICATION_COUNTRY_MAX_VISIBLE;
+            }
+            if (Global_Classification_Country_Scroll < 0) Global_Classification_Country_Scroll = 0;
+
+            SDL_Rect base = field_rects[CLASSIFICATION_FIELD_COUNTRY];
+            int visible = count - Global_Classification_Country_Scroll;
+            if (visible > CLASSIFICATION_COUNTRY_MAX_VISIBLE) visible = CLASSIFICATION_COUNTRY_MAX_VISIBLE;
+            if (visible < 0) visible = 0;
+
+            for (int i = 0; i < visible; i++) {
+                int match_index = Global_Classification_Country_Scroll + i;
+                SDL_Rect option_rect = {base.x,
+                                        base.y + base.h + (i * CLASSIFICATION_COUNTRY_OPTION_H),
+                                        base.w,
+                                        CLASSIFICATION_COUNTRY_OPTION_H};
+                if (match_index >= 0 && match_index < count && point_in_rect(x, y, option_rect)) {
+                    CLASSIFICATION_select_country(matches[match_index]);
+                    return 1;
+                }
+            }
+        }
 
         if (Global_Classification_Open_Dropdown != CLASSIFICATION_DROPDOWN_NONE) {
             int dropdown_field = Global_Classification_Open_Dropdown;
@@ -1284,6 +2092,12 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h)
                     Global_Classification_Open_Dropdown = CLASSIFICATION_DROPDOWN_NONE;
                     Global_Classification_Active_Field = i;
 
+                    if (i == CLASSIFICATION_FIELD_CASE_NUMBER) {
+                        CLASSIFICATION_scan_case_files();
+                        Global_Classification_Case_Scroll = 0;
+                        Global_Classification_Case_Hover = -1;
+                    }
+
                     if (i == CLASSIFICATION_FIELD_NOTES) {
                         CLASSIFICATION_set_notes_cursor_from_mouse(field_rects[i], x, y);
                     }
@@ -1346,7 +2160,7 @@ static void CLASSIFICATION_draw_input_field(SDL_Renderer *renderer,
     draw_text(renderer,
               font,
               label,
-              rect.x - 240,
+              rect.x - 226,
               rect.y + 9,
               active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 180, 70, 255});
 
@@ -1374,7 +2188,10 @@ static void CLASSIFICATION_draw_input_field(SDL_Renderer *renderer,
 
     char short_value[CLASSIFICATION_MAX_TEXT + 64];
 
-    CLASSIFICATION_short_text(font, shown, short_value, sizeof(short_value), rect.w - 34);
+    int text_max_w = rect.w - 34;
+    if (field_index == CLASSIFICATION_FIELD_COUNTRY) text_max_w -= 78;
+
+    CLASSIFICATION_short_text(font, shown, short_value, sizeof(short_value), text_max_w);
 
     draw_text(renderer,
               font,
@@ -1384,6 +2201,17 @@ static void CLASSIFICATION_draw_input_field(SDL_Renderer *renderer,
               (text && text[0]) ?
               (SDL_Color){230, 230, 230, 255} :
               (SDL_Color){120, 150, 130, 255});
+
+    if (field_index == CLASSIFICATION_FIELD_COUNTRY) {
+        const Type_Classification_Country_Option *country = CLASSIFICATION_find_country_exact(text);
+        SDL_Rect flag_rect = {rect.x + rect.w - 70, rect.y + 5, 60, rect.h - 10};
+        if (country) {
+            CLASSIFICATION_draw_flag_box(renderer, font, flag_rect, country->alpha2);
+        }
+        else {
+            draw_outline_rect(renderer, flag_rect, (SDL_Color){0, 100, 45, 255});
+        }
+    }
 
     if (dropdown_field) {
         draw_text(renderer,
@@ -1409,7 +2237,7 @@ static void CLASSIFICATION_draw_dropdown(SDL_Renderer *renderer,
 
     int mouse_x = 0;
     int mouse_y = 0;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    CLASSIFICATION_get_adjusted_mouse_state(&mouse_x, &mouse_y);
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
@@ -1506,6 +2334,184 @@ static void CLASSIFICATION_draw_dropdown(SDL_Renderer *renderer,
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
+
+static void CLASSIFICATION_draw_case_suggestions(SDL_Renderer *renderer,
+                                                 TTF_Font *font,
+                                                 SDL_Rect field_rect)
+{
+    if (Global_Classification_Active_Field != CLASSIFICATION_FIELD_CASE_NUMBER) return;
+
+    int matches[CLASSIFICATION_MAX_FILES];
+    int count = CLASSIFICATION_build_case_matches(matches, CLASSIFICATION_MAX_FILES);
+    if (count <= 0) return;
+
+    int max_scroll = count - CLASSIFICATION_CASE_MAX_VISIBLE;
+    if (max_scroll < 0) max_scroll = 0;
+    if (Global_Classification_Case_Scroll < 0) Global_Classification_Case_Scroll = 0;
+    if (Global_Classification_Case_Scroll > max_scroll) Global_Classification_Case_Scroll = max_scroll;
+
+    int visible = count - Global_Classification_Case_Scroll;
+    if (visible > CLASSIFICATION_CASE_MAX_VISIBLE) visible = CLASSIFICATION_CASE_MAX_VISIBLE;
+
+    int mouse_x = 0;
+    int mouse_y = 0;
+    CLASSIFICATION_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+
+    SDL_Rect bg = {field_rect.x,
+                   field_rect.y + field_rect.h,
+                   field_rect.w,
+                   visible * CLASSIFICATION_CASE_OPTION_H};
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, bg, (SDL_Color){0, 0, 0, 245});
+    draw_outline_rect(renderer, bg, (SDL_Color){0, 180, 70, 255});
+
+    Global_Classification_Case_Hover = -1;
+
+    for (int i = 0; i < visible; i++) {
+        int match_pos = Global_Classification_Case_Scroll + i;
+        if (match_pos < 0 || match_pos >= count) continue;
+
+        int case_index = matches[match_pos];
+        if (case_index < 0 || case_index >= Global_Classification_Case_Count) continue;
+
+        SDL_Rect row = {field_rect.x,
+                        field_rect.y + field_rect.h + (i * CLASSIFICATION_CASE_OPTION_H),
+                        field_rect.w,
+                        CLASSIFICATION_CASE_OPTION_H};
+
+        int hovered = point_in_rect(mouse_x, mouse_y, row);
+        if (hovered) Global_Classification_Case_Hover = case_index;
+
+        draw_filled_rect(renderer,
+                         row,
+                         hovered ?
+                         (SDL_Color){0, 70, 30, 250} :
+                         (SDL_Color){0, 12, 4, 245});
+        draw_outline_rect(renderer,
+                          row,
+                          hovered ?
+                          (SDL_Color){0, 255, 90, 255} :
+                          (SDL_Color){0, 130, 55, 255});
+
+        char short_case[CLASSIFICATION_MAX_TEXT];
+        CLASSIFICATION_short_text(font,
+                                  Global_Classification_Case_Options[case_index],
+                                  short_case,
+                                  sizeof(short_case),
+                                  row.w - 20);
+        draw_text(renderer,
+                  font,
+                  short_case,
+                  row.x + 9,
+                  row.y + 6,
+                  hovered ?
+                  (SDL_Color){235, 255, 240, 255} :
+                  (SDL_Color){190, 220, 195, 255});
+    }
+
+    if (count > visible) {
+        int track_h = bg.h - 8;
+        int scroll_x = bg.x + bg.w - 8;
+        int scroll_y = bg.y + 4;
+        int scroll_w = 4;
+        int thumb_h = (visible * track_h) / count;
+        if (thumb_h < 18) thumb_h = 18;
+        if (thumb_h > track_h) thumb_h = track_h;
+
+        int max = count - visible;
+        int thumb_y = scroll_y;
+        if (max > 0) {
+            thumb_y = scroll_y +
+                      (Global_Classification_Case_Scroll * (track_h - thumb_h)) /
+                      max;
+        }
+
+        draw_filled_rect(renderer, (SDL_Rect){scroll_x, scroll_y, scroll_w, track_h}, (SDL_Color){0, 60, 25, 180});
+        draw_filled_rect(renderer, (SDL_Rect){scroll_x - 1, thumb_y, scroll_w + 2, thumb_h}, (SDL_Color){0, 255, 90, 220});
+    }
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
+
+static void CLASSIFICATION_draw_country_suggestions(SDL_Renderer *renderer,
+                                                    TTF_Font *font,
+                                                    SDL_Rect field_rect)
+{
+    if (Global_Classification_Active_Field != CLASSIFICATION_FIELD_COUNTRY) return;
+
+    int matches[512];
+    int count = CLASSIFICATION_build_country_matches(matches, 512);
+    if (count <= 0) return;
+
+    int max_scroll = count - CLASSIFICATION_COUNTRY_MAX_VISIBLE;
+    if (max_scroll < 0) max_scroll = 0;
+    if (Global_Classification_Country_Scroll < 0) Global_Classification_Country_Scroll = 0;
+    if (Global_Classification_Country_Scroll > max_scroll) Global_Classification_Country_Scroll = max_scroll;
+
+    int visible = count - Global_Classification_Country_Scroll;
+    if (visible > CLASSIFICATION_COUNTRY_MAX_VISIBLE) visible = CLASSIFICATION_COUNTRY_MAX_VISIBLE;
+
+    int mouse_x = 0;
+    int mouse_y = 0;
+    CLASSIFICATION_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+
+    SDL_Rect bg = {field_rect.x,
+                   field_rect.y + field_rect.h,
+                   field_rect.w,
+                   visible * CLASSIFICATION_COUNTRY_OPTION_H};
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, bg, (SDL_Color){0, 0, 0, 245});
+    draw_outline_rect(renderer, bg, (SDL_Color){0, 180, 70, 255});
+
+    Global_Classification_Country_Hover = -1;
+
+    for (int i = 0; i < visible; i++) {
+        int match_pos = Global_Classification_Country_Scroll + i;
+        if (match_pos < 0 || match_pos >= count) continue;
+
+        int country_index = matches[match_pos];
+        const Type_Classification_Country_Option *country = &CLASSIFICATION_COUNTRIES[country_index];
+
+        SDL_Rect row = {field_rect.x,
+                        field_rect.y + field_rect.h + (i * CLASSIFICATION_COUNTRY_OPTION_H),
+                        field_rect.w,
+                        CLASSIFICATION_COUNTRY_OPTION_H};
+
+        int hovered = point_in_rect(mouse_x, mouse_y, row);
+        if (hovered) Global_Classification_Country_Hover = country_index;
+
+        draw_filled_rect(renderer,
+                         row,
+                         hovered ?
+                         (SDL_Color){0, 70, 30, 250} :
+                         (SDL_Color){0, 12, 4, 245});
+        draw_outline_rect(renderer,
+                          row,
+                          hovered ?
+                          (SDL_Color){0, 255, 90, 255} :
+                          (SDL_Color){0, 130, 55, 255});
+
+        SDL_Rect flag_rect = {row.x + row.w - 70, row.y + 6, 60, row.h - 12};
+        CLASSIFICATION_draw_flag_box(renderer, font, flag_rect, country->alpha2);
+
+        char short_name[CLASSIFICATION_MAX_TEXT];
+        CLASSIFICATION_short_text(font, country->name, short_name, sizeof(short_name), row.w - 70);
+        draw_text(renderer,
+                  font,
+                  short_name,
+                  row.x + 9,
+                  row.y + 7,
+                  hovered ?
+                  (SDL_Color){235, 255, 240, 255} :
+                  (SDL_Color){190, 220, 195, 255});
+    }
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
 static void CLASSIFICATION_draw_save_button(SDL_Renderer *renderer,
                                             TTF_Font *font,
                                             SDL_Rect rect,
@@ -1541,14 +2547,14 @@ static void CLASSIFICATION_draw_save_button(SDL_Renderer *renderer,
     int text_w = 0;
     int text_h = 0;
 
-    if (font && TTF_SizeText(font, "Save CSV", &text_w, &text_h) != 0) {
+    if (font && TTF_SizeText(font, "Save Case", &text_w, &text_h) != 0) {
         text_w = 0;
         text_h = 0;
     }
 
     draw_text(renderer,
               font,
-              "Save CSV",
+              "Save Case",
               rect.x + (rect.w - text_w) / 2,
               rect.y + (rect.h - text_h) / 2,
               text);
@@ -1625,9 +2631,9 @@ void CLASSIFICATION_draw_workstation(SDL_Renderer *renderer,
 
     draw_text(renderer,
               font,
-              "Output: Classification/SIGNAL_<Signal Name>_CLASSIFICATION_<Signal Date Time>.csv",
-              form_rect.x + 16,
-              save_rect.y - 32,
+              "Output: Classification/CASE_<Case #>.csv  |  same Case # appends multiple signals",
+              form_rect.x + 10,
+              form_rect.y - 25,
               (SDL_Color){0, 255, 90, 255});
 
     if (Global_Classification_Open_Dropdown != CLASSIFICATION_DROPDOWN_NONE) {
@@ -1637,9 +2643,17 @@ void CLASSIFICATION_draw_workstation(SDL_Renderer *renderer,
                                      Global_Classification_Open_Dropdown);
     }
 
+    CLASSIFICATION_draw_case_suggestions(renderer,
+                                         font,
+                                         field_rects[CLASSIFICATION_FIELD_CASE_NUMBER]);
+
+    CLASSIFICATION_draw_country_suggestions(renderer,
+                                            font,
+                                            field_rects[CLASSIFICATION_FIELD_COUNTRY]);
+
     int mouse_x = 0;
     int mouse_y = 0;
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    CLASSIFICATION_get_adjusted_mouse_state(&mouse_x, &mouse_y);
 
     int save_hovered = point_in_rect(mouse_x, mouse_y, save_rect);
 
