@@ -1251,14 +1251,24 @@ void ANALYSIS_draw_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, SDL_Re
     int y0 = spec_rect.y + (int)(y0f * (double)spec_rect.h);
     int y1 = spec_rect.y + (int)(y1f * (double)spec_rect.h);
 
+    if (y0 < spec_rect.y) y0 = spec_rect.y;
+    if (y1 > spec_rect.y + spec_rect.h) y1 = spec_rect.y + spec_rect.h;
     if (y1 <= y0) y1 = y0 + 2;
-
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    if (y1 > spec_rect.y + spec_rect.h) y1 = spec_rect.y + spec_rect.h;
 
     SDL_Rect band = {spec_rect.x, y0, spec_rect.w, y1 - y0};
 
+    SDL_Rect old_clip;
+    SDL_bool old_clip_enabled = SDL_RenderIsClipEnabled(renderer);
+    SDL_RenderGetClipRect(renderer, &old_clip);
+    SDL_RenderSetClipRect(renderer, &spec_rect);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
     SDL_SetRenderDrawColor(renderer, 0, 210, 255, 45);
-    SDL_RenderFillRect(renderer, &band);
+    for (int yy = band.y; yy < band.y + band.h; yy++) {
+        SDL_RenderDrawLine(renderer, band.x, yy, band.x + band.w - 1, yy);
+    }
 
     SDL_SetRenderDrawColor(renderer, 0, 240, 255, 220);
     SDL_RenderDrawLine(renderer, spec_rect.x, y0, spec_rect.x + spec_rect.w, y0);
@@ -1268,6 +1278,11 @@ void ANALYSIS_draw_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, SDL_Re
     SDL_RenderDrawRect(renderer, &band);
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    if (old_clip_enabled) {
+        SDL_RenderSetClipRect(renderer, &old_clip);
+    } else {
+        SDL_RenderSetClipRect(renderer, NULL);
+    }
 
     char msg[160];
 
@@ -1442,9 +1457,6 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
     draw_text(renderer, font, "Constellation I/Q", const_rect.x + 10, mid_title_y + 3,
               (SDL_Color){190, 190, 190, 255});
 
-    draw_text(renderer, font, "Greyscale Spectrogram", spec_rect.x + 10, spec_title_y + 3,
-              (SDL_Color){190, 190, 190, 255});
-
     if (Global_Analysis_Path[0] == '\0') {
 
         draw_filled_rect(renderer, psd_rect, (SDL_Color){5, 5, 5, 255});
@@ -1517,36 +1529,32 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
     draw_border(renderer, spec_rect);
     ANALYSIS_draw_filter_overlay(renderer, font, spec_rect);
 
-    if (Global_Analysis_IQ_Count > 0 && Global_Analysis_Sample_Rate > 0.0) {
+    /*
+     * In fullscreen the visible Analysis greyscale spectrogram can be wider
+     * than the backing spectrogram texture.  The center-frequency reference
+     * line can then appear only on the right half of the greyscale image.
+     * Draw one consistent full-width center line after overlays so the line
+     * does not become brighter on one side when the frequency filter is shown.
+     */
+    if (spec_rect.w > tex_w && spec_rect.h > 0) {
 
-        char info[320];
-        double t0 = (double)Global_Analysis_View_Start / Global_Analysis_Sample_Rate;
-        double t1 = (double)(Global_Analysis_View_Start + Global_Analysis_View_Len) / Global_Analysis_Sample_Rate;
-
-        if (Global_Analysis_Filter_Active) {
-            snprintf(info, sizeof(info), "%.6f MHz | %.6f sec to %.6f sec | %.3f kS/s | Filtered graph mode | Backspace clear",
-                     Global_Analysis_Center_Hz / 1e6,
-                     t0,
-                     t1,
-                     Global_Analysis_Sample_Rate / 1e3);
-        } else {
-            snprintf(info, sizeof(info), "%.6f MHz | %.6f sec to %.6f sec | %.3f kS/s | Drag pan | Wheel zoom | Ctrl+drag filter",
-                     Global_Analysis_Center_Hz / 1e6,
-                     t0,
-                     t1,
-                     Global_Analysis_Sample_Rate / 1e3);
-        }
-
-        SDL_Rect bg = {spec_rect.x + 10, spec_rect.y + 10, spec_rect.w - 20, 32};
+        int center_y = spec_rect.y + (spec_rect.h / 2);
 
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        draw_filled_rect(renderer, bg, (SDL_Color){0, 0, 0, 190});
-        draw_outline_rect(renderer, bg, (SDL_Color){170, 170, 170, 180});
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 190);
+        SDL_RenderDrawLine(renderer,
+                           spec_rect.x,
+                           center_y,
+                           spec_rect.x + spec_rect.w,
+                           center_y);
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
-        draw_text(renderer, font, info, bg.x + 10, bg.y + 8, (SDL_Color){230, 230, 230, 255});
-
     }
+
+    /*
+     * Keep the greyscale spectrogram unobstructed. Status/frequency labels are
+     * drawn outside the spectrogram by the Analysis overlay path.
+     */
 
 }
 

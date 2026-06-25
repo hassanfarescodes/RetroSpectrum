@@ -1,2 +1,0 @@
-signal_name,frequency_mhz,bandwidth,start_time,end_time,calculated_modulation,signal_class,notes,file_name
-"FIRST_TRANSMISSION_7A","914.828207","924.092 kHz","2.223583","2.226748","FSK-like","Remote / ISM-like","1/4 Transmissions of a signal, could be GFSK also","06-17-2026_20-57-38_CAPTURE_915.521276MHz_BW_17489.361kHz_SR_20000.000k_Decimation_1.complex16"

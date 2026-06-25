@@ -1,2 +1,0 @@
-signal_name,frequency_mhz,bandwidth,start_time,end_time,calculated_modulation,signal_class,notes,file_name
-"","0.000000","0.000 kHz","0.000000","0.000000","Unknown","Unknown","","gqrx_20260621_172640_9.complex16"

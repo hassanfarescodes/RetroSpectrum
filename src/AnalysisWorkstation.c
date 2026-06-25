@@ -4335,7 +4335,13 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
               workspace_bg.y + 5,
               (SDL_Color){230, 230, 230, 255});
 
-    if (texture && tex_w > 0 && tex_h > 0 && spec_rect.w > 0 && spec_rect.h > 0) {
+    int filter_overlay_visible =
+        (Global_Analysis_Filter_Active || Global_Analysis_Filter_Selecting) &&
+        Global_Analysis_Path[0] != '\0';
+
+    if (!filter_overlay_visible &&
+        texture && tex_w > 0 && tex_h > 0 &&
+        spec_rect.w > 0 && spec_rect.h > 0) {
 
         int clear_h = 42;
 
