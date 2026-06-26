@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <fftw3.h>
 #include <SDL2/SDL.h>
@@ -40,6 +41,8 @@
 #define ANALYSIS_SIGNAL_FIELD_NONE -1
 #define ANALYSIS_SIGNAL_DECIMATION_FIELD 5
 #define ANALYSIS_SIGNAL_FILENAME_FIELD 6
+#define ANALYSIS_FILE_SEARCH_TEXT_MAX 256
+#define ANALYSIS_FILE_SEARCH_ROW_H 34
 
 #ifndef RETROSPECTRUM_DASHBOARD_TAB_BAR_H
 #define RETROSPECTRUM_DASHBOARD_TAB_BAR_H 56
@@ -144,6 +147,13 @@ static double           Global_Analysis_Signal_Icon_Freq_Frac = 0.0;
 static int              Global_Analysis_Delete_Confirm_Open = 0;
 static char             Global_Analysis_Delete_Confirm_File[512] = "";
 static char             Global_Analysis_Delete_Confirm_Path[1024] = "";
+
+static int              Global_Analysis_File_Search_Open = 0;
+static int              Global_Analysis_File_Search_Active = 0;
+static int              Global_Analysis_File_Search_Cursor = 0;
+static int              Global_Analysis_File_Search_Scroll = 0;
+static int              Global_Analysis_File_Search_Hover = -1;
+static char             Global_Analysis_File_Search_Text[ANALYSIS_FILE_SEARCH_TEXT_MAX] = "";
 
 static const char *ANALYSIS_SIGNAL_FIELD_LABELS[ANALYSIS_SIGNAL_FIELD_COUNT] = {
     "Center Frequency MHz",
@@ -1723,6 +1733,715 @@ static void ANALYSIS_short_text(TTF_Font *font,
     }
 
     snprintf(dst, dst_size, "...");
+
+}
+
+
+static int ANALYSIS_file_search_matches(const char *name){
+
+    char hay[512];
+    char needle[ANALYSIS_FILE_SEARCH_TEXT_MAX];
+    size_t i;
+
+    if (!name) name = "";
+    if (Global_Analysis_File_Search_Text[0] == '\0') return 1;
+
+    for (i = 0; i + 1 < sizeof(hay) && name[i]; i++) {
+
+        hay[i] = (char)tolower((unsigned char)name[i]);
+
+    }
+
+    hay[i] = '\0';
+
+    for (i = 0; i + 1 < sizeof(needle) && Global_Analysis_File_Search_Text[i]; i++) {
+
+        needle[i] = (char)tolower((unsigned char)Global_Analysis_File_Search_Text[i]);
+
+    }
+
+    needle[i] = '\0';
+
+    return strstr(hay, needle) != NULL;
+
+}
+
+static int ANALYSIS_file_search_filtered_count(void){
+
+    int count = 0;
+
+    for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
+        if (ANALYSIS_file_search_matches(Global_Analysis_Files[i])) count++;
+
+    }
+
+    return count;
+
+}
+
+static int ANALYSIS_file_search_filtered_index_at(int filtered_index){
+
+    int seen = 0;
+
+    if (filtered_index < 0) return -1;
+
+    for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
+        if (!ANALYSIS_file_search_matches(Global_Analysis_Files[i])) continue;
+
+        if (seen == filtered_index) return i;
+        seen++;
+
+    }
+
+    return -1;
+
+}
+
+static SDL_Rect ANALYSIS_file_search_popup_rect(int win_w, int win_h){
+
+    SDL_Rect r = {
+        (win_w - 1050) / 2,
+        (win_h - 740) / 2,
+        1050,
+        740
+    };
+
+    if (r.x < MARGIN) r.x = MARGIN;
+    if (r.y < MARGIN) r.y = MARGIN;
+    if (r.w > win_w - 2 * MARGIN) r.w = win_w - 2 * MARGIN;
+    if (r.h > win_h - 2 * MARGIN) r.h = win_h - 2 * MARGIN;
+    if (r.w < 320) r.w = 320;
+    if (r.h < 260) r.h = 260;
+    return r;
+
+}
+
+static SDL_Rect ANALYSIS_file_search_input_rect(SDL_Rect popup){
+
+    SDL_Rect close_btn = {popup.x + popup.w - 86, popup.y + 14, 68, 30};
+    SDL_Rect search = {close_btn.x - 292, popup.y + 14, 276, 30};
+
+    if (search.x < popup.x + 180) {
+
+        search.x = popup.x + 180;
+        search.w = close_btn.x - search.x - 16;
+
+    }
+
+    if (search.w < 120) search.w = 120;
+    return search;
+
+}
+
+static SDL_Rect ANALYSIS_file_search_button_rect(int win_w, int win_h){
+
+    SDL_Rect list_rect;
+    SDL_Rect spec_rect;
+    (void)spec_rect;
+
+    ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
+
+    SDL_Rect button = {
+        list_rect.x + list_rect.w - 178,
+        list_rect.y + 8,
+        166,
+        28
+    };
+
+    if (button.x < list_rect.x + 12) button.x = list_rect.x + 12;
+    if (button.w > list_rect.w - 24) button.w = list_rect.w - 24;
+    return button;
+
+}
+
+static void ANALYSIS_file_search_clamp_scroll(void){
+
+    int filtered_count = ANALYSIS_file_search_filtered_count();
+    int visible = 14;
+    int max_scroll = filtered_count - visible;
+
+    if (max_scroll < 0) max_scroll = 0;
+    if (Global_Analysis_File_Search_Scroll < 0) Global_Analysis_File_Search_Scroll = 0;
+    if (Global_Analysis_File_Search_Scroll > max_scroll) Global_Analysis_File_Search_Scroll = max_scroll;
+
+}
+
+static void ANALYSIS_open_file_search_menu(void){
+
+    if (Global_Analysis_File_Count <= 0) {
+
+        ANALYSIS_scan_recordings();
+
+    }
+
+    Global_Analysis_File_Search_Open = 1;
+    Global_Analysis_File_Search_Active = 1;
+    Global_Analysis_File_Search_Hover = -1;
+    Global_Analysis_File_Search_Text[0] = '\0';
+    Global_Analysis_File_Search_Cursor = 0;
+    Global_Analysis_File_Search_Scroll = 0;
+    Global_Analysis_Signal_Menu_Open = 0;
+    Global_Analysis_Dragging = 0;
+    Global_Analysis_Filter_Selecting = 0;
+    Global_Analysis_Column_Selecting = 0;
+
+    snprintf(Global_Analysis_Status,
+             sizeof(Global_Analysis_Status),
+             "Filename search menu opened");
+
+}
+
+static void ANALYSIS_close_file_search_menu(void){
+
+    Global_Analysis_File_Search_Open = 0;
+    Global_Analysis_File_Search_Active = 0;
+    Global_Analysis_File_Search_Hover = -1;
+
+}
+
+static void ANALYSIS_file_search_select_index(int index, int open_after_select){
+
+    if (index < 0 || index >= Global_Analysis_File_Count) return;
+
+    Global_Analysis_Selected = index;
+    Global_Analysis_List_Scroll = Global_Analysis_Selected - 2;
+    if (Global_Analysis_List_Scroll < 0) Global_Analysis_List_Scroll = 0;
+
+    ANALYSIS_close_file_search_menu();
+
+    snprintf(Global_Analysis_Status,
+             sizeof(Global_Analysis_Status),
+             "Selected %.180s | Press Enter to open",
+             Global_Analysis_Files[Global_Analysis_Selected]);
+
+    if (open_after_select) {
+
+        ANALYSIS_open_selected_recording();
+
+    }
+
+}
+
+static void ANALYSIS_file_search_insert_text(const char *text){
+
+    if (!text || text[0] == '\0') return;
+
+    int len = (int)strlen(Global_Analysis_File_Search_Text);
+    int add = (int)strlen(text);
+
+    if (Global_Analysis_File_Search_Cursor < 0) Global_Analysis_File_Search_Cursor = 0;
+    if (Global_Analysis_File_Search_Cursor > len) Global_Analysis_File_Search_Cursor = len;
+    if (len + add >= ANALYSIS_FILE_SEARCH_TEXT_MAX) {
+
+        add = ANALYSIS_FILE_SEARCH_TEXT_MAX - len - 1;
+
+    }
+
+    if (add <= 0) return;
+
+    memmove(Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor + add,
+            Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor,
+            (size_t)(len - Global_Analysis_File_Search_Cursor + 1));
+
+    memcpy(Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor,
+           text,
+           (size_t)add);
+
+    Global_Analysis_File_Search_Cursor += add;
+    Global_Analysis_File_Search_Scroll = 0;
+
+}
+
+static void ANALYSIS_file_search_backspace(void){
+
+    int len = (int)strlen(Global_Analysis_File_Search_Text);
+
+    if (Global_Analysis_File_Search_Cursor <= 0 || len <= 0) return;
+    if (Global_Analysis_File_Search_Cursor > len) Global_Analysis_File_Search_Cursor = len;
+
+    memmove(Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor - 1,
+            Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor,
+            (size_t)(len - Global_Analysis_File_Search_Cursor + 1));
+
+    Global_Analysis_File_Search_Cursor--;
+    Global_Analysis_File_Search_Scroll = 0;
+
+}
+
+static void ANALYSIS_file_search_delete(void){
+
+    int len = (int)strlen(Global_Analysis_File_Search_Text);
+
+    if (Global_Analysis_File_Search_Cursor < 0) Global_Analysis_File_Search_Cursor = 0;
+    if (Global_Analysis_File_Search_Cursor >= len) return;
+
+    memmove(Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor,
+            Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor + 1,
+            (size_t)(len - Global_Analysis_File_Search_Cursor));
+
+    Global_Analysis_File_Search_Scroll = 0;
+
+}
+
+static void ANALYSIS_draw_modal_button(SDL_Renderer *renderer,
+                                       TTF_Font *font,
+                                       SDL_Rect rect,
+                                       const char *label,
+                                       int hovered){
+
+    SDL_Color fill = hovered ? (SDL_Color){0, 44, 16, 255} : (SDL_Color){0, 8, 3, 255};
+    SDL_Color border = hovered ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 150, 60, 255};
+    SDL_Color text = hovered ? (SDL_Color){235, 255, 240, 255} : (SDL_Color){0, 255, 90, 255};
+
+    if (hovered) {
+
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_Rect glow = {rect.x - 4, rect.y - 4, rect.w + 8, rect.h + 8};
+        draw_filled_rect(renderer, glow, (SDL_Color){0, 255, 90, 38});
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    }
+
+    draw_filled_rect(renderer, rect, fill);
+    draw_outline_rect(renderer, rect, border);
+
+    int tw = 0;
+    int th = 0;
+    if (font && label && TTF_SizeText(font, label, &tw, &th) != 0) {
+
+        tw = 0;
+        th = 0;
+
+    }
+
+    draw_text(renderer,
+              font,
+              label,
+              rect.x + (rect.w - tw) / 2,
+              rect.y + (rect.h - th) / 2,
+              text);
+
+}
+
+static int ANALYSIS_handle_file_search_event(SDL_Event *event, int win_w, int win_h){
+
+    if (!event || !Global_Analysis_File_Search_Open) return 0;
+
+    SDL_Rect popup = ANALYSIS_file_search_popup_rect(win_w, win_h);
+    SDL_Rect close_btn = {popup.x + popup.w - 86, popup.y + 14, 68, 30};
+    SDL_Rect search = ANALYSIS_file_search_input_rect(popup);
+    SDL_Rect list = {popup.x + 18, popup.y + 124, popup.w - 36, popup.h - 164};
+
+    if (event->type == SDL_TEXTINPUT) {
+
+        if (Global_Analysis_File_Search_Active) ANALYSIS_file_search_insert_text(event->text.text);
+        return 1;
+
+    }
+
+    if (event->type == SDL_KEYDOWN) {
+
+        SDL_Keycode key = event->key.keysym.sym;
+        int len = (int)strlen(Global_Analysis_File_Search_Text);
+
+        if (key == SDLK_ESCAPE) {
+
+            ANALYSIS_close_file_search_menu();
+            return 1;
+
+        }
+
+        if (key == SDLK_BACKSPACE) {
+
+            ANALYSIS_file_search_backspace();
+            return 1;
+
+        }
+
+        if (key == SDLK_DELETE) {
+
+            ANALYSIS_file_search_delete();
+            return 1;
+
+        }
+
+        if (key == SDLK_LEFT) {
+
+            if (Global_Analysis_File_Search_Cursor > 0) Global_Analysis_File_Search_Cursor--;
+            return 1;
+
+        }
+
+        if (key == SDLK_RIGHT) {
+
+            if (Global_Analysis_File_Search_Cursor < len) Global_Analysis_File_Search_Cursor++;
+            return 1;
+
+        }
+
+        if (key == SDLK_HOME) {
+
+            Global_Analysis_File_Search_Cursor = 0;
+            return 1;
+
+        }
+
+        if (key == SDLK_END) {
+
+            Global_Analysis_File_Search_Cursor = len;
+            return 1;
+
+        }
+
+        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
+            int index = ANALYSIS_file_search_filtered_index_at(Global_Analysis_File_Search_Scroll);
+            if (index >= 0) ANALYSIS_file_search_select_index(index, 1);
+            return 1;
+
+        }
+
+        if (key == SDLK_DOWN) {
+
+            Global_Analysis_File_Search_Scroll++;
+            ANALYSIS_file_search_clamp_scroll();
+            return 1;
+
+        }
+
+        if (key == SDLK_UP) {
+
+            Global_Analysis_File_Search_Scroll--;
+            ANALYSIS_file_search_clamp_scroll();
+            return 1;
+
+        }
+
+        return 1;
+
+    }
+
+    if (event->type == SDL_MOUSEWHEEL) {
+
+        int mx = 0;
+        int my = 0;
+        ANALYSIS_get_adjusted_mouse_state(&mx, &my);
+
+        if (point_in_rect(mx, my, list)) {
+
+            Global_Analysis_File_Search_Scroll -= event->wheel.y * 3;
+            ANALYSIS_file_search_clamp_scroll();
+
+        }
+
+        return 1;
+
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
+        int mx = event->button.x;
+        int my = event->button.y;
+
+        if (!point_in_rect(mx, my, popup) || point_in_rect(mx, my, close_btn)) {
+
+            ANALYSIS_close_file_search_menu();
+            return 1;
+
+        }
+
+        if (point_in_rect(mx, my, search)) {
+
+            Global_Analysis_File_Search_Active = 1;
+            return 1;
+
+        }
+
+        Global_Analysis_File_Search_Active = 0;
+
+        if (point_in_rect(mx, my, list)) {
+
+            int row = (my - list.y - 4) / ANALYSIS_FILE_SEARCH_ROW_H;
+            int visible = list.h / ANALYSIS_FILE_SEARCH_ROW_H;
+            if (visible < 1) visible = 1;
+            if (visible > 14) visible = 14;
+
+            if (row >= 0 && row < visible) {
+
+                int filtered_index = Global_Analysis_File_Search_Scroll + row;
+                int index = ANALYSIS_file_search_filtered_index_at(filtered_index);
+                if (index >= 0) ANALYSIS_file_search_select_index(index, event->button.clicks >= 2);
+
+            }
+
+            return 1;
+
+        }
+
+        return 1;
+
+    }
+
+    return 1;
+
+}
+
+static void ANALYSIS_draw_file_search_button(SDL_Renderer *renderer,
+                                             TTF_Font *font,
+                                             int win_w,
+                                             int win_h){
+
+    if (!renderer || !font) return;
+
+    int mx = 0;
+    int my = 0;
+    ANALYSIS_get_adjusted_mouse_state(&mx, &my);
+
+    SDL_Rect button = ANALYSIS_file_search_button_rect(win_w, win_h);
+
+    ANALYSIS_draw_modal_button(renderer,
+                               font,
+                               button,
+                               "Open Search Menu",
+                               point_in_rect(mx, my, button));
+
+}
+
+static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer,
+                                            TTF_Font *font,
+                                            int win_w,
+                                            int win_h){
+
+    if (!renderer || !font || !Global_Analysis_File_Search_Open) return;
+
+    SDL_Rect popup = ANALYSIS_file_search_popup_rect(win_w, win_h);
+    SDL_Rect close_btn = {popup.x + popup.w - 86, popup.y + 14, 68, 30};
+    SDL_Rect search = ANALYSIS_file_search_input_rect(popup);
+    SDL_Rect current_rect = {popup.x + 18, popup.y + 62, popup.w - 36, 42};
+    SDL_Rect list = {popup.x + 18, popup.y + 124, popup.w - 36, popup.h - 164};
+    int mx = 0;
+    int my = 0;
+    int filtered_count = ANALYSIS_file_search_filtered_count();
+
+    ANALYSIS_get_adjusted_mouse_state(&mx, &my);
+    ANALYSIS_file_search_clamp_scroll();
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_Rect dim = {0, 0, win_w, win_h};
+    draw_filled_rect(renderer, dim, (SDL_Color){0, 0, 0, 155});
+
+    draw_filled_rect(renderer, popup, (SDL_Color){0, 8, 3, 252});
+    draw_outline_rect(renderer, popup, (SDL_Color){0, 255, 90, 255});
+    SDL_Rect inner = {popup.x + 4, popup.y + 4, popup.w - 8, popup.h - 8};
+    draw_outline_rect(renderer, inner, (SDL_Color){0, 150, 60, 255});
+
+    draw_text(renderer,
+              font,
+              "FILENAME SEARCH",
+              popup.x + 18,
+              popup.y + 20,
+              (SDL_Color){0, 255, 90, 255});
+
+    ANALYSIS_draw_modal_button(renderer,
+                               font,
+                               close_btn,
+                               "Close",
+                               point_in_rect(mx, my, close_btn));
+
+    draw_filled_rect(renderer,
+                     search,
+                     Global_Analysis_File_Search_Active ?
+                     (SDL_Color){0, 20, 8, 255} :
+                     (SDL_Color){0, 5, 2, 255});
+    draw_outline_rect(renderer,
+                      search,
+                      Global_Analysis_File_Search_Active ?
+                      (SDL_Color){0, 255, 90, 255} :
+                      (SDL_Color){0, 150, 60, 255});
+
+    if (Global_Analysis_File_Search_Text[0]) {
+
+        draw_text(renderer,
+                  font,
+                  Global_Analysis_File_Search_Text,
+                  search.x + 10,
+                  search.y + 8,
+                  (SDL_Color){0, 255, 90, 255});
+
+    }
+
+    else {
+
+        draw_text(renderer,
+                  font,
+                  "Search file",
+                  search.x + 10,
+                  search.y + 8,
+                  (SDL_Color){0, 155, 65, 255});
+
+    }
+
+    if (Global_Analysis_File_Search_Active && ((SDL_GetTicks64() / 450ULL) % 2ULL) == 0ULL) {
+
+        int tw = 0;
+        int th = 0;
+        char prefix[ANALYSIS_FILE_SEARCH_TEXT_MAX];
+        int cursor = Global_Analysis_File_Search_Cursor;
+        int len = (int)strlen(Global_Analysis_File_Search_Text);
+
+        if (cursor < 0) cursor = 0;
+        if (cursor > len) cursor = len;
+        snprintf(prefix, sizeof(prefix), "%.*s", cursor, Global_Analysis_File_Search_Text);
+        if (font && TTF_SizeText(font, prefix, &tw, &th) != 0) tw = cursor * 8;
+
+        SDL_SetRenderDrawColor(renderer, 0, 170, 255, 255);
+        SDL_RenderDrawLine(renderer, search.x + 10 + tw, search.y + 6, search.x + 10 + tw, search.y + search.h - 6);
+        SDL_RenderDrawLine(renderer, search.x + 11 + tw, search.y + 6, search.x + 11 + tw, search.y + search.h - 6);
+
+    }
+
+    draw_text(renderer,
+              font,
+              "Currently selected",
+              current_rect.x,
+              current_rect.y - 18,
+              (SDL_Color){0, 155, 65, 255});
+    draw_filled_rect(renderer, current_rect, (SDL_Color){0, 20, 8, 255});
+    draw_outline_rect(renderer, current_rect, (SDL_Color){0, 255, 90, 255});
+
+    {
+
+        char short_name[512];
+        const char *current = ANALYSIS_selected_file_name();
+        if (!current || current[0] == '\0') current = "(none selected)";
+
+        ANALYSIS_short_text(font,
+                            current,
+                            short_name,
+                            sizeof(short_name),
+                            current_rect.w - 20);
+
+        draw_text(renderer,
+                  font,
+                  short_name,
+                  current_rect.x + 10,
+                  current_rect.y + 12,
+                  current[0] == '(' ? (SDL_Color){0, 155, 65, 255} : (SDL_Color){0, 255, 90, 255});
+
+    }
+
+    draw_filled_rect(renderer, list, (SDL_Color){0, 5, 2, 255});
+    draw_outline_rect(renderer, list, (SDL_Color){0, 150, 60, 255});
+
+    if (Global_Analysis_File_Count <= 0) {
+
+        char empty_msg[640];
+        snprintf(empty_msg, sizeof(empty_msg), "No .complex16 files found in %s/", Global_Analysis_Record_Dir);
+        draw_text(renderer, font, empty_msg, list.x + 12, list.y + 14, (SDL_Color){255, 180, 40, 255});
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        return;
+
+    }
+
+    if (filtered_count <= 0) {
+
+        draw_text(renderer, font, "No files match the search.", list.x + 12, list.y + 14, (SDL_Color){255, 180, 40, 255});
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        return;
+
+    }
+
+    int visible = list.h / ANALYSIS_FILE_SEARCH_ROW_H;
+    if (visible > 14) visible = 14;
+    if (visible < 1) visible = 1;
+
+    Global_Analysis_File_Search_Hover = -1;
+
+    if (point_in_rect(mx, my, list)) {
+
+        int row = (my - list.y - 4) / ANALYSIS_FILE_SEARCH_ROW_H;
+        int filtered_index = Global_Analysis_File_Search_Scroll + row;
+        int index = ANALYSIS_file_search_filtered_index_at(filtered_index);
+
+        if (row >= 0 && row < visible && index >= 0 && index < Global_Analysis_File_Count) {
+
+            Global_Analysis_File_Search_Hover = index;
+
+        }
+
+    }
+
+    for (int row = 0; row < visible; row++) {
+
+        int filtered_index = Global_Analysis_File_Search_Scroll + row;
+        int index = ANALYSIS_file_search_filtered_index_at(filtered_index);
+        SDL_Rect item = {list.x + 4, list.y + 4 + row * ANALYSIS_FILE_SEARCH_ROW_H, list.w - 8, ANALYSIS_FILE_SEARCH_ROW_H - 3};
+
+        if (index < 0 || index >= Global_Analysis_File_Count) break;
+
+        int hovered = index == Global_Analysis_File_Search_Hover;
+        int selected = index == Global_Analysis_Selected;
+        char short_name[512];
+
+        if (hovered) {
+
+            draw_filled_rect(renderer, item, (SDL_Color){0, 44, 16, 255});
+            SDL_Rect halo = {item.x - 2, item.y - 2, item.w + 4, item.h + 4};
+            draw_outline_rect(renderer, halo, (SDL_Color){0, 255, 90, 255});
+
+        }
+
+        else if (selected) {
+
+            draw_filled_rect(renderer, item, (SDL_Color){15, 85, 45, 245});
+
+        }
+
+        draw_outline_rect(renderer,
+                          item,
+                          hovered ?
+                          (SDL_Color){0, 255, 90, 255} :
+                          selected ?
+                          (SDL_Color){0, 220, 80, 255} :
+                          (SDL_Color){0, 130, 55, 255});
+
+        ANALYSIS_short_text(font,
+                            Global_Analysis_Files[index],
+                            short_name,
+                            sizeof(short_name),
+                            item.w - 20);
+
+        draw_text(renderer,
+                  font,
+                  short_name,
+                  item.x + 10,
+                  item.y + 8,
+                  hovered ?
+                  (SDL_Color){235, 255, 240, 255} :
+                  selected ?
+                  (SDL_Color){255, 255, 255, 255} :
+                  (SDL_Color){0, 255, 90, 255});
+
+    }
+
+    char count_label[128];
+    if (Global_Analysis_File_Search_Text[0]) {
+
+        snprintf(count_label, sizeof(count_label), "%d of %d files", filtered_count, Global_Analysis_File_Count);
+
+    }
+
+    else {
+
+        snprintf(count_label, sizeof(count_label), "%d files", Global_Analysis_File_Count);
+
+    }
+
+    draw_text(renderer, font, count_label, popup.x + 18, popup.y + popup.h - 24, (SDL_Color){0, 155, 65, 255});
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
 }
 
@@ -4642,10 +5361,13 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
 
     ANALYSIS_draw_hover_sync_line(renderer, font, win_w, win_h);
 
+    ANALYSIS_draw_file_search_button(renderer, font, win_w, win_h);
+
     ANALYSIS_draw_signal_trash_icon(renderer, font, win_w, win_h);
     ANALYSIS_draw_signal_settings_icon(renderer, font, win_w, win_h);
     ANALYSIS_draw_signal_menu(renderer, font, win_w, win_h);
     ANALYSIS_draw_delete_confirm_menu(renderer, font, win_w, win_h);
+    ANALYSIS_draw_file_search_popup(renderer, font, win_w, win_h);
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
@@ -5527,8 +6249,9 @@ void ANALYSIS_enter_mode(const char *record_dir,
 
 int ANALYSIS_is_text_entry_active(void)
 {
-    return Global_Analysis_Signal_Menu_Open &&
-           Global_Analysis_Signal_Active_Field != ANALYSIS_SIGNAL_FIELD_NONE;
+    return (Global_Analysis_Signal_Menu_Open &&
+            Global_Analysis_Signal_Active_Field != ANALYSIS_SIGNAL_FIELD_NONE) ||
+           (Global_Analysis_File_Search_Open && Global_Analysis_File_Search_Active);
 }
 
 int ANALYSIS_handle_event(SDL_Event *event,
@@ -5542,6 +6265,13 @@ int ANALYSIS_handle_event(SDL_Event *event,
                           Type_Active_Fields *active){
 
     if (!event || !Global_Analysis_Mode) return ANALYSIS_EVENT_IGNORED;
+
+    if (ANALYSIS_handle_file_search_event(event, win_w, win_h)) {
+
+        if (active) *active = FIELD_NONE;
+        return ANALYSIS_EVENT_HANDLED;
+
+    }
 
     if (ANALYSIS_handle_signal_menu_event(event, win_w, win_h)) {
 
@@ -5764,6 +6494,15 @@ int ANALYSIS_handle_event(SDL_Event *event,
         SDL_Rect spec_rect;
 
         ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
+
+        SDL_Rect search_button = ANALYSIS_file_search_button_rect(win_w, win_h);
+
+        if (point_in_rect(x, y, search_button)) {
+
+            ANALYSIS_open_file_search_menu();
+            return ANALYSIS_EVENT_HANDLED;
+
+        }
 
         if (point_in_rect(x, y, list_rect)) {
 

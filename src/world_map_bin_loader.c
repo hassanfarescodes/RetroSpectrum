@@ -229,6 +229,20 @@ static void WM_draw_text(SDL_Renderer *renderer,
     SDL_FreeSurface(surface);
 }
 
+static void WM_copy_text(char *dst, size_t dst_size, const char *src){
+    size_t i = 0;
+
+    if (!dst || dst_size == 0) return;
+    if (!src) src = "";
+
+    while (i + 1 < dst_size && src[i]) {
+        dst[i] = src[i];
+        i++;
+    }
+
+    dst[i] = '\0';
+}
+
 static void WM_draw_text_wrapped(SDL_Renderer *renderer,
                                  TTF_Font *font,
                                  const char *text,
@@ -260,12 +274,12 @@ static void WM_draw_text_wrapped(SDL_Renderer *renderer,
         int tw = 0;
         int th = 0;
         if (TTF_SizeUTF8(font, trial, &tw, &th) == 0 && tw <= rect.w) {
-            snprintf(line, sizeof(line), "%s", trial);
+            WM_copy_text(line, sizeof(line), trial);
         } else {
             if (line[0]) {
                 WM_draw_text(renderer, font, line, rect.x, y, color);
                 y += line_h;
-                snprintf(line, sizeof(line), "%s", word);
+                WM_copy_text(line, sizeof(line), word);
             } else {
                 WM_draw_text(renderer, font, word, rect.x, y, color);
                 y += line_h;
