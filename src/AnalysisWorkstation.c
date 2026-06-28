@@ -44,6 +44,11 @@
 #define ANALYSIS_FILE_SEARCH_TEXT_MAX 256
 #define ANALYSIS_FILE_SEARCH_ROW_H 34
 
+#define ANALYSIS_NOISE_GRAPH_NONE 0
+#define ANALYSIS_NOISE_GRAPH_MAG  1
+#define ANALYSIS_NOISE_GRAPH_INST 2
+
+
 #ifndef RETROSPECTRUM_DASHBOARD_TAB_BAR_H
 #define RETROSPECTRUM_DASHBOARD_TAB_BAR_H 56
 #endif
@@ -155,6 +160,30 @@ static int              Global_Analysis_File_Search_Scroll = 0;
 static int              Global_Analysis_File_Search_Hover = -1;
 static char             Global_Analysis_File_Search_Text[ANALYSIS_FILE_SEARCH_TEXT_MAX] = "";
 
+static int              Global_Analysis_Noise_Key_Down = 0;
+static int              Global_Analysis_Noise_Visible = 0;
+static int              Global_Analysis_Noise_Selecting = 0;
+static int              Global_Analysis_Noise_Active = 0;
+static int              Global_Analysis_Noise_Graph = ANALYSIS_NOISE_GRAPH_NONE;
+static double           Global_Analysis_Noise_Y0 = 0.0;
+static double           Global_Analysis_Noise_Y1 = 0.0;
+static unsigned char    Global_Analysis_Noise_Column_Mask[ANALYSIS_MAX_RENDER_W];
+
+static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h);
+static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
+static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
+static void ANALYSIS_update_noise_column_mask(int render_w);
+static void ANALYSIS_apply_noise_filter_to_rendered_lines(int render_w);
+static int ANALYSIS_crop_current_selection(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *texture);
+static void ANALYSIS_clear_noise_filter(void);
+static void ANALYSIS_draw_centered_button_text(SDL_Renderer *renderer,
+                                               TTF_Font *font,
+                                               SDL_Rect rect,
+                                               const char *text,
+                                               SDL_Color color);
+void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h);
+
+
 static const char *ANALYSIS_SIGNAL_FIELD_LABELS[ANALYSIS_SIGNAL_FIELD_COUNT] = {
     "Center Frequency MHz",
     "Bandwidth kHz",
@@ -174,6 +203,8 @@ typedef struct Type_Analysis_Workspace_State {
     double  center_hz;
     double  filter_y0;
     double  filter_y1;
+    double  noise_y0;
+    double  noise_y1;
     double  marker_time;
     size_t  iq_count;
     size_t  view_start;
@@ -199,6 +230,10 @@ typedef struct Type_Analysis_Workspace_State {
     int     filter_visible;
     int     filter_selecting;
     int     filter_active;
+    int     noise_visible;
+    int     noise_selecting;
+    int     noise_active;
+    int     noise_graph;
     int     marker_active;
     int     column_selecting;
     int     column_visible;
@@ -250,6 +285,12 @@ static void ANALYSIS_save_workspace_state(int index){
     ws->filter_active = Global_Analysis_Filter_Active;
     ws->filter_y0 = Global_Analysis_Filter_Y0;
     ws->filter_y1 = Global_Analysis_Filter_Y1;
+    ws->noise_visible = Global_Analysis_Noise_Visible;
+    ws->noise_selecting = Global_Analysis_Noise_Selecting;
+    ws->noise_active = Global_Analysis_Noise_Active;
+    ws->noise_graph = Global_Analysis_Noise_Graph;
+    ws->noise_y0 = Global_Analysis_Noise_Y0;
+    ws->noise_y1 = Global_Analysis_Noise_Y1;
     ws->marker_active = Global_Analysis_Marker_Active;
     ws->marker_sample = Global_Analysis_Marker_Sample;
     ws->marker_time = Global_Analysis_Marker_Time;
@@ -306,6 +347,12 @@ static void ANALYSIS_load_workspace_state(int index){
     Global_Analysis_Filter_Active = ws->filter_active;
     Global_Analysis_Filter_Y0 = ws->filter_y0;
     Global_Analysis_Filter_Y1 = ws->filter_y1;
+    Global_Analysis_Noise_Visible = ws->noise_visible;
+    Global_Analysis_Noise_Selecting = ws->noise_selecting;
+    Global_Analysis_Noise_Active = ws->noise_active;
+    Global_Analysis_Noise_Graph = ws->noise_graph;
+    Global_Analysis_Noise_Y0 = ws->noise_y0;
+    Global_Analysis_Noise_Y1 = ws->noise_y1;
     Global_Analysis_Marker_Active = ws->marker_active;
     Global_Analysis_Marker_Sample = ws->marker_sample;
     Global_Analysis_Marker_Time = ws->marker_time;
@@ -355,6 +402,7 @@ static void ANALYSIS_switch_workspace(int delta){
     Global_Analysis_Dragging = 0;
     Global_Analysis_Filter_Selecting = 0;
     Global_Analysis_Column_Selecting = 0;
+    Global_Analysis_Noise_Selecting = 0;
     Global_Analysis_Dirty = 1;
 
 }
@@ -424,12 +472,21 @@ static void ANALYSIS_clear_loaded_file(void){
     memset(Global_Analysis_PSD_Line, 0, sizeof(Global_Analysis_PSD_Line));
     memset(Global_Analysis_Const_I, 0, sizeof(Global_Analysis_Const_I));
     memset(Global_Analysis_Const_Q, 0, sizeof(Global_Analysis_Const_Q));
+    memset(Global_Analysis_Noise_Column_Mask, 0, sizeof(Global_Analysis_Noise_Column_Mask));
     Global_Analysis_Const_Count = 0;
     Global_Analysis_Filter_Visible = 0;
     Global_Analysis_Filter_Selecting = 0;
     Global_Analysis_Filter_Active = 0;
     Global_Analysis_Filter_Y0 = 0.40;
     Global_Analysis_Filter_Y1 = 0.60;
+    Global_Analysis_Noise_Key_Down = 0;
+    Global_Analysis_Noise_Visible = 0;
+    Global_Analysis_Noise_Selecting = 0;
+    Global_Analysis_Noise_Active = 0;
+    Global_Analysis_Noise_Graph = ANALYSIS_NOISE_GRAPH_NONE;
+    Global_Analysis_Noise_Y0 = 0.0;
+    Global_Analysis_Noise_Y1 = 0.0;
+    memset(Global_Analysis_Noise_Column_Mask, 0, sizeof(Global_Analysis_Noise_Column_Mask));
     Global_Analysis_Marker_Active = 0;
     Global_Analysis_Marker_Sample = 0;
     Global_Analysis_Marker_Time = 0.0;
@@ -659,6 +716,7 @@ static int ANALYSIS_open_selected_recording(void){
     Global_Analysis_Column_Active = 0;
     Global_Analysis_Column_X0 = 0.0;
     Global_Analysis_Column_X1 = 0.0;
+    ANALYSIS_clear_noise_filter();
 
     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
              "Opened %.180s | %.6f sec",
@@ -1331,11 +1389,13 @@ static void ANALYSIS_clear_filter(void){
     Global_Analysis_Column_X0 = 0.0;
     Global_Analysis_Column_X1 = 0.0;
 
+    ANALYSIS_clear_noise_filter();
+
     Global_Analysis_Dirty = 1;
 
     snprintf(Global_Analysis_Status,
              sizeof(Global_Analysis_Status),
-             "Analysis frequency filter and marker cleared");
+             "Analysis filters, noise mask, and marker cleared");
 
 }
 
@@ -1525,6 +1585,395 @@ static void ANALYSIS_apply_column_selection(void){
              "Time filter %.6f sec to %.6f sec | Backspace clears",
              start_sec,
              end_sec);
+
+}
+
+
+static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h){
+
+    SDL_Rect list_rect;
+    SDL_Rect spec_rect;
+
+    ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
+    (void)list_rect;
+
+    SDL_Rect rect = {
+        spec_rect.x + spec_rect.w - 92,
+        spec_rect.y - 30,
+        88,
+        24
+    };
+
+    if (rect.x < spec_rect.x + 4) rect.x = spec_rect.x + 4;
+
+    return rect;
+
+}
+
+static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer,
+                                      TTF_Font *font,
+                                      int win_w,
+                                      int win_h){
+
+    if (!renderer || !font || !Global_Analysis_Mode) return;
+
+    SDL_Rect rect = ANALYSIS_crop_button_rect(win_w, win_h);
+
+    int mouse_x = 0;
+    int mouse_y = 0;
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+
+    int hover = point_in_rect(mouse_x, mouse_y, rect);
+    int enabled = Global_Analysis_Path[0] != '\0' && Global_Analysis_IQ_Count > 0;
+
+    SDL_Color fill = enabled ?
+                     (hover ? (SDL_Color){38, 38, 38, 245} : (SDL_Color){12, 12, 12, 235}) :
+                     (SDL_Color){6, 6, 6, 210};
+    SDL_Color border = enabled ?
+                       (hover ? (SDL_Color){255, 255, 255, 255} : (SDL_Color){170, 170, 170, 240}) :
+                       (SDL_Color){80, 80, 80, 220};
+    SDL_Color text = enabled ?
+                     (SDL_Color){245, 245, 245, 255} :
+                     (SDL_Color){110, 110, 110, 255};
+
+    draw_filled_rect(renderer, rect, fill);
+    draw_outline_rect(renderer, rect, border);
+    ANALYSIS_draw_centered_button_text(renderer, font, rect, "Crop", text);
+
+}
+
+
+static int ANALYSIS_noise_graph_from_point(int x,
+                                           int y,
+                                           int win_w,
+                                           int win_h,
+                                           SDL_Rect *graph_rect){
+
+    SDL_Rect psd_rect;
+    SDL_Rect mag_rect;
+    SDL_Rect phase_rect;
+    SDL_Rect inst_rect;
+    SDL_Rect const_rect;
+    SDL_Rect spec_rect;
+
+    ANALYSIS_get_hover_graph_layout(win_w,
+                                    win_h,
+                                    &psd_rect,
+                                    &mag_rect,
+                                    &phase_rect,
+                                    &inst_rect,
+                                    &const_rect,
+                                    &spec_rect);
+
+    (void)psd_rect;
+    (void)phase_rect;
+    (void)const_rect;
+    (void)spec_rect;
+
+    if (point_in_rect(x, y, mag_rect)) {
+
+        if (graph_rect) *graph_rect = mag_rect;
+        return ANALYSIS_NOISE_GRAPH_MAG;
+
+    }
+
+    if (point_in_rect(x, y, inst_rect)) {
+
+        if (graph_rect) *graph_rect = inst_rect;
+        return ANALYSIS_NOISE_GRAPH_INST;
+
+    }
+
+    return ANALYSIS_NOISE_GRAPH_NONE;
+
+}
+
+static double ANALYSIS_noise_frac_from_mouse_y(int mouse_y, SDL_Rect graph_rect){
+
+    if (graph_rect.h <= 0) return 0.0;
+
+    double frac = (double)(mouse_y - graph_rect.y) / (double)graph_rect.h;
+
+    return ANALYSIS_limit_double(frac, 0.0, 1.0);
+
+}
+
+static void ANALYSIS_update_noise_selection_from_mouse(int mouse_y,
+                                                       SDL_Rect graph_rect){
+
+    Global_Analysis_Noise_Y1 = ANALYSIS_noise_frac_from_mouse_y(mouse_y, graph_rect);
+
+}
+
+static void ANALYSIS_apply_noise_selection(void){
+
+    if (Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE) {
+
+        Global_Analysis_Noise_Selecting = 0;
+        Global_Analysis_Noise_Visible = 0;
+        Global_Analysis_Noise_Active = 0;
+        return;
+
+    }
+
+    double y0 = Global_Analysis_Noise_Y0;
+    double y1 = Global_Analysis_Noise_Y1;
+
+    if (y1 < y0) {
+
+        double tmp = y0;
+        y0 = y1;
+        y1 = tmp;
+
+    }
+
+    if (fabs(y1 - y0) < 0.012) {
+
+        double mid = (y0 + y1) * 0.5;
+        y0 = mid - 0.006;
+        y1 = mid + 0.006;
+
+    }
+
+    Global_Analysis_Noise_Y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
+    Global_Analysis_Noise_Y1 = ANALYSIS_limit_double(y1, 0.0, 1.0);
+    Global_Analysis_Noise_Selecting = 0;
+    Global_Analysis_Noise_Visible = 1;
+    Global_Analysis_Noise_Active = 1;
+    Global_Analysis_Dirty = 1;
+
+    snprintf(Global_Analysis_Status,
+             sizeof(Global_Analysis_Status),
+             "%s noise mask applied | Crop will zero matching IQ samples | Backspace clears",
+             Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ?
+             "Magnitude" : "Instantaneous frequency");
+
+}
+
+static void ANALYSIS_clear_noise_filter(void){
+
+    Global_Analysis_Noise_Visible = 0;
+    Global_Analysis_Noise_Selecting = 0;
+    Global_Analysis_Noise_Active = 0;
+    Global_Analysis_Noise_Graph = ANALYSIS_NOISE_GRAPH_NONE;
+    Global_Analysis_Noise_Y0 = 0.0;
+    Global_Analysis_Noise_Y1 = 0.0;
+    memset(Global_Analysis_Noise_Column_Mask, 0, sizeof(Global_Analysis_Noise_Column_Mask));
+
+}
+
+static void ANALYSIS_noise_value_range(double *out_min,
+                                       double *out_max){
+
+    double y0 = Global_Analysis_Noise_Y0;
+    double y1 = Global_Analysis_Noise_Y1;
+
+    if (y1 < y0) {
+
+        double tmp = y0;
+        y0 = y1;
+        y1 = tmp;
+
+    }
+
+    y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
+    y1 = ANALYSIS_limit_double(y1, 0.0, 1.0);
+
+    double v0 = 0.0;
+    double v1 = 0.0;
+
+    if (Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG) {
+
+        double h = 1000.0;
+        v0 = (h - 12.0 - (y0 * h)) / (h - 24.0);
+        v1 = (h - 12.0 - (y1 * h)) / (h - 24.0);
+        v0 = ANALYSIS_limit_double(v0, 0.0, 1.0);
+        v1 = ANALYSIS_limit_double(v1, 0.0, 1.0);
+
+    }
+
+    else {
+
+        v0 = (0.5 - y0) / 0.42;
+        v1 = (0.5 - y1) / 0.42;
+        v0 = ANALYSIS_limit_double(v0, -1.0, 1.0);
+        v1 = ANALYSIS_limit_double(v1, -1.0, 1.0);
+
+    }
+
+    if (v1 < v0) {
+
+        double tmp = v0;
+        v0 = v1;
+        v1 = tmp;
+
+    }
+
+    if (out_min) *out_min = v0;
+    if (out_max) *out_max = v1;
+
+}
+
+static int ANALYSIS_noise_value_matches(float value){
+
+    if (!Global_Analysis_Noise_Active ||
+        Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE) {
+
+        return 0;
+
+    }
+
+    double v_min = 0.0;
+    double v_max = 0.0;
+
+    ANALYSIS_noise_value_range(&v_min, &v_max);
+
+    return (double)value >= v_min && (double)value <= v_max;
+
+}
+
+static void ANALYSIS_update_noise_column_mask(int render_w){
+
+    memset(Global_Analysis_Noise_Column_Mask, 0, sizeof(Global_Analysis_Noise_Column_Mask));
+
+    if (!Global_Analysis_Noise_Active ||
+        Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE ||
+        render_w <= 0) {
+
+        return;
+
+    }
+
+    if (render_w > ANALYSIS_MAX_RENDER_W) render_w = ANALYSIS_MAX_RENDER_W;
+
+    for (int x = 0; x < render_w; x++) {
+
+        float v = Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ?
+                  Global_Analysis_Mag_Line[x] :
+                  Global_Analysis_InstFreq_Line[x];
+
+        if (ANALYSIS_noise_value_matches(v)) {
+
+            Global_Analysis_Noise_Column_Mask[x] = 1;
+
+        }
+
+    }
+
+}
+
+static void ANALYSIS_apply_noise_filter_to_rendered_lines(int render_w){
+
+    /*
+     * The graph noise selection is a crop-only mask. Do not alter the live
+     * magnitude or instantaneous-frequency graph arrays here; only refresh the
+     * per-column mask that crop/export uses to zero matching IQ samples.
+     */
+    ANALYSIS_update_noise_column_mask(render_w);
+
+}
+
+static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer,
+                                               TTF_Font *font,
+                                               int win_w,
+                                               int win_h){
+
+    if (!renderer || !font || !Global_Analysis_Mode) return;
+    if (!(Global_Analysis_Noise_Visible || Global_Analysis_Noise_Selecting)) return;
+    if (Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE) return;
+
+    SDL_Rect psd_rect;
+    SDL_Rect mag_rect;
+    SDL_Rect phase_rect;
+    SDL_Rect inst_rect;
+    SDL_Rect const_rect;
+    SDL_Rect spec_rect;
+
+    ANALYSIS_get_hover_graph_layout(win_w,
+                                    win_h,
+                                    &psd_rect,
+                                    &mag_rect,
+                                    &phase_rect,
+                                    &inst_rect,
+                                    &const_rect,
+                                    &spec_rect);
+
+    (void)psd_rect;
+    (void)phase_rect;
+    (void)const_rect;
+    (void)spec_rect;
+
+    SDL_Rect graph_rect = Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ?
+                          mag_rect : inst_rect;
+
+    double y0 = Global_Analysis_Noise_Y0;
+    double y1 = Global_Analysis_Noise_Y1;
+
+    if (y1 < y0) {
+
+        double tmp = y0;
+        y0 = y1;
+        y1 = tmp;
+
+    }
+
+    y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
+    y1 = ANALYSIS_limit_double(y1, 0.0, 1.0);
+
+    int select_y0 = graph_rect.y + (int)(y0 * (double)graph_rect.h);
+    int select_y1 = graph_rect.y + (int)(y1 * (double)graph_rect.h);
+
+    if (select_y1 <= select_y0) select_y1 = select_y0 + 1;
+    if (select_y1 - select_y0 < 4) {
+
+        int mid = (select_y0 + select_y1) / 2;
+        select_y0 = mid - 2;
+        select_y1 = mid + 2;
+
+    }
+
+    if (select_y0 < graph_rect.y) select_y0 = graph_rect.y;
+    if (select_y1 > graph_rect.y + graph_rect.h) select_y1 = graph_rect.y + graph_rect.h;
+    if (select_y1 <= select_y0) select_y1 = select_y0 + 1;
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    SDL_Rect noise_rect = {
+        graph_rect.x,
+        select_y0,
+        graph_rect.w,
+        select_y1 - select_y0
+    };
+
+    draw_filled_rect(renderer, noise_rect, (SDL_Color){255, 255, 255, 44});
+    draw_outline_rect(renderer, noise_rect, (SDL_Color){255, 255, 255, 235});
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 235);
+    SDL_RenderDrawLine(renderer, graph_rect.x, select_y0, graph_rect.x + graph_rect.w, select_y0);
+    SDL_RenderDrawLine(renderer, graph_rect.x, select_y1, graph_rect.x + graph_rect.w, select_y1);
+
+    const char *label = Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ?
+                        "Magnitude noise mask" : "Inst. freq noise mask";
+
+    SDL_Rect label_bg = {
+        graph_rect.x + graph_rect.w - 210,
+        graph_rect.y + 6,
+        204,
+        22
+    };
+
+    if (label_bg.x < graph_rect.x + 6) label_bg.x = graph_rect.x + 6;
+
+    draw_filled_rect(renderer, label_bg, (SDL_Color){0, 0, 0, 190});
+    draw_outline_rect(renderer, label_bg, (SDL_Color){255, 255, 255, 200});
+    draw_text(renderer,
+              font,
+              label,
+              label_bg.x + 7,
+              label_bg.y + 4,
+              (SDL_Color){245, 245, 245, 255});
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
 }
 
@@ -4607,6 +5056,7 @@ static int ANALYSIS_signal_apply_crop_settings(void){
     Global_Analysis_Column_X0 = 0.0;
     Global_Analysis_Column_X1 = 0.0;
     Global_Analysis_Marker_Active = 0;
+    ANALYSIS_clear_noise_filter();
     Global_Analysis_Dirty = 1;
 
     snprintf(Global_Analysis_Status,
@@ -4631,6 +5081,611 @@ static int ANALYSIS_signal_apply_crop_settings(void){
     return 1;
 
 }
+
+static int ANALYSIS_get_current_time_range(size_t *start_sample,
+                                           size_t *end_sample){
+
+    if (!start_sample || !end_sample) return 0;
+
+    if (Global_Analysis_IQ_Count == 0 ||
+        Global_Analysis_View_Len == 0 ||
+        Global_Analysis_Sample_Rate <= 0.0) {
+
+        return 0;
+
+    }
+
+    double x0 = 0.0;
+    double x1 = 1.0;
+
+    if (Global_Analysis_Column_Active || Global_Analysis_Column_Visible) {
+
+        x0 = Global_Analysis_Column_X0;
+        x1 = Global_Analysis_Column_X1;
+
+        if (x1 < x0) {
+
+            double tmp = x0;
+            x0 = x1;
+            x1 = tmp;
+
+        }
+
+        x0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
+        x1 = ANALYSIS_limit_double(x1, 0.0, 1.0);
+
+    }
+
+    *start_sample = Global_Analysis_View_Start +
+                    (size_t)(x0 * (double)Global_Analysis_View_Len);
+    *end_sample = Global_Analysis_View_Start +
+                  (size_t)(x1 * (double)Global_Analysis_View_Len);
+
+    if (*start_sample > Global_Analysis_IQ_Count) *start_sample = Global_Analysis_IQ_Count;
+    if (*end_sample > Global_Analysis_IQ_Count) *end_sample = Global_Analysis_IQ_Count;
+
+    if (*end_sample < *start_sample) {
+
+        size_t tmp = *start_sample;
+        *start_sample = *end_sample;
+        *end_sample = tmp;
+
+    }
+
+    if (*end_sample <= *start_sample) return 0;
+
+    return 1;
+
+}
+
+static int ANALYSIS_get_current_filter_bins(int *filter_bin_low,
+                                            int *filter_bin_high){
+
+    if (!filter_bin_low || !filter_bin_high) return 0;
+
+    *filter_bin_low = 0;
+    *filter_bin_high = ANALYSIS_FFT_SIZE - 1;
+
+    if (!Global_Analysis_Filter_Active) return 0;
+
+    double y0 = Global_Analysis_Filter_Y0;
+    double y1 = Global_Analysis_Filter_Y1;
+
+    if (y1 < y0) {
+
+        double tmp = y0;
+        y0 = y1;
+        y1 = tmp;
+
+    }
+
+    int bin_a = (int)((1.0 - y0) * (double)(ANALYSIS_FFT_SIZE - 1));
+    int bin_b = (int)((1.0 - y1) * (double)(ANALYSIS_FFT_SIZE - 1));
+
+    *filter_bin_low = bin_a < bin_b ? bin_a : bin_b;
+    *filter_bin_high = bin_a > bin_b ? bin_a : bin_b;
+
+    if (*filter_bin_low < 0) *filter_bin_low = 0;
+    if (*filter_bin_high >= ANALYSIS_FFT_SIZE) *filter_bin_high = ANALYSIS_FFT_SIZE - 1;
+    if (*filter_bin_high <= *filter_bin_low) *filter_bin_high = *filter_bin_low + 1;
+    if (*filter_bin_high >= ANALYSIS_FFT_SIZE) *filter_bin_high = ANALYSIS_FFT_SIZE - 1;
+
+    return 1;
+
+}
+
+static int ANALYSIS_noise_sample_is_muted(size_t sample_index){
+
+    if (!Global_Analysis_Noise_Active ||
+        Global_Analysis_Render_W <= 0 ||
+        Global_Analysis_View_Len == 0) {
+
+        return 0;
+
+    }
+
+    if (sample_index < Global_Analysis_View_Start) return 0;
+
+    size_t rel = sample_index - Global_Analysis_View_Start;
+
+    if (rel > Global_Analysis_View_Len) return 0;
+
+    int x = Global_Analysis_Render_W > 1 ?
+            (int)(((double)rel / (double)Global_Analysis_View_Len) *
+                  (double)(Global_Analysis_Render_W - 1)) :
+            0;
+
+    if (x < 0) x = 0;
+    if (x >= Global_Analysis_Render_W) x = Global_Analysis_Render_W - 1;
+    if (x >= ANALYSIS_MAX_RENDER_W) x = ANALYSIS_MAX_RENDER_W - 1;
+
+    return Global_Analysis_Noise_Column_Mask[x] != 0;
+
+}
+
+static void ANALYSIS_zero_noise_samples(int16_t *iq,
+                                        size_t count,
+                                        size_t absolute_start_sample){
+
+    if (!iq || count == 0 || !Global_Analysis_Noise_Active) return;
+
+    for (size_t i = 0; i < count; i++) {
+
+        if (ANALYSIS_noise_sample_is_muted(absolute_start_sample + i)) {
+
+            iq[i * 2] = 0;
+            iq[i * 2 + 1] = 0;
+
+        }
+
+    }
+
+}
+
+static int ANALYSIS_copy_crop_with_optional_noise(const char *src_path,
+                                                  const char *dst_path,
+                                                  size_t start_sample,
+                                                  size_t end_sample){
+
+    if (!src_path || !dst_path || end_sample <= start_sample) return 0;
+
+    FILE *src = fopen(src_path, "rb");
+
+    if (!src) return 0;
+
+    FILE *dst = fopen(dst_path, "wb");
+
+    if (!dst) {
+
+        fclose(src);
+        return 0;
+
+    }
+
+    size_t bytes_per_iq = sizeof(int16_t) * 2;
+    size_t offset_bytes = start_sample * bytes_per_iq;
+    size_t samples_left = end_sample - start_sample;
+    size_t absolute_sample = start_sample;
+
+    if (fseek(src, (long)offset_bytes, SEEK_SET) != 0) {
+
+        fclose(src);
+        fclose(dst);
+        remove(dst_path);
+        return 0;
+
+    }
+
+    int16_t buffer[32768];
+    size_t iq_capacity = sizeof(buffer) / (sizeof(int16_t) * 2);
+
+    while (samples_left > 0) {
+
+        size_t want_iq = samples_left < iq_capacity ? samples_left : iq_capacity;
+        size_t got_shorts = fread(buffer, sizeof(int16_t), want_iq * 2, src);
+        size_t got_iq = got_shorts / 2;
+
+        if (got_iq == 0) break;
+
+        ANALYSIS_zero_noise_samples(buffer, got_iq, absolute_sample);
+
+        if (fwrite(buffer, sizeof(int16_t), got_iq * 2, dst) != got_iq * 2) {
+
+            fclose(src);
+            fclose(dst);
+            remove(dst_path);
+            return 0;
+
+        }
+
+        samples_left -= got_iq;
+        absolute_sample += got_iq;
+
+    }
+
+    int ok = (samples_left == 0);
+
+    fclose(src);
+    fclose(dst);
+
+    if (!ok) remove(dst_path);
+
+    return ok;
+
+}
+
+static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path,
+                                                     const char *dst_path,
+                                                     size_t start_sample,
+                                                     size_t end_sample,
+                                                     int filter_bin_low,
+                                                     int filter_bin_high){
+
+    if (!src_path || !dst_path || end_sample <= start_sample) return 0;
+
+    FILE *src = fopen(src_path, "rb");
+
+    if (!src) return 0;
+
+    FILE *dst = fopen(dst_path, "wb");
+
+    if (!dst) {
+
+        fclose(src);
+        return 0;
+
+    }
+
+    fftw_complex *freq_in = fftw_malloc(sizeof(fftw_complex) * ANALYSIS_FFT_SIZE);
+    fftw_complex *freq_out = fftw_malloc(sizeof(fftw_complex) * ANALYSIS_FFT_SIZE);
+    fftw_complex *time_out = fftw_malloc(sizeof(fftw_complex) * ANALYSIS_FFT_SIZE);
+    int16_t *iq = malloc(sizeof(int16_t) * ANALYSIS_FFT_SIZE * 2);
+
+    if (!freq_in || !freq_out || !time_out || !iq) {
+
+        if (freq_in) fftw_free(freq_in);
+        if (freq_out) fftw_free(freq_out);
+        if (time_out) fftw_free(time_out);
+        free(iq);
+        fclose(src);
+        fclose(dst);
+        remove(dst_path);
+        return 0;
+
+    }
+
+    fftw_plan forward = fftw_plan_dft_1d(ANALYSIS_FFT_SIZE,
+                                         freq_in,
+                                         freq_out,
+                                         FFTW_FORWARD,
+                                         FFTW_ESTIMATE);
+    fftw_plan inverse = fftw_plan_dft_1d(ANALYSIS_FFT_SIZE,
+                                         freq_in,
+                                         time_out,
+                                         FFTW_BACKWARD,
+                                         FFTW_ESTIMATE);
+
+    if (!forward || !inverse) {
+
+        if (forward) fftw_destroy_plan(forward);
+        if (inverse) fftw_destroy_plan(inverse);
+        fftw_free(freq_in);
+        fftw_free(freq_out);
+        fftw_free(time_out);
+        free(iq);
+        fclose(src);
+        fclose(dst);
+        remove(dst_path);
+        return 0;
+
+    }
+
+    if (fseek(src, (long)(start_sample * 2 * sizeof(int16_t)), SEEK_SET) != 0) {
+
+        fftw_destroy_plan(forward);
+        fftw_destroy_plan(inverse);
+        fftw_free(freq_in);
+        fftw_free(freq_out);
+        fftw_free(time_out);
+        free(iq);
+        fclose(src);
+        fclose(dst);
+        remove(dst_path);
+        return 0;
+
+    }
+
+    size_t samples_left = end_sample - start_sample;
+    size_t absolute_sample = start_sample;
+    int ok = 1;
+
+    while (samples_left > 0) {
+
+        size_t want_iq = samples_left < ANALYSIS_FFT_SIZE ? samples_left : ANALYSIS_FFT_SIZE;
+        size_t got_shorts = fread(iq, sizeof(int16_t), want_iq * 2, src);
+        size_t got_iq = got_shorts / 2;
+
+        if (got_iq == 0) {
+
+            ok = 0;
+            break;
+
+        }
+
+        for (int i = 0; i < ANALYSIS_FFT_SIZE; i++) {
+
+            if ((size_t)i < got_iq) {
+
+                freq_in[i][0] = (double)iq[i * 2] / 32768.0;
+                freq_in[i][1] = (double)iq[i * 2 + 1] / 32768.0;
+
+            }
+
+            else {
+
+                freq_in[i][0] = 0.0;
+                freq_in[i][1] = 0.0;
+
+            }
+
+        }
+
+        fftw_execute(forward);
+
+        for (int i = 0; i < ANALYSIS_FFT_SIZE; i++) {
+
+            freq_in[i][0] = 0.0;
+            freq_in[i][1] = 0.0;
+
+        }
+
+        int filter_center_bin = (filter_bin_low + filter_bin_high) / 2;
+        for (int y = filter_bin_low; y <= filter_bin_high; y++) {
+
+            int src_shifted = (y + ANALYSIS_FFT_SIZE / 2) % ANALYSIS_FFT_SIZE;
+            int centered_y = y - filter_center_bin + (ANALYSIS_FFT_SIZE / 2);
+
+            if (centered_y < 0 || centered_y >= ANALYSIS_FFT_SIZE) continue;
+
+            int dst_shifted = (centered_y + ANALYSIS_FFT_SIZE / 2) % ANALYSIS_FFT_SIZE;
+
+            freq_in[dst_shifted][0] = freq_out[src_shifted][0];
+            freq_in[dst_shifted][1] = freq_out[src_shifted][1];
+
+        }
+
+        fftw_execute(inverse);
+
+        for (size_t i = 0; i < got_iq; i++) {
+
+            double re = time_out[i][0] / (double)ANALYSIS_FFT_SIZE;
+            double im = time_out[i][1] / (double)ANALYSIS_FFT_SIZE;
+
+            if (ANALYSIS_noise_sample_is_muted(absolute_sample + i)) {
+
+                re = 0.0;
+                im = 0.0;
+
+            }
+
+            if (re > 0.999969) re = 0.999969;
+            if (re < -1.0) re = -1.0;
+            if (im > 0.999969) im = 0.999969;
+            if (im < -1.0) im = -1.0;
+
+            iq[i * 2] = (int16_t)lrint(re * 32767.0);
+            iq[i * 2 + 1] = (int16_t)lrint(im * 32767.0);
+
+        }
+
+        if (fwrite(iq, sizeof(int16_t), got_iq * 2, dst) != got_iq * 2) {
+
+            ok = 0;
+            break;
+
+        }
+
+        samples_left -= got_iq;
+        absolute_sample += got_iq;
+
+    }
+
+    fftw_destroy_plan(forward);
+    fftw_destroy_plan(inverse);
+    fftw_free(freq_in);
+    fftw_free(freq_out);
+    fftw_free(time_out);
+    free(iq);
+    fclose(src);
+    fclose(dst);
+
+    if (!ok) remove(dst_path);
+
+    return ok;
+
+}
+
+static void ANALYSIS_build_crop_filename(char *out,
+                                         size_t out_size,
+                                         size_t start_sample,
+                                         size_t end_sample){
+
+    if (!out || out_size == 0) return;
+
+    char base[192];
+    double center_hz = Global_Analysis_Center_Hz;
+    double bw_hz = Global_Analysis_Sample_Rate;
+
+    if (Global_Analysis_Filter_Active || Global_Analysis_Filter_Visible) {
+
+        double y0 = Global_Analysis_Filter_Y0;
+        double y1 = Global_Analysis_Filter_Y1;
+
+        if (y1 < y0) {
+
+            double tmp = y0;
+            y0 = y1;
+            y1 = tmp;
+
+        }
+
+        double center_y = (y0 + y1) * 0.5;
+        center_hz = ANALYSIS_frequency_from_spec_frac(center_y);
+        bw_hz = fabs(y1 - y0) * Global_Analysis_Sample_Rate;
+
+    }
+
+    ANALYSIS_signal_make_base_name(ANALYSIS_selected_file_name(), base, sizeof(base));
+
+    double start_sec = Global_Analysis_Sample_Rate > 0.0 ?
+                       (double)start_sample / Global_Analysis_Sample_Rate : 0.0;
+    double end_sec = Global_Analysis_Sample_Rate > 0.0 ?
+                     (double)end_sample / Global_Analysis_Sample_Rate : 0.0;
+
+    char raw[1024];
+
+    snprintf(raw,
+             sizeof(raw),
+             "%.150s_CROP_%.6fs_%.6fs_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk_Decimation_1.complex16",
+             base,
+             start_sec,
+             end_sec,
+             center_hz / 1e6,
+             bw_hz / 1e3,
+             Global_Analysis_Sample_Rate / 1e3);
+
+    ANALYSIS_signal_sanitize_output_filename(raw, out, out_size);
+
+}
+
+static int ANALYSIS_crop_current_selection(uint32_t *pixels,
+                                           int tex_w,
+                                           int tex_h,
+                                           SDL_Texture *texture){
+
+    if (Global_Analysis_Path[0] == '\0' ||
+        Global_Analysis_IQ_Count == 0 ||
+        Global_Analysis_Sample_Rate <= 0.0) {
+
+        snprintf(Global_Analysis_Status,
+                 sizeof(Global_Analysis_Status),
+                 "Open a recording before cropping");
+        return 0;
+
+    }
+
+    if (Global_Analysis_Dirty || Global_Analysis_Render_W <= 0) {
+
+        ANALYSIS_render_workstation_data(pixels, tex_w, tex_h);
+        if (texture && pixels && tex_w > 0 && tex_h > 0) {
+
+            SDL_UpdateTexture(texture, NULL, pixels, tex_w * sizeof(uint32_t));
+
+        }
+        Global_Analysis_Dirty = 0;
+
+    }
+
+    if (Global_Analysis_Noise_Active) {
+
+        ANALYSIS_update_noise_column_mask(Global_Analysis_Render_W);
+
+    }
+
+    size_t start_sample = 0;
+    size_t end_sample = 0;
+
+    if (!ANALYSIS_get_current_time_range(&start_sample, &end_sample)) {
+
+        snprintf(Global_Analysis_Status,
+                 sizeof(Global_Analysis_Status),
+                 "Selected crop range is empty");
+        return 0;
+
+    }
+
+    char created_name[512];
+    char base_no_suffix[512];
+    char candidate[1024];
+
+    ANALYSIS_build_crop_filename(created_name,
+                                 sizeof(created_name),
+                                 start_sample,
+                                 end_sample);
+    ANALYSIS_signal_make_base_name(created_name, base_no_suffix, sizeof(base_no_suffix));
+    snprintf(candidate, sizeof(candidate), "%s/%s", Global_Analysis_Record_Dir, created_name);
+
+    for (int i = 2; i < 1000; i++) {
+
+        FILE *test = fopen(candidate, "rb");
+
+        if (!test) break;
+
+        fclose(test);
+        snprintf(created_name,
+                 sizeof(created_name),
+                 "%.470s_v%d.complex16",
+                 base_no_suffix,
+                 i);
+        snprintf(candidate, sizeof(candidate), "%s/%s", Global_Analysis_Record_Dir, created_name);
+
+    }
+
+    int filter_bin_low = 0;
+    int filter_bin_high = ANALYSIS_FFT_SIZE - 1;
+    int use_frequency_filter = ANALYSIS_get_current_filter_bins(&filter_bin_low,
+                                                                &filter_bin_high);
+    int ok = 0;
+
+    if (use_frequency_filter) {
+
+        ok = ANALYSIS_process_crop_frequency_and_noise(Global_Analysis_Path,
+                                                       candidate,
+                                                       start_sample,
+                                                       end_sample,
+                                                       filter_bin_low,
+                                                       filter_bin_high);
+
+    }
+
+    else {
+
+        ok = ANALYSIS_copy_crop_with_optional_noise(Global_Analysis_Path,
+                                                   candidate,
+                                                   start_sample,
+                                                   end_sample);
+
+    }
+
+    if (!ok) {
+
+        snprintf(Global_Analysis_Status,
+                 sizeof(Global_Analysis_Status),
+                 "Failed to create cropped complex16 file");
+        return 0;
+
+    }
+
+    if (ANALYSIS_scan_recordings()) {
+
+        for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
+            if (strcmp(Global_Analysis_Files[i], created_name) == 0) {
+
+                Global_Analysis_Selected = i;
+                Global_Analysis_List_Scroll = i - 2;
+                if (Global_Analysis_List_Scroll < 0) Global_Analysis_List_Scroll = 0;
+                break;
+
+            }
+
+        }
+
+        ANALYSIS_open_selected_recording();
+
+    }
+
+    Global_Analysis_Filter_Visible = 0;
+    Global_Analysis_Filter_Selecting = 0;
+    Global_Analysis_Filter_Active = 0;
+    Global_Analysis_Column_Selecting = 0;
+    Global_Analysis_Column_Visible = 0;
+    Global_Analysis_Column_Active = 0;
+    Global_Analysis_Column_X0 = 0.0;
+    Global_Analysis_Column_X1 = 0.0;
+    Global_Analysis_Marker_Active = 0;
+    ANALYSIS_clear_noise_filter();
+    Global_Analysis_Dirty = 1;
+
+    snprintf(Global_Analysis_Status,
+             sizeof(Global_Analysis_Status),
+             "Created cropped file %.160s",
+             created_name);
+
+    return 1;
+
+}
+
 
 static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int win_h){
 
@@ -5369,6 +6424,9 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
     ANALYSIS_draw_delete_confirm_menu(renderer, font, win_w, win_h);
     ANALYSIS_draw_file_search_popup(renderer, font, win_w, win_h);
 
+    ANALYSIS_draw_noise_filter_overlay(renderer, font, win_w, win_h);
+    ANALYSIS_draw_crop_button(renderer, font, win_w, win_h);
+
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
 }
@@ -5409,6 +6467,78 @@ static uint32_t ANALYSIS_gray(double v){
 
 }
 
+
+static int ANALYSIS_is_center_display_bin(int bin){
+
+    /*
+
+    Purpose: Identifies the FFT DC/midpoint bins that create the persistent
+             horizontal center stripe in the greyscale spectrogram. This is
+             display-only and does not classify files as cropped/original.
+
+    Return: Non-zero if this bin should be hidden from the greyscale image
+
+    */
+
+    int center = ANALYSIS_FFT_SIZE / 2;
+    int guard_bins = 10;
+
+    return bin >= center - guard_bins && bin <= center + guard_bins;
+
+}
+
+
+static double ANALYSIS_spectrogram_display_db(const double *db_img, int x, int bin){
+
+    /*
+
+    Purpose: Returns a greyscale-spectrogram-only display value. The FFT DC
+             midpoint stripe is replaced by neighboring bins so it cannot draw
+             a fake center line. This does not modify db_img, IQ samples, crop
+             output, PSD, magnitude, phase, or instantaneous-frequency graphs.
+
+    Return: Display dB value for one spectrogram pixel
+
+    */
+
+    if (!db_img) return -300.0;
+
+    if (!ANALYSIS_is_center_display_bin(bin)) {
+        return db_img[(size_t)x * ANALYSIS_FFT_SIZE + bin];
+    }
+
+    int center = ANALYSIS_FFT_SIZE / 2;
+    int guard_bins = 10;
+    int ref_gap = 18;
+
+    int low_bin = center - ref_gap;
+    int high_bin = center + ref_gap;
+
+    if (low_bin < 0) low_bin = 0;
+    if (high_bin >= ANALYSIS_FFT_SIZE) high_bin = ANALYSIS_FFT_SIZE - 1;
+
+    if (low_bin >= center - guard_bins && center - guard_bins > 0) {
+        low_bin = center - guard_bins - 1;
+    }
+
+    if (high_bin <= center + guard_bins && center + guard_bins + 1 < ANALYSIS_FFT_SIZE) {
+        high_bin = center + guard_bins + 1;
+    }
+
+    double low = db_img[(size_t)x * ANALYSIS_FFT_SIZE + low_bin];
+    double high = db_img[(size_t)x * ANALYSIS_FFT_SIZE + high_bin];
+
+    double denom = (double)(high_bin - low_bin);
+    double t = denom > 0.0 ? (double)(bin - low_bin) / denom : 0.5;
+
+    if (t < 0.0) t = 0.0;
+    if (t > 1.0) t = 1.0;
+
+    return low + ((high - low) * t);
+
+}
+
+
 void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
     /*
@@ -5428,6 +6558,7 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
     memset(Global_Analysis_PSD_Line, 0, sizeof(Global_Analysis_PSD_Line));
     memset(Global_Analysis_Const_I, 0, sizeof(Global_Analysis_Const_I));
     memset(Global_Analysis_Const_Q, 0, sizeof(Global_Analysis_Const_Q));
+    memset(Global_Analysis_Noise_Column_Mask, 0, sizeof(Global_Analysis_Noise_Column_Mask));
     Global_Analysis_Const_Count = 0;
 
     if (Global_Analysis_IQ_Count < ANALYSIS_FFT_SIZE ||
@@ -5730,7 +6861,28 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
                 filter_im[x] += Q;
             }
 
-            if (val > max_db) max_db = val;
+        }
+
+        for (int y = 0; y < ANALYSIS_FFT_SIZE; y++) {
+
+            double display_val = ANALYSIS_spectrogram_display_db(db_img, x, y);
+
+            if (display_val > max_db) max_db = display_val;
+
+        }
+
+    }
+
+
+    max_db = -300.0;
+
+    for (int x = 0; x < render_w; x++) {
+
+        for (int y = 0; y < ANALYSIS_FFT_SIZE; y++) {
+
+            double display_val = ANALYSIS_spectrogram_display_db(db_img, x, y);
+
+            if (display_val > max_db) max_db = display_val;
 
         }
 
@@ -6020,6 +7172,8 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
     }
 
+    ANALYSIS_apply_noise_filter_to_rendered_lines(render_w);
+
     double min_db = max_db - 70.0;
 
     for (int x = 0; x < tex_w; x++) {
@@ -6031,7 +7185,7 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h){
 
             int bin = (int)((1.0 - ((double)py / (double)tex_h)) *
                             (double)(ANALYSIS_FFT_SIZE - 1));
-            double val = db_img[(size_t)src_x * ANALYSIS_FFT_SIZE + bin];
+            double val = ANALYSIS_spectrogram_display_db(db_img, src_x, bin);
             double norm = (val - min_db) / 70.0;
 
             if (filter_active && (bin < filter_bin_low || bin > filter_bin_high)) {
@@ -6204,6 +7358,8 @@ void ANALYSIS_enter_mode(const char *record_dir,
         Global_Analysis_Dragging = 0;
         Global_Analysis_Filter_Selecting = 0;
         Global_Analysis_Column_Selecting = 0;
+        Global_Analysis_Noise_Selecting = 0;
+        Global_Analysis_Noise_Key_Down = 0;
         Global_Analysis_Dirty = 1;
 
         set_status("Analysis workstation", (SDL_Color){220, 220, 220, 255});
@@ -6314,6 +7470,16 @@ int ANALYSIS_handle_event(SDL_Event *event,
 
             }
 
+            else if (key == SDLK_n) {
+
+                Global_Analysis_Noise_Key_Down = 1;
+                snprintf(Global_Analysis_Status,
+                         sizeof(Global_Analysis_Status),
+                         "N+drag on Magnitude or Instantaneous Frequency to mark noise");
+                return ANALYSIS_EVENT_HANDLED;
+
+            }
+
             else if (key == SDLK_ESCAPE) {
 
                 ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
@@ -6417,6 +7583,64 @@ int ANALYSIS_handle_event(SDL_Event *event,
 
         }
 
+        if (key == SDLK_n) {
+
+            Global_Analysis_Noise_Key_Down = 0;
+
+            if (Global_Analysis_Noise_Selecting) {
+
+                int mx = 0;
+                int my = 0;
+                ANALYSIS_get_adjusted_mouse_state(&mx, &my);
+
+                SDL_Rect graph_rect;
+
+                if (ANALYSIS_noise_graph_from_point(mx,
+                                                    my,
+                                                    win_w,
+                                                    win_h,
+                                                    &graph_rect) == ANALYSIS_NOISE_GRAPH_NONE) {
+
+                    SDL_Rect psd_rect;
+                    SDL_Rect mag_rect;
+                    SDL_Rect phase_rect;
+                    SDL_Rect inst_rect;
+                    SDL_Rect const_rect;
+                    SDL_Rect spec_rect;
+
+                    ANALYSIS_get_hover_graph_layout(win_w,
+                                                    win_h,
+                                                    &psd_rect,
+                                                    &mag_rect,
+                                                    &phase_rect,
+                                                    &inst_rect,
+                                                    &const_rect,
+                                                    &spec_rect);
+                    (void)psd_rect;
+                    (void)phase_rect;
+                    (void)const_rect;
+                    (void)spec_rect;
+                    graph_rect = Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ?
+                                 mag_rect : inst_rect;
+
+                }
+
+                ANALYSIS_update_noise_selection_from_mouse(my, graph_rect);
+                ANALYSIS_apply_noise_selection();
+
+            }
+
+            if (!Global_Analysis_Noise_Active) {
+
+                Global_Analysis_Noise_Visible = 0;
+                Global_Analysis_Noise_Graph = ANALYSIS_NOISE_GRAPH_NONE;
+
+            }
+
+            return ANALYSIS_EVENT_HANDLED;
+
+        }
+
         return ANALYSIS_EVENT_IGNORED;
 
     }
@@ -6496,10 +7720,18 @@ int ANALYSIS_handle_event(SDL_Event *event,
         ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
 
         SDL_Rect search_button = ANALYSIS_file_search_button_rect(win_w, win_h);
+        SDL_Rect crop_button = ANALYSIS_crop_button_rect(win_w, win_h);
 
         if (point_in_rect(x, y, search_button)) {
 
             ANALYSIS_open_file_search_menu();
+            return ANALYSIS_EVENT_HANDLED;
+
+        }
+
+        if (point_in_rect(x, y, crop_button)) {
+
+            ANALYSIS_crop_current_selection(pixels, tex_w, tex_h, waterfall_texture);
             return ANALYSIS_EVENT_HANDLED;
 
         }
@@ -6543,6 +7775,33 @@ int ANALYSIS_handle_event(SDL_Event *event,
 
         }
 
+        else if (Global_Analysis_Path[0] != '\0' &&
+                 (Global_Analysis_Noise_Key_Down || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_N])) {
+
+            SDL_Rect graph_rect;
+            int noise_graph = ANALYSIS_noise_graph_from_point(x,
+                                                              y,
+                                                              win_w,
+                                                              win_h,
+                                                              &graph_rect);
+
+            if (noise_graph != ANALYSIS_NOISE_GRAPH_NONE) {
+
+                Global_Analysis_Noise_Visible = 1;
+                Global_Analysis_Noise_Selecting = 1;
+                Global_Analysis_Noise_Active = 0;
+                Global_Analysis_Noise_Graph = noise_graph;
+                Global_Analysis_Dragging = 0;
+                Global_Analysis_Filter_Selecting = 0;
+                Global_Analysis_Column_Selecting = 0;
+                Global_Analysis_Noise_Y0 = ANALYSIS_noise_frac_from_mouse_y(y, graph_rect);
+                Global_Analysis_Noise_Y1 = Global_Analysis_Noise_Y0;
+                return ANALYSIS_EVENT_HANDLED;
+
+            }
+
+        }
+
         else if (Global_Analysis_Path[0] != '\0' && point_in_rect(x, y, spec_rect) &&
                  (SDL_GetModState() & KMOD_SHIFT)) {
 
@@ -6580,7 +7839,38 @@ int ANALYSIS_handle_event(SDL_Event *event,
 
     if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
 
-        if (Global_Analysis_Column_Selecting) {
+        if (Global_Analysis_Noise_Selecting) {
+
+            SDL_Rect psd_rect;
+            SDL_Rect mag_rect;
+            SDL_Rect phase_rect;
+            SDL_Rect inst_rect;
+            SDL_Rect const_rect;
+            SDL_Rect spec_rect;
+
+            ANALYSIS_get_hover_graph_layout(win_w,
+                                            win_h,
+                                            &psd_rect,
+                                            &mag_rect,
+                                            &phase_rect,
+                                            &inst_rect,
+                                            &const_rect,
+                                            &spec_rect);
+
+            (void)psd_rect;
+            (void)phase_rect;
+            (void)const_rect;
+            (void)spec_rect;
+
+            SDL_Rect graph_rect = Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ?
+                                  mag_rect : inst_rect;
+
+            ANALYSIS_update_noise_selection_from_mouse(event->button.y, graph_rect);
+            ANALYSIS_apply_noise_selection();
+
+        }
+
+        else if (Global_Analysis_Column_Selecting) {
 
             SDL_Rect list_rect;
             SDL_Rect spec_rect;
@@ -6606,6 +7896,7 @@ int ANALYSIS_handle_event(SDL_Event *event,
 
         Global_Analysis_Column_Selecting = 0;
         Global_Analysis_Filter_Selecting = 0;
+        Global_Analysis_Noise_Selecting = 0;
         Global_Analysis_Dragging = 0;
 
         return ANALYSIS_EVENT_HANDLED;
@@ -6613,6 +7904,37 @@ int ANALYSIS_handle_event(SDL_Event *event,
     }
 
     if (event->type == SDL_MOUSEMOTION) {
+
+        if (Global_Analysis_Noise_Selecting) {
+
+            SDL_Rect psd_rect;
+            SDL_Rect mag_rect;
+            SDL_Rect phase_rect;
+            SDL_Rect inst_rect;
+            SDL_Rect const_rect;
+            SDL_Rect spec_rect;
+
+            ANALYSIS_get_hover_graph_layout(win_w,
+                                            win_h,
+                                            &psd_rect,
+                                            &mag_rect,
+                                            &phase_rect,
+                                            &inst_rect,
+                                            &const_rect,
+                                            &spec_rect);
+
+            (void)psd_rect;
+            (void)phase_rect;
+            (void)const_rect;
+            (void)spec_rect;
+
+            SDL_Rect graph_rect = Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ?
+                                  mag_rect : inst_rect;
+
+            ANALYSIS_update_noise_selection_from_mouse(event->motion.y, graph_rect);
+            return ANALYSIS_EVENT_HANDLED;
+
+        }
 
         if (Global_Analysis_Column_Selecting) {
 

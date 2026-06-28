@@ -31,6 +31,7 @@
 #define REL_MIN_DB                      2.0
 #define REL_MAX_DB                      22.0
 
+
 TTF_Font *load_font(int size) {
     const char *paths[] = {
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -1528,28 +1529,6 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
     SDL_RenderCopy(renderer, texture, NULL, &spec_rect);
     draw_border(renderer, spec_rect);
     ANALYSIS_draw_filter_overlay(renderer, font, spec_rect);
-
-    /*
-     * In fullscreen the visible Analysis greyscale spectrogram can be wider
-     * than the backing spectrogram texture.  The center-frequency reference
-     * line can then appear only on the right half of the greyscale image.
-     * Draw one consistent full-width center line after overlays so the line
-     * does not become brighter on one side when the frequency filter is shown.
-     */
-    if (spec_rect.w > tex_w && spec_rect.h > 0) {
-
-        int center_y = spec_rect.y + (spec_rect.h / 2);
-
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 190);
-        SDL_RenderDrawLine(renderer,
-                           spec_rect.x,
-                           center_y,
-                           spec_rect.x + spec_rect.w,
-                           center_y);
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-
-    }
 
     /*
      * Keep the greyscale spectrogram unobstructed. Status/frequency labels are

@@ -26,7 +26,8 @@ SRCS := \
 	$(SRC_DIR)/GUIs.c \
 	$(SRC_DIR)/AnalysisWorkstation.c \
 	$(SRC_DIR)/ClassificationWorkstation.c \
-	$(SRC_DIR)/CaseManagementWorkstation.c
+	$(SRC_DIR)/CaseManagementWorkstation.c \
+	$(SRC_DIR)/DecodeWorkstation.c
 
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
