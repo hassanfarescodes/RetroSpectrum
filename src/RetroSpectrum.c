@@ -68,6 +68,9 @@
 // Responsible for the AnalysisWorkstation
 #include "AnalysisWorkstation.h"
 
+// Responsible for the DecodeWorkstation
+#include "DecodeWorkstation.h"
+
 // Responsible for the Map Dashboard
 #include "MapDashboard.h"
 
@@ -90,6 +93,7 @@ void CLASSIFICATION_prefill_from_analysis_selection(const char *file_name,
 
 int CLASSIFICATION_is_text_entry_active(void);
 int ANALYSIS_is_text_entry_active(void);
+int DECODE_is_text_entry_active(void);
 
 
 // ======================
@@ -2380,6 +2384,7 @@ int main(int argc, char **argv){
                                     (dashboard.enabled && (dashboard.case_desc_editing || dashboard.case_search_active)) ||
                                     (Global_Classification_Mode && CLASSIFICATION_is_text_entry_active()) ||
                                     (Global_CaseManagement_Mode && CASE_MANAGEMENT_is_text_entry_active()) ||
+                                    (Global_Decode_Mode && DECODE_is_text_entry_active()) ||
                                     (Global_Analysis_Mode && ANALYSIS_is_text_entry_active());
 
             int top_tab_event = dashboard_handle_top_tab_event(&dashboard,
@@ -2391,6 +2396,7 @@ int main(int argc, char **argv){
                 if (top_tab_event == DASHBOARD_EVENT_MAP) {
                     if (Global_Classification_Mode) CLASSIFICATION_exit_mode();
                     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (Global_Analysis_Mode) {
                         ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
                         next_waterfall_ms = SDL_GetTicks64();
@@ -2403,6 +2409,7 @@ int main(int argc, char **argv){
                 else if (top_tab_event == DASHBOARD_EVENT_RETROSPECTRUM) {
                     if (Global_Classification_Mode) CLASSIFICATION_exit_mode();
                     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (Global_Analysis_Mode) {
                         ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
                         next_waterfall_ms = SDL_GetTicks64();
@@ -2415,6 +2422,7 @@ int main(int argc, char **argv){
                 else if (top_tab_event == DASHBOARD_EVENT_ANALYSIS) {
                     if (Global_Classification_Mode) CLASSIFICATION_exit_mode();
                     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (!Global_Analysis_Mode) {
                         ANALYSIS_enter_mode(Global_Record_Dir,
                                             Global_Center_Freq_Hz,
@@ -2427,6 +2435,7 @@ int main(int argc, char **argv){
                 }
                 else if (top_tab_event == DASHBOARD_EVENT_CLASSIFICATION) {
                     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (Global_Analysis_Mode) {
                         ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
                         next_waterfall_ms = SDL_GetTicks64();
@@ -2439,8 +2448,24 @@ int main(int argc, char **argv){
                     dashboard.current_tab = DASHBOARD_EVENT_CLASSIFICATION;
                     set_status("Classification Workstation", (SDL_Color){0, 255, 80, 255});
                 }
+                else if (top_tab_event == DASHBOARD_EVENT_DECODE) {
+                    if (Global_Classification_Mode) CLASSIFICATION_exit_mode();
+                    if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
+                    if (Global_Analysis_Mode) {
+                        ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
+                        next_waterfall_ms = SDL_GetTicks64();
+                    }
+                    if (!Global_Decode_Mode) {
+                        DECODE_enter_mode(Global_Record_Dir);
+                    }
+                    active = FIELD_NONE;
+                    dashboard.enabled = 0;
+                    dashboard.current_tab = DASHBOARD_EVENT_DECODE;
+                    set_status("Decode Workstation", (SDL_Color){0, 255, 80, 255});
+                }
                 else if (top_tab_event == DASHBOARD_EVENT_CASE_MANAGEMENT) {
                     if (Global_Classification_Mode) CLASSIFICATION_exit_mode();
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (Global_Analysis_Mode) {
                         ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
                         next_waterfall_ms = SDL_GetTicks64();
@@ -2486,6 +2511,7 @@ int main(int argc, char **argv){
                     dashboard.current_tab = DASHBOARD_EVENT_RETROSPECTRUM;
                     Global_Analysis_Mode = 0;
                     Global_Classification_Mode = 0;
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
                     set_status("RetroSpectrum Workstation",
                                (SDL_Color){0, 255, 80, 255});
@@ -2497,6 +2523,7 @@ int main(int argc, char **argv){
                     dashboard.enabled = 0;
                     dashboard.current_tab = DASHBOARD_EVENT_ANALYSIS;
                     Global_Classification_Mode = 0;
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
 
                     ANALYSIS_enter_mode(Global_Record_Dir,
@@ -2511,9 +2538,26 @@ int main(int argc, char **argv){
                     dashboard.enabled = 0;
                     dashboard.current_tab = DASHBOARD_EVENT_CLASSIFICATION;
                     Global_Analysis_Mode = 0;
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
                     CLASSIFICATION_enter_mode(Global_Record_Dir);
                     set_status("Classification Workstation",
+                               (SDL_Color){0, 255, 80, 255});
+
+                }
+
+                else if (dashboard_event_result == DASHBOARD_EVENT_DECODE) {
+
+                    dashboard.enabled = 0;
+                    dashboard.current_tab = DASHBOARD_EVENT_DECODE;
+                    if (Global_Analysis_Mode) {
+                        ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
+                        next_waterfall_ms = SDL_GetTicks64();
+                    }
+                    if (Global_Classification_Mode) CLASSIFICATION_exit_mode();
+                    if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
+                    DECODE_enter_mode(Global_Record_Dir);
+                    set_status("Decode Workstation",
                                (SDL_Color){0, 255, 80, 255});
 
                 }
@@ -2527,6 +2571,7 @@ int main(int argc, char **argv){
                         next_waterfall_ms = SDL_GetTicks64();
                     }
                     if (Global_Classification_Mode) CLASSIFICATION_exit_mode();
+                    if (Global_Decode_Mode) DECODE_exit_mode();
                     CASE_MANAGEMENT_enter_mode(Global_Record_Dir);
                     set_status("Case Management Workstation",
                                (SDL_Color){0, 255, 80, 255});
@@ -2539,6 +2584,25 @@ int main(int argc, char **argv){
 
                 }
 
+                continue;
+
+            }
+
+            if (Global_Decode_Mode) {
+
+                if (event.type == SDL_KEYDOWN &&
+                    event.key.keysym.sym == SDLK_d &&
+                    (SDL_GetModState() & KMOD_CTRL)) {
+
+                    DECODE_exit_mode();
+                    dashboard.enabled = 1;
+                    dashboard.current_tab = DASHBOARD_EVENT_MAP;
+                    set_status("Dashboard", (SDL_Color){0, 255, 80, 255});
+                    continue;
+
+                }
+
+                DECODE_handle_event(&event, win_w, station_win_h);
                 continue;
 
             }
@@ -2611,6 +2675,12 @@ int main(int argc, char **argv){
 
                     }
 
+                    if (Global_Decode_Mode) {
+
+                        DECODE_exit_mode();
+
+                    }
+
                     if (Global_Analysis_Mode) {
 
                         ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
@@ -2659,6 +2729,12 @@ int main(int argc, char **argv){
 
                     }
 
+                    if (Global_Decode_Mode) {
+
+                        DECODE_exit_mode();
+
+                    }
+
                     if (Global_Analysis_Mode) {
 
                         ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
@@ -2694,6 +2770,12 @@ int main(int argc, char **argv){
                     }
 
                     else {
+
+                        if (Global_Decode_Mode) {
+
+                            DECODE_exit_mode();
+
+                        }
 
                         if (Global_Analysis_Mode) {
 
@@ -3134,7 +3216,7 @@ int main(int argc, char **argv){
 
         if (frame_interval_ms < 1) frame_interval_ms = 1;
 
-        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_CaseManagement_Mode && now_ms >= next_waterfall_ms) {
+        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode && now_ms >= next_waterfall_ms) {
 
             int rows_drawn = 0;
             int target_rows = normalize_rows_per_frame(Global_Rows_Per_Frame);
@@ -3167,7 +3249,7 @@ int main(int argc, char **argv){
             SDL_RenderSetViewport(renderer, &station_viewport);
         }
 
-        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_CaseManagement_Mode) {
+        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
             Type_Input_Box draw_freq_box;
             Type_Input_Box draw_sr_box;
@@ -3275,6 +3357,15 @@ int main(int argc, char **argv){
 
         }
 
+        else if (Global_Decode_Mode) {
+
+            DECODE_draw_workstation(renderer,
+                                    font_small,
+                                    win_w,
+                                    station_win_h);
+
+        }
+
         else if (Global_CaseManagement_Mode) {
 
             CASE_MANAGEMENT_draw_workstation(renderer,
@@ -3294,7 +3385,7 @@ int main(int argc, char **argv){
 
         }
 
-        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_CaseManagement_Mode) {
+        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
             int status_w = 0;
             int status_h = 0;
@@ -3316,7 +3407,7 @@ int main(int argc, char **argv){
 
         }
 
-        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_CaseManagement_Mode) {
+        if (!dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
             draw_antenna_recommendation(renderer, font_small, win_w, station_win_h);
 
@@ -3344,6 +3435,7 @@ int main(int argc, char **argv){
 
     SDL_StopTextInput();
 
+    if (Global_Decode_Mode) DECODE_exit_mode();
     if (Global_CaseManagement_Mode) CASE_MANAGEMENT_exit_mode();
 
     dashboard_shutdown();

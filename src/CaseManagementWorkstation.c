@@ -25,6 +25,7 @@
 #include <time.h>
 #include <math.h>
 #include <dirent.h>
+#include <SDL2/SDL_image.h>
 
 #ifndef SDL_MAJOR_VERSION
 extern char *SDL_GetClipboardText(void);
@@ -59,7 +60,11 @@ extern void SDL_free(void *mem);
 #define CASE_MGMT_COUNTRY_OPTION_H   30
 #define CASE_MGMT_CLASSIFICATION_DIR "Classification"
 #define CASE_MGMT_SOURCE_ROW_H      30
-#define CASE_MGMT_MIN_ZOOM          0.45
+#define CASE_MGMT_FILE_SEARCH_TEXT_MAX 256
+#define CASE_MGMT_FILE_SEARCH_ROW_H    34
+#define CASE_MGMT_FLAG_CACHE_MAX       512
+#define CASE_MGMT_UNDO_DEPTH           32
+#define CASE_MGMT_MIN_ZOOM          0.30
 #define CASE_MGMT_MAX_ZOOM          1.60
 
 #ifndef SDLK_v
@@ -90,6 +95,7 @@ int Global_CaseManagement_Mode = 0;
 
 typedef struct Type_Case_Block {
     int id;
+    int type;
     int x;
     int y;
     char case_number[128];
@@ -110,6 +116,11 @@ typedef struct Type_Case_Link {
     int from_side;
     int to_side;
 } Type_Case_Link;
+
+enum {
+    CASE_MGMT_BLOCK_TASK = 0,
+    CASE_MGMT_BLOCK_CASE = 1
+};
 
 enum {
     CASE_MGMT_FIELD_CASE_NUMBER = 0,
@@ -182,6 +193,19 @@ static int Global_Case_Country_Scroll = 0;
 static int Global_Case_Country_Hover = -1;
 static int Global_Case_Country_Dropdown_Open = 0;
 static char Global_Case_Record_Dir[512] = "Recordings";
+static char Global_Case_File_Name[CASE_MGMT_FILE_SEARCH_TEXT_MAX] = "case_graph.case.csv";
+static int Global_Case_File_Name_Cursor = 19;
+static int Global_Case_File_Name_Active = 0;
+static int Global_Case_File_Search_Open = 0;
+static int Global_Case_File_Search_Active = 0;
+static int Global_Case_File_Search_Cursor = 0;
+static int Global_Case_File_Search_Scroll = 0;
+static int Global_Case_File_Search_Hover = -1;
+static int Global_Case_File_Search_Count = 0;
+static char Global_Case_File_Search_Text[CASE_MGMT_FILE_SEARCH_TEXT_MAX] = "";
+static char Global_Case_File_Search_Files[CASE_MGMT_SOURCE_MAX_FILES][CASE_MGMT_SOURCE_FILE_MAX];
+static SDL_Texture *Global_Case_Country_Flag_Textures[CASE_MGMT_FLAG_CACHE_MAX];
+static int Global_Case_Country_Flag_Attempted[CASE_MGMT_FLAG_CACHE_MAX];
 static int Global_Case_Description_Popup_Open = 0;
 static int Global_Case_Description_Popup_Scroll = 0;
 static int Global_Case_Description_Selecting = 0;
@@ -197,8 +221,26 @@ static int Global_Case_View_Initialized = 0;
 static double Global_Case_Zoom = 1.0;
 static double Global_Case_View_X = 0.0;
 static double Global_Case_View_Y = 0.0;
-static char Global_Case_Status[256] = "N: new block | Drag canvas: pan | Wheel: zoom | Drag connector: link | CTRL+S: save";
+static char Global_Case_Status[256] = "N: task | C: case | Drag connector: link | CTRL+Z: undo | CTRL+S: save | CTRL+O: load";
 static Uint64 Global_Case_Status_Time = 0;
+
+typedef struct Type_Case_Undo_State {
+    Type_Case_Block blocks[CASE_MGMT_MAX_BLOCKS];
+    Type_Case_Link links[CASE_MGMT_MAX_LINKS];
+    int selected_blocks[CASE_MGMT_MAX_BLOCKS];
+    int block_count;
+    int link_count;
+    int selected;
+    int selected_link;
+    int next_id;
+    double zoom;
+    double view_x;
+    double view_y;
+} Type_Case_Undo_State;
+
+static Type_Case_Undo_State Global_Case_Undo_Stack[CASE_MGMT_UNDO_DEPTH];
+static int Global_Case_Undo_Count = 0;
+static int Global_Case_Drag_Undo_Pushed = 0;
 
 static SDL_Color Case_BG        = {0,   0,   0,   255};
 static SDL_Color Case_Panel     = {0,   10,  4,   245};
@@ -213,12 +255,25 @@ static SDL_Color Case_Blue      = {70,  190, 255, 255};
 
 static void case_copy_text(char *dst, size_t dst_size, const char *src);
 static int case_description_delete_selection(void);
+static void case_add_block_typed(SDL_Rect canvas, int block_type);
+static void case_open_file_search_menu(void);
+static int case_handle_file_search_event(const SDL_Event *event, int win_w, int win_h);
+static void case_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
+static void case_scan_case_graph_files(void);
+static int case_selected_block_is_case(void);
+static int case_text_equals_ci(const char *a, const char *b);
+static void case_trim_text(char *text);
+static int case_should_show_field(int field);
+static int case_rect_is_valid(SDL_Rect r);
+static int case_load_current_file(void);
 static void case_description_clear_selection(void);
 static void case_clear_block_selection(void);
 static void case_select_only_block(int index);
 static void case_sync_primary_selection(void);
 static int case_selected_block_count(void);
 static int case_is_block_selected(int index);
+static void case_push_undo_state(void);
+static int case_undo_last_change(void);
 static char *case_selected_field_text(int field);
 
 static const char *CASE_MGMT_STATUS_OPTIONS[CASE_MGMT_STATUS_COUNT] = {
@@ -490,6 +545,34 @@ static int case_country_count(void){
     return (int)(sizeof(CASE_MGMT_COUNTRIES) / sizeof(CASE_MGMT_COUNTRIES[0]));
 }
 
+
+static int case_country_index_by_name(const char *name){
+    if (!name || !name[0]) return -1;
+    for (int i = 0; i < case_country_count(); i++) {
+        if (case_text_equals_ci(CASE_MGMT_COUNTRIES[i].name, name)) return i;
+    }
+    return -1;
+}
+
+static SDL_Texture *case_country_flag_texture(SDL_Renderer *renderer, int country_index){
+    char path[256];
+
+    if (!renderer) return NULL;
+    if (country_index < 0 || country_index >= case_country_count()) return NULL;
+    if (country_index >= CASE_MGMT_FLAG_CACHE_MAX) return NULL;
+
+    if (!Global_Case_Country_Flag_Attempted[country_index]) {
+        Global_Case_Country_Flag_Attempted[country_index] = 1;
+        snprintf(path,
+                 sizeof(path),
+                 "flags/%s.png",
+                 CASE_MGMT_COUNTRIES[country_index].alpha2);
+        Global_Case_Country_Flag_Textures[country_index] = IMG_LoadTexture(renderer, path);
+    }
+
+    return Global_Case_Country_Flag_Textures[country_index];
+}
+
 static void case_get_adjusted_mouse_state(int *x, int *y){
     SDL_GetMouseState(x, y);
     if (y) *y -= RETROSPECTRUM_DASHBOARD_TAB_BAR_H;
@@ -694,6 +777,88 @@ static void case_toggle_block_selection(int index){
     if (index < 0 || index >= Global_Case_Block_Count) return;
     Global_Case_Selected_Blocks[index] = !Global_Case_Selected_Blocks[index];
     case_sync_primary_selection();
+}
+
+
+static int case_selected_block_is_case(void){
+    if (Global_Case_Selected < 0 || Global_Case_Selected >= Global_Case_Block_Count) return 0;
+    return Global_Case_Blocks[Global_Case_Selected].type == CASE_MGMT_BLOCK_CASE;
+}
+
+static void case_push_undo_state(void){
+    Type_Case_Undo_State *state;
+
+    if (Global_Case_Undo_Count >= CASE_MGMT_UNDO_DEPTH) {
+        memmove(&Global_Case_Undo_Stack[0],
+                &Global_Case_Undo_Stack[1],
+                sizeof(Global_Case_Undo_Stack[0]) * (CASE_MGMT_UNDO_DEPTH - 1));
+        Global_Case_Undo_Count = CASE_MGMT_UNDO_DEPTH - 1;
+    }
+
+    state = &Global_Case_Undo_Stack[Global_Case_Undo_Count++];
+    memset(state, 0, sizeof(*state));
+    memcpy(state->blocks, Global_Case_Blocks, sizeof(Global_Case_Blocks));
+    memcpy(state->links, Global_Case_Links, sizeof(Global_Case_Links));
+    memcpy(state->selected_blocks, Global_Case_Selected_Blocks, sizeof(Global_Case_Selected_Blocks));
+    state->block_count = Global_Case_Block_Count;
+    state->link_count = Global_Case_Link_Count;
+    state->selected = Global_Case_Selected;
+    state->selected_link = Global_Case_Selected_Link;
+    state->next_id = Global_Case_Next_Id;
+    state->zoom = Global_Case_Zoom;
+    state->view_x = Global_Case_View_X;
+    state->view_y = Global_Case_View_Y;
+}
+
+static int case_undo_last_change(void){
+    Type_Case_Undo_State state;
+
+    if (Global_Case_Undo_Count <= 0) {
+        case_set_status("Nothing to undo", Case_Warn);
+        return 0;
+    }
+
+    state = Global_Case_Undo_Stack[--Global_Case_Undo_Count];
+    memcpy(Global_Case_Blocks, state.blocks, sizeof(Global_Case_Blocks));
+    memcpy(Global_Case_Links, state.links, sizeof(Global_Case_Links));
+    memcpy(Global_Case_Selected_Blocks, state.selected_blocks, sizeof(Global_Case_Selected_Blocks));
+    Global_Case_Block_Count = state.block_count;
+    Global_Case_Link_Count = state.link_count;
+    Global_Case_Selected = state.selected;
+    Global_Case_Selected_Link = state.selected_link;
+    Global_Case_Next_Id = state.next_id;
+    Global_Case_Zoom = state.zoom;
+    Global_Case_View_X = state.view_x;
+    Global_Case_View_Y = state.view_y;
+    Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
+    Global_Case_Link_Mode = 0;
+    Global_Case_Link_Source = -1;
+    Global_Case_Link_Dragging = 0;
+    Global_Case_Dragging = 0;
+    Global_Case_Box_Selecting = 0;
+    Global_Case_Status_Dropdown_Open = 0;
+    Global_Case_Case_Dropdown_Open = 0;
+    Global_Case_Country_Dropdown_Open = 0;
+    Global_Case_Calendar_Open = 0;
+    Global_Case_Source_Popup_Open = 0;
+    Global_Case_Description_Popup_Open = 0;
+    case_description_clear_selection();
+    case_set_status("Undo restored previous case graph state", Case_Text);
+    return 1;
+}
+
+static int case_should_show_field(int field){
+    if (Global_Case_Selected < 0 || Global_Case_Selected >= Global_Case_Block_Count) return 1;
+
+    if (case_selected_block_is_case()) {
+        return field == CASE_MGMT_FIELD_CASE_NUMBER || field == CASE_MGMT_FIELD_COUNTRY;
+    }
+
+    return field != CASE_MGMT_FIELD_CASE_NUMBER && field != CASE_MGMT_FIELD_COUNTRY;
+}
+
+static int case_rect_is_valid(SDL_Rect r){
+    return r.w > 0 && r.h > 0;
 }
 
 static int case_rects_intersect(SDL_Rect a, SDL_Rect b){
@@ -923,6 +1088,23 @@ static SDL_Color case_status_color(const char *status){
     return Case_Muted;
 }
 
+static SDL_Color case_priority_color(const char *priority){
+    int p = 0;
+
+    if (priority && priority[0] >= '1' && priority[0] <= '5') {
+        p = priority[0] - '0';
+    }
+
+    switch (p) {
+        case 1: return Case_Red;
+        case 2: return Case_Warn;
+        case 3: return (SDL_Color){0, 255, 90, 255};
+        case 4: return Case_Blue;
+        case 5: return (SDL_Color){245, 245, 245, 255};
+        default: return Case_Muted;
+    }
+}
+
 static void case_make_timeline_text(const Type_Case_Block *b, char *out, size_t out_size){
     if (!out || out_size == 0) return;
     if (!b) {
@@ -947,50 +1129,49 @@ static void case_make_timeline_text(const Type_Case_Block *b, char *out, size_t 
 static void case_seed_default_blocks(void){
     if (Global_Case_Block_Count > 0) return;
 
-    Type_Case_Block a = {0};
-    a.id = Global_Case_Next_Id++;
-    a.x = 70;
-    a.y = 110;
-    case_copy_text(a.task, sizeof(a.task), "Open case / define objective");
-    case_copy_text(a.assigned_to, sizeof(a.assigned_to), "Analyst 1");
-    case_copy_text(a.start_date, sizeof(a.start_date), "06/25/2026");
-    case_copy_text(a.end_date, sizeof(a.end_date), "06/25/2026");
-    case_copy_text(a.status, sizeof(a.status), "Todo");
-    case_copy_text(a.priority, sizeof(a.priority), "3");
-    a.source_file[0] = '\0';
-    case_copy_text(a.description, sizeof(a.description), "Define the case objective and initial collection requirements.");
-    Global_Case_Blocks[Global_Case_Block_Count++] = a;
+    const int case_x = 344;
+    const int case_y = 170;
+    const int gap = 50;
+    const int left_x = case_x - CASE_MGMT_BLOCK_W - gap;
+    const int right_x = case_x + CASE_MGMT_BLOCK_W + gap;
+    const int task_y = case_y;
+    const int down_y = case_y + CASE_MGMT_BLOCK_H + gap;
 
-    Type_Case_Block b = {0};
-    b.id = Global_Case_Next_Id++;
-    b.x = 390;
-    b.y = 110;
-    case_copy_text(b.task, sizeof(b.task), "Review signals and evidence");
-    case_copy_text(b.assigned_to, sizeof(b.assigned_to), "RF Analyst");
-    case_copy_text(b.start_date, sizeof(b.start_date), "06/25/2026");
-    case_copy_text(b.end_date, sizeof(b.end_date), "06/26/2026");
-    case_copy_text(b.status, sizeof(b.status), "In Progress");
-    case_copy_text(b.priority, sizeof(b.priority), "2");
-    b.source_file[0] = '\0';
-    case_copy_text(b.description, sizeof(b.description), "Review captured source material and extract relevant evidence.");
-    Global_Case_Blocks[Global_Case_Block_Count++] = b;
+    Type_Case_Block case_block = {0};
+    case_block.id = Global_Case_Next_Id++;
+    case_block.type = CASE_MGMT_BLOCK_CASE;
+    case_block.x = case_x;
+    case_block.y = case_y;
+    Global_Case_Blocks[Global_Case_Block_Count++] = case_block;
 
-    Type_Case_Block c = {0};
-    c.id = Global_Case_Next_Id++;
-    c.x = 710;
-    c.y = 110;
-    case_copy_text(c.task, sizeof(c.task), "Write assessment");
-    case_copy_text(c.assigned_to, sizeof(c.assigned_to), "Lead");
-    case_copy_text(c.start_date, sizeof(c.start_date), "06/27/2026");
-    case_copy_text(c.end_date, sizeof(c.end_date), "06/27/2026");
-    case_copy_text(c.status, sizeof(c.status), "Review");
-    case_copy_text(c.priority, sizeof(c.priority), "1");
-    c.source_file[0] = '\0';
-    case_copy_text(c.description, sizeof(c.description), "Prepare the assessment and summarize findings.");
-    Global_Case_Blocks[Global_Case_Block_Count++] = c;
+    Type_Case_Block left_task = {0};
+    left_task.id = Global_Case_Next_Id++;
+    left_task.type = CASE_MGMT_BLOCK_TASK;
+    left_task.x = left_x;
+    left_task.y = task_y;
+    Global_Case_Blocks[Global_Case_Block_Count++] = left_task;
 
-    Global_Case_Links[Global_Case_Link_Count++] = (Type_Case_Link){a.id, b.id, CASE_MGMT_SIDE_RIGHT, CASE_MGMT_SIDE_LEFT};
-    Global_Case_Links[Global_Case_Link_Count++] = (Type_Case_Link){b.id, c.id, CASE_MGMT_SIDE_RIGHT, CASE_MGMT_SIDE_LEFT};
+    Type_Case_Block down_task = {0};
+    down_task.id = Global_Case_Next_Id++;
+    down_task.type = CASE_MGMT_BLOCK_TASK;
+    down_task.x = case_x;
+    down_task.y = down_y;
+    Global_Case_Blocks[Global_Case_Block_Count++] = down_task;
+
+    Type_Case_Block right_task = {0};
+    right_task.id = Global_Case_Next_Id++;
+    right_task.type = CASE_MGMT_BLOCK_TASK;
+    right_task.x = right_x;
+    right_task.y = task_y;
+    Global_Case_Blocks[Global_Case_Block_Count++] = right_task;
+
+    Global_Case_Links[Global_Case_Link_Count++] =
+        (Type_Case_Link){case_block.id, left_task.id, CASE_MGMT_SIDE_LEFT, CASE_MGMT_SIDE_RIGHT};
+    Global_Case_Links[Global_Case_Link_Count++] =
+        (Type_Case_Link){case_block.id, down_task.id, CASE_MGMT_SIDE_BOTTOM, CASE_MGMT_SIDE_TOP};
+    Global_Case_Links[Global_Case_Link_Count++] =
+        (Type_Case_Link){case_block.id, right_task.id, CASE_MGMT_SIDE_RIGHT, CASE_MGMT_SIDE_LEFT};
+
     case_select_only_block(0);
 }
 
@@ -1050,62 +1231,207 @@ static void case_unescape_multiline(char *text){
     *dst = '\0';
 }
 
-static void case_save(void){
-    if (!case_ensure_dir()) {
-        case_set_status("Could not create CaseManagement directory", Case_Red);
-        return;
+
+static int case_ensure_record_dir(void){
+    struct stat st;
+
+    if (Global_Case_Record_Dir[0] == '\0') {
+        case_copy_text(Global_Case_Record_Dir, sizeof(Global_Case_Record_Dir), "Recordings");
     }
 
-    FILE *blocks = fopen(CASE_MGMT_BLOCKS_CSV, "w");
-    if (!blocks) {
-        case_set_status("Could not write CASE_BLOCKS.csv", Case_Red);
-        return;
+    if (stat(Global_Case_Record_Dir, &st) == 0) {
+        return S_ISDIR(st.st_mode);
     }
 
-    fprintf(blocks, "id,x,y,case_number,country,task,assigned_to,start_date,end_date,status,priority,source_file,description\n");
+    return mkdir(Global_Case_Record_Dir, 0755) == 0;
+}
+
+static int case_has_extension(const char *name){
+    const char *slash;
+    const char *dot;
+    if (!name) return 0;
+    slash = strrchr(name, '/');
+    if (!slash) slash = strrchr(name, '\\');
+    dot = strrchr(name, '.');
+    return dot && (!slash || dot > slash);
+}
+
+static void case_normalize_file_name(const char *src, char *dst, size_t dst_size){
+    char tmp[CASE_MGMT_FILE_SEARCH_TEXT_MAX];
+    const char *base;
+    size_t len;
+
+    if (!dst || dst_size == 0) return;
+    if (!src || !src[0]) src = "case_graph.case.csv";
+
+    base = strrchr(src, '/');
+    if (!base) base = strrchr(src, '\\');
+    base = base ? base + 1 : src;
+
+    snprintf(tmp, sizeof(tmp), "%s", base);
+    case_trim_text(tmp);
+    if (tmp[0] == '\0') snprintf(tmp, sizeof(tmp), "case_graph.case.csv");
+
+    for (size_t i = 0; tmp[i]; i++) {
+        unsigned char c = (unsigned char)tmp[i];
+        if (c < 32 || c == '/' || c == '\\' || c == ':' || c == '*') tmp[i] = '_';
+    }
+
+    if (!case_has_extension(tmp)) {
+        len = strlen(tmp);
+        if (len + strlen(".case.csv") < sizeof(tmp)) strcat(tmp, ".case.csv");
+    }
+
+    snprintf(dst, dst_size, "%s", tmp);
+}
+
+static int case_build_file_path(const char *name, char *path, size_t path_size){
+    char normalized[CASE_MGMT_FILE_SEARCH_TEXT_MAX];
+
+    if (!path || path_size == 0) return 0;
+    if (!case_ensure_record_dir()) return 0;
+
+    case_normalize_file_name(name, normalized, sizeof(normalized));
+    snprintf(path, path_size, "%s/%s", Global_Case_Record_Dir, normalized);
+    return 1;
+}
+
+static int case_is_case_graph_file(const char *name){
+    size_t len;
+
+    if (!name || name[0] == '.') return 0;
+    len = strlen(name);
+    if (len >= 9 && strcmp(name + len - 9, ".case.csv") == 0) return 1;
+    if (len >= 5 && strcmp(name + len - 5, ".case") == 0) return 1;
+    if (len >= 4 && strcmp(name + len - 4, ".csv") == 0 &&
+        strncmp(name, "CASE_", 5) != 0) return 1;
+    return 0;
+}
+
+static void case_scan_case_graph_files(void){
+    DIR *dir;
+    struct dirent *entry;
+
+    Global_Case_File_Search_Count = 0;
+    Global_Case_File_Search_Scroll = 0;
+    Global_Case_File_Search_Hover = -1;
+
+    if (!case_ensure_record_dir()) return;
+
+    dir = opendir(Global_Case_Record_Dir);
+    if (!dir) return;
+
+    while ((entry = readdir(dir)) != NULL &&
+           Global_Case_File_Search_Count < CASE_MGMT_SOURCE_MAX_FILES) {
+        if (!case_is_case_graph_file(entry->d_name)) continue;
+        case_copy_text(Global_Case_File_Search_Files[Global_Case_File_Search_Count],
+                       sizeof(Global_Case_File_Search_Files[Global_Case_File_Search_Count]),
+                       entry->d_name);
+        Global_Case_File_Search_Count++;
+    }
+
+    closedir(dir);
+
+    if (Global_Case_File_Search_Count > 1) {
+        qsort(Global_Case_File_Search_Files,
+              (size_t)Global_Case_File_Search_Count,
+              sizeof(Global_Case_File_Search_Files[0]),
+              case_name_compare);
+    }
+}
+
+static void case_write_blocks_csv(FILE *fp){
+    fprintf(fp, "id,type,x,y,case_number,country,task,assigned_to,start_date,end_date,status,priority,source_file,description\n");
     for (int i = 0; i < Global_Case_Block_Count; i++) {
         Type_Case_Block *b = &Global_Case_Blocks[i];
-        fprintf(blocks, "%d,%d,%d,", b->id, b->x, b->y);
-        case_csv_write_field(blocks, b->case_number);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->country);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->task);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->assigned_to);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->start_date);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->end_date);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->status);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->priority);
-        fputc(',', blocks);
-        case_csv_write_field(blocks, b->source_file);
-        fputc(',', blocks);
-        case_csv_write_multiline_field(blocks, b->description);
-        fputc('\n', blocks);
+        fprintf(fp, "%d,%d,%d,%d,", b->id, b->type, b->x, b->y);
+        case_csv_write_field(fp, b->case_number);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->country);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->task);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->assigned_to);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->start_date);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->end_date);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->status);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->priority);
+        fputc(',', fp);
+        case_csv_write_field(fp, b->source_file);
+        fputc(',', fp);
+        case_csv_write_multiline_field(fp, b->description);
+        fputc('\n', fp);
     }
-    fclose(blocks);
+}
 
-    FILE *links = fopen(CASE_MGMT_LINKS_CSV, "w");
-    if (!links) {
-        case_set_status("Could not write CASE_LINKS.csv", Case_Red);
-        return;
-    }
-
-    fprintf(links, "from_id,to_id,from_side,to_side\n");
+static void case_write_links_csv(FILE *fp){
+    fprintf(fp, "from_id,to_id,from_side,to_side\n");
     for (int i = 0; i < Global_Case_Link_Count; i++) {
-        fprintf(links, "%d,%d,%d,%d\n",
+        fprintf(fp, "%d,%d,%d,%d\n",
                 Global_Case_Links[i].from_id,
                 Global_Case_Links[i].to_id,
                 Global_Case_Links[i].from_side,
                 Global_Case_Links[i].to_side);
     }
-    fclose(links);
+}
 
-    case_set_status("Case graph saved", Case_Text);
+static int case_save_to_file(const char *path){
+    FILE *fp;
+
+    if (!path || !path[0]) return 0;
+
+    fp = fopen(path, "w");
+    if (!fp) return 0;
+
+    fprintf(fp, "# RetroSpectrum CaseManagement v2\n");
+    fprintf(fp, "[BLOCKS]\n");
+    case_write_blocks_csv(fp);
+    fprintf(fp, "[LINKS]\n");
+    case_write_links_csv(fp);
+    fclose(fp);
+    return 1;
+}
+
+static void case_save(void){
+    char normalized[CASE_MGMT_FILE_SEARCH_TEXT_MAX];
+    char path[1024];
+
+    case_normalize_file_name(Global_Case_File_Name, normalized, sizeof(normalized));
+    case_copy_text(Global_Case_File_Name, sizeof(Global_Case_File_Name), normalized);
+    Global_Case_File_Name_Cursor = (int)strlen(Global_Case_File_Name);
+
+    if (!case_build_file_path(Global_Case_File_Name, path, sizeof(path))) {
+        case_set_status("Could not create output directory", Case_Red);
+        return;
+    }
+
+    if (!case_save_to_file(path)) {
+        case_set_status("Could not write case file", Case_Red);
+        return;
+    }
+
+    case_scan_case_graph_files();
+    case_set_status("Case file saved", Case_Text);
+}
+
+static void case_reset_graph_for_load(void){
+    Global_Case_Block_Count = 0;
+    Global_Case_Link_Count = 0;
+    case_clear_block_selection();
+    Global_Case_Selected_Link = -1;
+    Global_Case_Next_Id = 1;
+    Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
+    Global_Case_Status_Dropdown_Open = 0;
+    Global_Case_Case_Dropdown_Open = 0;
+    Global_Case_Country_Dropdown_Open = 0;
+    Global_Case_Calendar_Open = 0;
+    Global_Case_Source_Popup_Open = 0;
+    Global_Case_Description_Popup_Open = 0;
+    Global_Case_File_Name_Active = 0;
 }
 
 static char *case_read_csv_field(char **cursor, char *out, size_t out_size){
@@ -1336,7 +1662,151 @@ static void case_select_country_option(int index){
     Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
 }
 
-static void case_load(void){
+
+static int case_parse_block_line(char *line, int has_type, int has_case_number, int has_country,
+                                 int old_timeline_format, int has_priority,
+                                 int has_source_file, int has_description){
+    Type_Case_Block b;
+    char id_text[64];
+    char type_text[64];
+    char x_text[64];
+    char y_text[64];
+    char timeline_text[CASE_MGMT_TEXT_MAX];
+    char *p = line;
+
+    if (!line || Global_Case_Block_Count >= CASE_MGMT_MAX_BLOCKS) return 0;
+
+    memset(&b, 0, sizeof(b));
+    memset(timeline_text, 0, sizeof(timeline_text));
+    b.type = CASE_MGMT_BLOCK_TASK;
+
+    case_read_csv_field(&p, id_text, sizeof(id_text));
+    if (has_type) {
+        case_read_csv_field(&p, type_text, sizeof(type_text));
+        b.type = atoi(type_text);
+        if (b.type != CASE_MGMT_BLOCK_CASE) b.type = CASE_MGMT_BLOCK_TASK;
+    }
+    case_read_csv_field(&p, x_text, sizeof(x_text));
+    case_read_csv_field(&p, y_text, sizeof(y_text));
+    if (has_case_number) case_read_csv_field(&p, b.case_number, sizeof(b.case_number));
+    if (has_country) case_read_csv_field(&p, b.country, sizeof(b.country));
+    case_read_csv_field(&p, b.task, sizeof(b.task));
+    case_read_csv_field(&p, b.assigned_to, sizeof(b.assigned_to));
+
+    if (old_timeline_format) {
+        case_read_csv_field(&p, timeline_text, sizeof(timeline_text));
+        case_read_csv_field(&p, b.status, sizeof(b.status));
+        case_copy_text(b.start_date, sizeof(b.start_date), timeline_text);
+        b.end_date[0] = '\0';
+    }
+    else {
+        case_read_csv_field(&p, b.start_date, sizeof(b.start_date));
+        case_read_csv_field(&p, b.end_date, sizeof(b.end_date));
+        case_read_csv_field(&p, b.status, sizeof(b.status));
+        if (has_priority) case_read_csv_field(&p, b.priority, sizeof(b.priority));
+        if (has_source_file) case_read_csv_field(&p, b.source_file, sizeof(b.source_file));
+        if (has_description) {
+            case_read_csv_field(&p, b.description, sizeof(b.description));
+            case_unescape_multiline(b.description);
+        }
+    }
+
+    b.id = atoi(id_text);
+    b.x = atoi(x_text);
+    b.y = atoi(y_text);
+    if (b.id <= 0) b.id = Global_Case_Next_Id;
+    if (b.id >= Global_Case_Next_Id) Global_Case_Next_Id = b.id + 1;
+    if (b.status[0] == '\0') case_copy_text(b.status, sizeof(b.status), "Todo");
+    if (b.priority[0] == '\0') case_copy_text(b.priority, sizeof(b.priority), "3");
+    if (b.type == CASE_MGMT_BLOCK_CASE && b.task[0] == '\0') case_copy_text(b.task, sizeof(b.task), "Case metadata");
+    Global_Case_Blocks[Global_Case_Block_Count++] = b;
+    return 1;
+}
+
+static void case_parse_link_line(char *line){
+    int from_id = 0;
+    int to_id = 0;
+    int from_side = CASE_MGMT_SIDE_RIGHT;
+    int to_side = CASE_MGMT_SIDE_LEFT;
+    int parsed;
+
+    if (!line || Global_Case_Link_Count >= CASE_MGMT_MAX_LINKS) return;
+
+    parsed = sscanf(line, "%d,%d,%d,%d", &from_id, &to_id, &from_side, &to_side);
+    if (parsed >= 2 &&
+        case_find_block_index_by_id(from_id) >= 0 &&
+        case_find_block_index_by_id(to_id) >= 0) {
+        if (from_side < 0 || from_side > 3) from_side = CASE_MGMT_SIDE_RIGHT;
+        if (to_side < 0 || to_side > 3) to_side = CASE_MGMT_SIDE_LEFT;
+        Global_Case_Links[Global_Case_Link_Count++] = (Type_Case_Link){from_id, to_id, from_side, to_side};
+    }
+}
+
+static int case_load_single_file(const char *path){
+    FILE *fp;
+    char line[4096];
+    char header[2048] = "";
+    int in_blocks = 0;
+    int in_links = 0;
+    int block_header_seen = 0;
+    int old_timeline_format = 0;
+    int has_source_file = 1;
+    int has_description = 1;
+    int has_priority = 1;
+    int has_case_number = 1;
+    int has_country = 1;
+    int has_type = 1;
+
+    if (!path || !path[0]) return 0;
+    fp = fopen(path, "r");
+    if (!fp) return 0;
+
+    case_reset_graph_for_load();
+
+    while (fgets(line, sizeof(line), fp)) {
+        if (line[0] == '#' || line[0] == '\r' || line[0] == '\n') continue;
+        if (strncmp(line, "[BLOCKS]", 8) == 0) {
+            in_blocks = 1;
+            in_links = 0;
+            block_header_seen = 0;
+            continue;
+        }
+        if (strncmp(line, "[LINKS]", 7) == 0) {
+            in_blocks = 0;
+            in_links = 1;
+            fgets(line, sizeof(line), fp);
+            continue;
+        }
+
+        if (in_blocks) {
+            if (!block_header_seen) {
+                snprintf(header, sizeof(header), "%s", line);
+                old_timeline_format = strstr(header, "timeline") != NULL && strstr(header, "start_date") == NULL;
+                has_source_file = strstr(header, "source_file") != NULL;
+                has_description = strstr(header, "description") != NULL;
+                has_priority = strstr(header, "priority") != NULL;
+                has_case_number = strstr(header, "case_number") != NULL;
+                has_country = strstr(header, "country") != NULL;
+                has_type = strstr(header, "type") != NULL;
+                block_header_seen = 1;
+                continue;
+            }
+            case_parse_block_line(line, has_type, has_case_number, has_country,
+                                  old_timeline_format, has_priority,
+                                  has_source_file, has_description);
+        }
+        else if (in_links) {
+            case_parse_link_line(line);
+        }
+    }
+
+    fclose(fp);
+
+    if (Global_Case_Block_Count > 0) case_select_only_block(0);
+    return 1;
+}
+
+static int case_load_legacy_pair(void){
     FILE *blocks = fopen(CASE_MGMT_BLOCKS_CSV, "r");
     char line[4096];
     char header[2048];
@@ -1347,21 +1817,9 @@ static void case_load(void){
     int has_case_number = 0;
     int has_country = 0;
 
-    if (!blocks) {
-        case_set_status("No saved case graph found", Case_Warn);
-        return;
-    }
+    if (!blocks) return 0;
 
-    Global_Case_Block_Count = 0;
-    Global_Case_Link_Count = 0;
-    case_clear_block_selection();
-    Global_Case_Selected_Link = -1;
-    Global_Case_Next_Id = 1;
-    Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
-    Global_Case_Status_Dropdown_Open = 0;
-    Global_Case_Case_Dropdown_Open = 0;
-    Global_Case_Country_Dropdown_Open = 0;
-    Global_Case_Calendar_Open = 0;
+    case_reset_graph_for_load();
 
     if (fgets(header, sizeof(header), blocks)) {
         old_timeline_format = strstr(header, "timeline") != NULL && strstr(header, "start_date") == NULL;
@@ -1373,57 +1831,9 @@ static void case_load(void){
     }
 
     while (fgets(line, sizeof(line), blocks) && Global_Case_Block_Count < CASE_MGMT_MAX_BLOCKS) {
-        Type_Case_Block b;
-        char id_text[64];
-        char x_text[64];
-        char y_text[64];
-        char timeline_text[CASE_MGMT_TEXT_MAX];
-        char *p = line;
-        memset(&b, 0, sizeof(b));
-        memset(timeline_text, 0, sizeof(timeline_text));
-
-        case_read_csv_field(&p, id_text, sizeof(id_text));
-        case_read_csv_field(&p, x_text, sizeof(x_text));
-        case_read_csv_field(&p, y_text, sizeof(y_text));
-        if (has_case_number) {
-            case_read_csv_field(&p, b.case_number, sizeof(b.case_number));
-        }
-        if (has_country) {
-            case_read_csv_field(&p, b.country, sizeof(b.country));
-        }
-        case_read_csv_field(&p, b.task, sizeof(b.task));
-        case_read_csv_field(&p, b.assigned_to, sizeof(b.assigned_to));
-
-        if (old_timeline_format) {
-            case_read_csv_field(&p, timeline_text, sizeof(timeline_text));
-            case_read_csv_field(&p, b.status, sizeof(b.status));
-            case_copy_text(b.start_date, sizeof(b.start_date), timeline_text);
-            b.end_date[0] = '\0';
-        }
-        else {
-            case_read_csv_field(&p, b.start_date, sizeof(b.start_date));
-            case_read_csv_field(&p, b.end_date, sizeof(b.end_date));
-            case_read_csv_field(&p, b.status, sizeof(b.status));
-            if (has_priority) {
-                case_read_csv_field(&p, b.priority, sizeof(b.priority));
-            }
-            if (has_source_file) {
-                case_read_csv_field(&p, b.source_file, sizeof(b.source_file));
-            }
-            if (has_description) {
-                case_read_csv_field(&p, b.description, sizeof(b.description));
-                case_unescape_multiline(b.description);
-            }
-        }
-
-        b.id = atoi(id_text);
-        b.x = atoi(x_text);
-        b.y = atoi(y_text);
-        if (b.id <= 0) b.id = Global_Case_Next_Id;
-        if (b.id >= Global_Case_Next_Id) Global_Case_Next_Id = b.id + 1;
-        if (b.status[0] == '\0') case_copy_text(b.status, sizeof(b.status), "Todo");
-        if (b.priority[0] == '\0') case_copy_text(b.priority, sizeof(b.priority), "3");
-        Global_Case_Blocks[Global_Case_Block_Count++] = b;
+        case_parse_block_line(line, 0, has_case_number, has_country,
+                              old_timeline_format, has_priority,
+                              has_source_file, has_description);
     }
     fclose(blocks);
 
@@ -1431,38 +1841,58 @@ static void case_load(void){
     if (links) {
         fgets(line, sizeof(line), links);
         while (fgets(line, sizeof(line), links) && Global_Case_Link_Count < CASE_MGMT_MAX_LINKS) {
-            int from_id = 0;
-            int to_id = 0;
-            int from_side = CASE_MGMT_SIDE_RIGHT;
-            int to_side = CASE_MGMT_SIDE_LEFT;
-            int parsed = sscanf(line, "%d,%d,%d,%d", &from_id, &to_id, &from_side, &to_side);
-            if (parsed >= 2 &&
-                case_find_block_index_by_id(from_id) >= 0 &&
-                case_find_block_index_by_id(to_id) >= 0) {
-                if (from_side < 0 || from_side > 3) from_side = CASE_MGMT_SIDE_RIGHT;
-                if (to_side < 0 || to_side > 3) to_side = CASE_MGMT_SIDE_LEFT;
-                Global_Case_Links[Global_Case_Link_Count++] = (Type_Case_Link){from_id, to_id, from_side, to_side};
-            }
+            case_parse_link_line(line);
         }
         fclose(links);
     }
 
     if (Global_Case_Block_Count > 0) case_select_only_block(0);
-    case_set_status("Case graph loaded", Case_Text);
+    return 1;
 }
 
-static void case_add_block(SDL_Rect canvas){
+static int case_load_current_file(void){
+    char normalized[CASE_MGMT_FILE_SEARCH_TEXT_MAX];
+    char path[1024];
+
+    case_normalize_file_name(Global_Case_File_Name, normalized, sizeof(normalized));
+    case_copy_text(Global_Case_File_Name, sizeof(Global_Case_File_Name), normalized);
+    Global_Case_File_Name_Cursor = (int)strlen(Global_Case_File_Name);
+
+    if (case_build_file_path(Global_Case_File_Name, path, sizeof(path)) && case_load_single_file(path)) {
+        case_set_status("Case file loaded", Case_Text);
+        return 1;
+    }
+
+    if (case_load_legacy_pair()) {
+        case_set_status("Legacy case graph loaded", Case_Text);
+        return 1;
+    }
+
+    case_set_status("No saved case file found", Case_Warn);
+    return 0;
+}
+
+static void case_load(void){
+    case_push_undo_state();
+    if (!case_load_current_file()) {
+        if (Global_Case_Undo_Count > 0) Global_Case_Undo_Count--;
+    }
+}
+
+static void case_add_block_typed(SDL_Rect canvas, int block_type){
     if (Global_Case_Block_Count >= CASE_MGMT_MAX_BLOCKS) {
         case_set_status("Maximum block count reached", Case_Warn);
         return;
     }
 
     case_ensure_view(canvas);
+    case_push_undo_state();
 
     int n = Global_Case_Block_Count;
     Type_Case_Block b;
     memset(&b, 0, sizeof(b));
     b.id = Global_Case_Next_Id++;
+    b.type = (block_type == CASE_MGMT_BLOCK_CASE) ? CASE_MGMT_BLOCK_CASE : CASE_MGMT_BLOCK_TASK;
 
     int screen_x = canvas.x + 46 + ((n * 34) % (canvas.w > 360 ? canvas.w - 330 : 120));
     int screen_y = canvas.y + 44 + ((n * 52) % (canvas.h > 190 ? canvas.h - 170 : 120));
@@ -1471,8 +1901,14 @@ static void case_add_block(SDL_Rect canvas){
 
     b.case_number[0] = '\0';
     b.country[0] = '\0';
-    case_copy_text(b.task, sizeof(b.task), "New task");
-    case_copy_text(b.assigned_to, sizeof(b.assigned_to), "Unassigned");
+    if (b.type == CASE_MGMT_BLOCK_CASE) {
+        case_copy_text(b.task, sizeof(b.task), "Case metadata");
+        case_copy_text(b.assigned_to, sizeof(b.assigned_to), "Case owner");
+    }
+    else {
+        case_copy_text(b.task, sizeof(b.task), "New task");
+        case_copy_text(b.assigned_to, sizeof(b.assigned_to), "Unassigned");
+    }
     b.start_date[0] = '\0';
     b.end_date[0] = '\0';
     case_copy_text(b.status, sizeof(b.status), "Todo");
@@ -1483,11 +1919,15 @@ static void case_add_block(SDL_Rect canvas){
     Global_Case_Blocks[Global_Case_Block_Count++] = b;
     case_select_only_block(Global_Case_Block_Count - 1);
     Global_Case_Selected_Link = -1;
-    Global_Case_Active_Field = CASE_MGMT_FIELD_TASK;
-    Global_Case_Field_Cursor[CASE_MGMT_FIELD_TASK] = (int)strlen(b.task);
+    Global_Case_Active_Field = (b.type == CASE_MGMT_BLOCK_CASE) ? CASE_MGMT_FIELD_CASE_NUMBER : CASE_MGMT_FIELD_TASK;
+    Global_Case_Field_Cursor[Global_Case_Active_Field] = (int)strlen(case_selected_field_text(Global_Case_Active_Field) ? case_selected_field_text(Global_Case_Active_Field) : "");
     Global_Case_Status_Dropdown_Open = 0;
     Global_Case_Calendar_Open = 0;
-    case_set_status("Created case block", Case_Text);
+    case_set_status(b.type == CASE_MGMT_BLOCK_CASE ? "Created case metadata block" : "Created task block", Case_Text);
+}
+
+static void case_add_block(SDL_Rect canvas){
+    case_add_block_typed(canvas, CASE_MGMT_BLOCK_TASK);
 }
 
 static void case_duplicate_selected_block(SDL_Rect canvas){
@@ -1514,6 +1954,7 @@ static void case_duplicate_selected_block(SDL_Rect canvas){
     }
 
     case_ensure_view(canvas);
+    case_push_undo_state();
 
     for (int i = 0; i < Global_Case_Block_Count; i++) {
         if (!Global_Case_Selected_Blocks[i]) continue;
@@ -1589,6 +2030,7 @@ static void case_add_link(int from_index, int to_index, int from_side, int to_si
 
     if (from_side < 0 || from_side > 3) from_side = CASE_MGMT_SIDE_RIGHT;
     if (to_side < 0 || to_side > 3) to_side = CASE_MGMT_SIDE_LEFT;
+    case_push_undo_state();
     Global_Case_Links[Global_Case_Link_Count++] = (Type_Case_Link){from_id, to_id, from_side, to_side};
     Global_Case_Selected_Link = Global_Case_Link_Count - 1;
     Global_Case_Selected = -1;
@@ -1607,6 +2049,7 @@ static void case_delete_selected(void){
     int remove_count = 0;
 
     if (Global_Case_Selected_Link >= 0 && Global_Case_Selected_Link < Global_Case_Link_Count) {
+        case_push_undo_state();
         for (int i = Global_Case_Selected_Link; i + 1 < Global_Case_Link_Count; i++) {
             Global_Case_Links[i] = Global_Case_Links[i + 1];
         }
@@ -1625,6 +2068,8 @@ static void case_delete_selected(void){
     }
 
     if (remove_count == 0) return;
+
+    case_push_undo_state();
 
     int write = 0;
     for (int i = 0; i < Global_Case_Block_Count; i++) {
@@ -1677,6 +2122,7 @@ static int case_field_max_len(int field){
     if (field == CASE_MGMT_FIELD_PRIORITY) return 1;
     if (field == CASE_MGMT_FIELD_DESCRIPTION) return CASE_MGMT_DESCRIPTION_MAX - 1;
     if (field == CASE_MGMT_FIELD_SOURCE_FILE || field == CASE_MGMT_FIELD_STATUS) return 0;
+    if (field == CASE_MGMT_FIELD_CASE_NUMBER || field == CASE_MGMT_FIELD_COUNTRY) return 127;
     return CASE_MGMT_TEXT_MAX - 1;
 }
 
@@ -2174,31 +2620,49 @@ void CASE_MANAGEMENT_exit_mode(void){
     Global_Case_Calendar_Open = 0;
     Global_Case_Source_Popup_Open = 0;
     Global_Case_Description_Popup_Open = 0;
+    Global_Case_File_Name_Active = 0;
+    Global_Case_File_Search_Open = 0;
+    Global_Case_File_Search_Active = 0;
 }
 
 int CASE_MANAGEMENT_is_text_entry_active(void){
     return Global_CaseManagement_Mode &&
            (Global_Case_Active_Field != CASE_MGMT_FIELD_NONE ||
-            (Global_Case_Source_Popup_Open && Global_Case_Source_Search_Active));
+            Global_Case_File_Name_Active ||
+            (Global_Case_Source_Popup_Open && Global_Case_Source_Search_Active) ||
+            (Global_Case_File_Search_Open && Global_Case_File_Search_Active));
 }
 
 static void case_toolbar_rects(int win_w,
-                               SDL_Rect *new_btn,
+                               SDL_Rect *task_btn,
+                               SDL_Rect *case_btn,
                                SDL_Rect *link_btn,
                                SDL_Rect *save_btn,
-                               SDL_Rect *load_btn){
+                               SDL_Rect *load_btn,
+                               SDL_Rect *undo_btn,
+                               SDL_Rect *file_rect){
     int x = CASE_MGMT_MARGIN;
     int y = CASE_MGMT_MARGIN;
     int h = 34;
+    int remaining;
 
-    (void)win_w;
-    if (new_btn)  *new_btn  = (SDL_Rect){x, y, 108, h};
-    x += 118;
+    if (task_btn) *task_btn = (SDL_Rect){x, y, 104, h};
+    x += 114;
+    if (case_btn) *case_btn = (SDL_Rect){x, y, 104, h};
+    x += 114;
     if (link_btn) *link_btn = (SDL_Rect){x, y, 120, h};
     x += 130;
     if (save_btn) *save_btn = (SDL_Rect){x, y, 90, h};
     x += 100;
     if (load_btn) *load_btn = (SDL_Rect){x, y, 90, h};
+    x += 100;
+    if (undo_btn) *undo_btn = (SDL_Rect){x, y, 90, h};
+    x += 108;
+
+    remaining = win_w - x - CASE_MGMT_MARGIN;
+    if (remaining > 360) remaining = 360;
+    if (remaining < 210) remaining = 210;
+    if (file_rect) *file_rect = (SDL_Rect){x, y, remaining, h};
 }
 
 static void case_editor_field_rects(SDL_Rect editor,
@@ -2215,6 +2679,11 @@ static void case_editor_field_rects(SDL_Rect editor,
     int desc_h;
 
     for (int i = 0; i < CASE_MGMT_FIELD_COUNT; i++) {
+        fields[i] = (SDL_Rect){0, 0, 0, 0};
+    }
+
+    for (int i = 0; i < CASE_MGMT_FIELD_COUNT; i++) {
+        if (!case_should_show_field(i)) continue;
         if (i == CASE_MGMT_FIELD_DESCRIPTION) {
             y += extra_description_gap;
             desc_h = action_y - y - 18;
@@ -2280,6 +2749,37 @@ static SDL_Rect case_source_popup_rect(int win_w, int win_h){
     return r;
 }
 
+
+static SDL_Rect case_file_search_popup_rect(int win_w, int win_h){
+    SDL_Rect r = {
+        (win_w - 1050) / 2,
+        (win_h - 740) / 2,
+        1050,
+        740
+    };
+
+    if (r.x < CASE_MGMT_MARGIN) r.x = CASE_MGMT_MARGIN;
+    if (r.y < CASE_MGMT_MARGIN) r.y = CASE_MGMT_MARGIN;
+    if (r.w > win_w - 2 * CASE_MGMT_MARGIN) r.w = win_w - 2 * CASE_MGMT_MARGIN;
+    if (r.h > win_h - 2 * CASE_MGMT_MARGIN) r.h = win_h - 2 * CASE_MGMT_MARGIN;
+    if (r.w < 320) r.w = 320;
+    if (r.h < 260) r.h = 260;
+    return r;
+}
+
+static SDL_Rect case_file_search_input_rect(SDL_Rect popup){
+    SDL_Rect close_btn = {popup.x + popup.w - 86, popup.y + 14, 68, 30};
+    SDL_Rect search = {close_btn.x - 292, popup.y + 14, 276, 30};
+
+    if (search.x < popup.x + 210) {
+        search.x = popup.x + 210;
+        search.w = close_btn.x - search.x - 16;
+    }
+
+    if (search.w < 120) search.w = 120;
+    return search;
+}
+
 static SDL_Rect case_description_popup_rect(int win_w, int win_h){
     SDL_Rect r = {
         (win_w - 760) / 2,
@@ -2295,6 +2795,276 @@ static SDL_Rect case_description_popup_rect(int win_w, int win_h){
     if (r.w < 360) r.w = 360;
     if (r.h < 300) r.h = 300;
     return r;
+}
+
+
+static int case_file_search_matches(const char *name){
+    char hay[512];
+    char needle[CASE_MGMT_FILE_SEARCH_TEXT_MAX];
+    size_t i;
+
+    if (!name) name = "";
+    if (Global_Case_File_Search_Text[0] == '\0') return 1;
+
+    for (i = 0; i + 1 < sizeof(hay) && name[i]; i++) hay[i] = (char)tolower((unsigned char)name[i]);
+    hay[i] = '\0';
+    for (i = 0; i + 1 < sizeof(needle) && Global_Case_File_Search_Text[i]; i++) needle[i] = (char)tolower((unsigned char)Global_Case_File_Search_Text[i]);
+    needle[i] = '\0';
+
+    return strstr(hay, needle) != NULL;
+}
+
+static int case_file_search_filtered_count(void){
+    int count = 0;
+    for (int i = 0; i < Global_Case_File_Search_Count; i++) {
+        if (case_file_search_matches(Global_Case_File_Search_Files[i])) count++;
+    }
+    return count;
+}
+
+static int case_file_search_filtered_index_at(int filtered_index){
+    int seen = 0;
+    if (filtered_index < 0) return -1;
+    for (int i = 0; i < Global_Case_File_Search_Count; i++) {
+        if (!case_file_search_matches(Global_Case_File_Search_Files[i])) continue;
+        if (seen == filtered_index) return i;
+        seen++;
+    }
+    return -1;
+}
+
+static void case_file_search_clamp_scroll(void){
+    int filtered_count = case_file_search_filtered_count();
+    int visible = 14;
+    int max_scroll = filtered_count - visible;
+
+    if (max_scroll < 0) max_scroll = 0;
+    if (Global_Case_File_Search_Scroll < 0) Global_Case_File_Search_Scroll = 0;
+    if (Global_Case_File_Search_Scroll > max_scroll) Global_Case_File_Search_Scroll = max_scroll;
+}
+
+static void case_close_file_search_menu(void){
+    Global_Case_File_Search_Open = 0;
+    Global_Case_File_Search_Active = 0;
+    Global_Case_File_Search_Hover = -1;
+}
+
+static void case_open_file_search_menu(void){
+    case_scan_case_graph_files();
+    Global_Case_File_Search_Open = 1;
+    Global_Case_File_Search_Active = 1;
+    Global_Case_File_Search_Hover = -1;
+    Global_Case_File_Search_Text[0] = '\0';
+    Global_Case_File_Search_Cursor = 0;
+    Global_Case_File_Search_Scroll = 0;
+    Global_Case_File_Name_Active = 0;
+    Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
+    Global_Case_Source_Popup_Open = 0;
+    Global_Case_Description_Popup_Open = 0;
+    if (Global_Case_File_Search_Count > 0) {
+        case_set_status("Click a case file to load it", Case_Text);
+    }
+    else {
+        case_set_status("No case graph files found in output directory", Case_Warn);
+    }
+}
+
+static void case_file_search_select_index(int index, int open_after_select){
+    if (index < 0 || index >= Global_Case_File_Search_Count) return;
+
+    case_copy_text(Global_Case_File_Name,
+                   sizeof(Global_Case_File_Name),
+                   Global_Case_File_Search_Files[index]);
+    Global_Case_File_Name_Cursor = (int)strlen(Global_Case_File_Name);
+    case_close_file_search_menu();
+
+    if (open_after_select) {
+        case_push_undo_state();
+        if (!case_load_current_file() && Global_Case_Undo_Count > 0) {
+            Global_Case_Undo_Count--;
+        }
+    }
+    else {
+        case_set_status("Selected case file", Case_Text);
+    }
+}
+
+static void case_file_search_insert_text(const char *text){
+    int len;
+    int add;
+
+    if (!text || text[0] == '\0') return;
+
+    len = (int)strlen(Global_Case_File_Search_Text);
+    add = (int)strlen(text);
+    if (Global_Case_File_Search_Cursor < 0) Global_Case_File_Search_Cursor = 0;
+    if (Global_Case_File_Search_Cursor > len) Global_Case_File_Search_Cursor = len;
+    if (len + add >= CASE_MGMT_FILE_SEARCH_TEXT_MAX) add = CASE_MGMT_FILE_SEARCH_TEXT_MAX - len - 1;
+    if (add <= 0) return;
+
+    memmove(Global_Case_File_Search_Text + Global_Case_File_Search_Cursor + add,
+            Global_Case_File_Search_Text + Global_Case_File_Search_Cursor,
+            (size_t)(len - Global_Case_File_Search_Cursor + 1));
+    memcpy(Global_Case_File_Search_Text + Global_Case_File_Search_Cursor, text, (size_t)add);
+    Global_Case_File_Search_Cursor += add;
+    Global_Case_File_Search_Scroll = 0;
+}
+
+static void case_file_search_backspace(void){
+    int len = (int)strlen(Global_Case_File_Search_Text);
+    if (Global_Case_File_Search_Cursor <= 0 || len <= 0) return;
+    if (Global_Case_File_Search_Cursor > len) Global_Case_File_Search_Cursor = len;
+    memmove(Global_Case_File_Search_Text + Global_Case_File_Search_Cursor - 1,
+            Global_Case_File_Search_Text + Global_Case_File_Search_Cursor,
+            (size_t)(len - Global_Case_File_Search_Cursor + 1));
+    Global_Case_File_Search_Cursor--;
+    Global_Case_File_Search_Scroll = 0;
+}
+
+static void case_file_search_delete(void){
+    int len = (int)strlen(Global_Case_File_Search_Text);
+    if (Global_Case_File_Search_Cursor < 0) Global_Case_File_Search_Cursor = 0;
+    if (Global_Case_File_Search_Cursor >= len) return;
+    memmove(Global_Case_File_Search_Text + Global_Case_File_Search_Cursor,
+            Global_Case_File_Search_Text + Global_Case_File_Search_Cursor + 1,
+            (size_t)(len - Global_Case_File_Search_Cursor));
+    Global_Case_File_Search_Scroll = 0;
+}
+
+static void case_file_name_insert_text(const char *text){
+    int len;
+    int add;
+    char clean[CASE_MGMT_FILE_SEARCH_TEXT_MAX];
+    int out = 0;
+
+    if (!text || text[0] == '\0') return;
+    for (int i = 0; text[i] && out + 1 < (int)sizeof(clean); i++) {
+        unsigned char c = (unsigned char)text[i];
+        if (c >= 32 && c <= 126 && c != '/' && c != '\\') clean[out++] = (char)c;
+    }
+    clean[out] = '\0';
+    if (out <= 0) return;
+
+    len = (int)strlen(Global_Case_File_Name);
+    add = out;
+    if (Global_Case_File_Name_Cursor < 0) Global_Case_File_Name_Cursor = 0;
+    if (Global_Case_File_Name_Cursor > len) Global_Case_File_Name_Cursor = len;
+    if (len + add >= CASE_MGMT_FILE_SEARCH_TEXT_MAX) add = CASE_MGMT_FILE_SEARCH_TEXT_MAX - len - 1;
+    if (add <= 0) return;
+
+    memmove(Global_Case_File_Name + Global_Case_File_Name_Cursor + add,
+            Global_Case_File_Name + Global_Case_File_Name_Cursor,
+            (size_t)(len - Global_Case_File_Name_Cursor + 1));
+    memcpy(Global_Case_File_Name + Global_Case_File_Name_Cursor, clean, (size_t)add);
+    Global_Case_File_Name_Cursor += add;
+}
+
+static void case_file_name_backspace(void){
+    int len = (int)strlen(Global_Case_File_Name);
+    if (Global_Case_File_Name_Cursor <= 0 || len <= 0) return;
+    if (Global_Case_File_Name_Cursor > len) Global_Case_File_Name_Cursor = len;
+    memmove(Global_Case_File_Name + Global_Case_File_Name_Cursor - 1,
+            Global_Case_File_Name + Global_Case_File_Name_Cursor,
+            (size_t)(len - Global_Case_File_Name_Cursor + 1));
+    Global_Case_File_Name_Cursor--;
+}
+
+static void case_file_name_delete(void){
+    int len = (int)strlen(Global_Case_File_Name);
+    if (Global_Case_File_Name_Cursor < 0) Global_Case_File_Name_Cursor = 0;
+    if (Global_Case_File_Name_Cursor >= len) return;
+    memmove(Global_Case_File_Name + Global_Case_File_Name_Cursor,
+            Global_Case_File_Name + Global_Case_File_Name_Cursor + 1,
+            (size_t)(len - Global_Case_File_Name_Cursor));
+}
+
+static int case_handle_file_search_event(const SDL_Event *event, int win_w, int win_h){
+    SDL_Rect popup;
+    SDL_Rect close_btn;
+    SDL_Rect search;
+    SDL_Rect list;
+
+    if (!event || !Global_Case_File_Search_Open) return 0;
+
+    popup = case_file_search_popup_rect(win_w, win_h);
+    close_btn = (SDL_Rect){popup.x + popup.w - 86, popup.y + 14, 68, 30};
+    search = case_file_search_input_rect(popup);
+    list = (SDL_Rect){popup.x + 18, popup.y + 124, popup.w - 36, popup.h - 164};
+
+    if (event->type == SDL_TEXTINPUT) {
+        if (Global_Case_File_Search_Active) case_file_search_insert_text(event->text.text);
+        return 1;
+    }
+
+    if (event->type == SDL_KEYDOWN) {
+        SDL_Keycode key = event->key.keysym.sym;
+        int len = (int)strlen(Global_Case_File_Search_Text);
+
+        if (key == SDLK_ESCAPE) { case_close_file_search_menu(); return 1; }
+        if (key == SDLK_BACKSPACE) { case_file_search_backspace(); return 1; }
+        if (key == SDLK_DELETE) { case_file_search_delete(); return 1; }
+        if (key == SDLK_LEFT) { if (Global_Case_File_Search_Cursor > 0) Global_Case_File_Search_Cursor--; return 1; }
+        if (key == SDLK_RIGHT) { if (Global_Case_File_Search_Cursor < len) Global_Case_File_Search_Cursor++; return 1; }
+        if (key == SDLK_HOME) { Global_Case_File_Search_Cursor = 0; return 1; }
+        if (key == SDLK_END) { Global_Case_File_Search_Cursor = len; return 1; }
+        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+            int index = case_file_search_filtered_index_at(Global_Case_File_Search_Scroll);
+            if (index >= 0) case_file_search_select_index(index, 1);
+            return 1;
+        }
+        if (key == SDLK_DOWN) { Global_Case_File_Search_Scroll++; case_file_search_clamp_scroll(); return 1; }
+        if (key == SDLK_UP) { Global_Case_File_Search_Scroll--; case_file_search_clamp_scroll(); return 1; }
+        if (key == SDLK_r) { case_scan_case_graph_files(); return 1; }
+        return 1;
+    }
+
+    if (event->type == SDL_MOUSEWHEEL) {
+        int mx = 0;
+        int my = 0;
+        case_get_adjusted_mouse_state(&mx, &my);
+        if (case_point_in_rect(mx, my, list)) {
+            Global_Case_File_Search_Scroll -= event->wheel.y * 3;
+            case_file_search_clamp_scroll();
+        }
+        return 1;
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+        int mx = 0;
+        int my = 0;
+
+        case_get_adjusted_mouse_state(&mx, &my);
+
+        if (!case_point_in_rect(mx, my, popup) || case_point_in_rect(mx, my, close_btn)) {
+            case_close_file_search_menu();
+            return 1;
+        }
+
+        if (case_point_in_rect(mx, my, search)) {
+            Global_Case_File_Search_Active = 1;
+            return 1;
+        }
+
+        Global_Case_File_Search_Active = 0;
+
+        if (case_point_in_rect(mx, my, list)) {
+            int row = (my - list.y - 4) / CASE_MGMT_FILE_SEARCH_ROW_H;
+            int visible = list.h / CASE_MGMT_FILE_SEARCH_ROW_H;
+            if (visible < 1) visible = 1;
+            if (visible > 14) visible = 14;
+            if (row >= 0 && row < visible) {
+                int filtered_index = Global_Case_File_Search_Scroll + row;
+                int index = case_file_search_filtered_index_at(filtered_index);
+                if (index >= 0) case_file_search_select_index(index, 1);
+            }
+            return 1;
+        }
+
+        return 1;
+    }
+
+    if (event->type == SDL_MOUSEMOTION) return 1;
+    return 1;
 }
 
 static void case_clamp_description_scroll(SDL_Rect text_rect){
@@ -2631,9 +3401,12 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
     SDL_Rect canvas;
     SDL_Rect editor;
     SDL_Rect new_btn;
+    SDL_Rect case_btn;
     SDL_Rect link_btn;
     SDL_Rect save_btn;
     SDL_Rect load_btn;
+    SDL_Rect undo_btn;
+    SDL_Rect file_rect;
     SDL_Rect fields[CASE_MGMT_FIELD_COUNT];
     SDL_Rect duplicate_btn;
     SDL_Rect delete_btn;
@@ -2643,8 +3416,12 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
     canvas = case_canvas_rect(win_w, win_h);
     editor = case_editor_rect(win_w, win_h);
     case_ensure_view(canvas);
-    case_toolbar_rects(win_w, &new_btn, &link_btn, &save_btn, &load_btn);
+    case_toolbar_rects(win_w, &new_btn, &case_btn, &link_btn, &save_btn, &load_btn, &undo_btn, &file_rect);
     case_editor_field_rects(editor, fields, &duplicate_btn, &delete_btn);
+
+    if (Global_Case_File_Search_Open) {
+        return case_handle_file_search_event(event, win_w, win_h);
+    }
 
     if (Global_Case_Description_Popup_Open) {
         SDL_Rect popup = case_description_popup_rect(win_w, win_h);
@@ -2867,6 +3644,11 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
         }
     }
 
+    if (event->type == SDL_TEXTINPUT && Global_Case_File_Name_Active) {
+        case_file_name_insert_text(event->text.text);
+        return 1;
+    }
+
     if (event->type == SDL_TEXTINPUT && Global_Case_Active_Field != CASE_MGMT_FIELD_NONE) {
         if (Global_Case_Active_Field == CASE_MGMT_FIELD_STATUS ||
             Global_Case_Active_Field == CASE_MGMT_FIELD_SOURCE_FILE) return 1;
@@ -2934,12 +3716,36 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
         SDL_Keycode key = event->key.keysym.sym;
         SDL_Keymod mod = SDL_GetModState();
 
+        if ((mod & KMOD_CTRL) && key == SDLK_z) {
+            case_undo_last_change();
+            return 1;
+        }
+
+        if (Global_Case_File_Name_Active) {
+            int len = (int)strlen(Global_Case_File_Name);
+            if ((mod & KMOD_CTRL) && key == SDLK_s) {
+                case_save();
+                return 1;
+            }
+            if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+                Global_Case_File_Name_Active = 0;
+                return 1;
+            }
+            if (key == SDLK_BACKSPACE) { case_file_name_backspace(); return 1; }
+            if (key == SDLK_DELETE) { case_file_name_delete(); return 1; }
+            if (key == SDLK_LEFT) { if (Global_Case_File_Name_Cursor > 0) Global_Case_File_Name_Cursor--; return 1; }
+            if (key == SDLK_RIGHT) { if (Global_Case_File_Name_Cursor < len) Global_Case_File_Name_Cursor++; return 1; }
+            if (key == SDLK_HOME) { Global_Case_File_Name_Cursor = 0; return 1; }
+            if (key == SDLK_END) { Global_Case_File_Name_Cursor = len; return 1; }
+            return 1;
+        }
+
         if ((mod & KMOD_CTRL) && key == SDLK_s) {
             case_save();
             return 1;
         }
         if ((mod & KMOD_CTRL) && key == SDLK_o) {
-            case_load();
+            case_open_file_search_menu();
             return 1;
         }
 
@@ -3016,6 +3822,10 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
             case_add_block(canvas);
             return 1;
         }
+        if (key == SDLK_c) {
+            case_add_block_typed(canvas, CASE_MGMT_BLOCK_CASE);
+            return 1;
+        }
         if (key == SDLK_l) {
             Global_Case_Link_Mode = !Global_Case_Link_Mode;
             Global_Case_Link_Source = -1;
@@ -3038,6 +3848,7 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
             Global_Case_Link_Mode = 0;
             Global_Case_Link_Source = -1;
             Global_Case_Dragging = 0;
+            Global_Case_Drag_Undo_Pushed = 0;
             Global_Case_Panning = 0;
             Global_Case_Link_Dragging = 0;
             Global_Case_Box_Selecting = 0;
@@ -3115,6 +3926,10 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
             }
 
             if (dx != 0 || dy != 0) {
+                if (!Global_Case_Drag_Undo_Pushed) {
+                    case_push_undo_state();
+                    Global_Case_Drag_Undo_Pushed = 1;
+                }
                 for (int i = 0; i < Global_Case_Block_Count; i++) {
                     if (Global_Case_Selected_Blocks[i]) {
                         Global_Case_Blocks[i].x += dx;
@@ -3171,6 +3986,21 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
             case_add_block(canvas);
             return 1;
         }
+        if (case_point_in_rect(mx, my, case_btn)) {
+            case_add_block_typed(canvas, CASE_MGMT_BLOCK_CASE);
+            return 1;
+        }
+        if (case_point_in_rect(mx, my, file_rect)) {
+            Global_Case_File_Name_Active = 1;
+            Global_Case_File_Name_Cursor = (int)strlen(Global_Case_File_Name);
+            Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
+            Global_Case_Status_Dropdown_Open = 0;
+            Global_Case_Case_Dropdown_Open = 0;
+            Global_Case_Country_Dropdown_Open = 0;
+            Global_Case_Calendar_Open = 0;
+            Global_Case_Source_Popup_Open = 0;
+            return 1;
+        }
         if (case_point_in_rect(mx, my, link_btn)) {
             Global_Case_Link_Mode = !Global_Case_Link_Mode;
             Global_Case_Link_Source = -1;
@@ -3182,7 +4012,11 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
             return 1;
         }
         if (case_point_in_rect(mx, my, load_btn)) {
-            case_load();
+            case_open_file_search_menu();
+            return 1;
+        }
+        if (case_point_in_rect(mx, my, undo_btn)) {
+            case_undo_last_change();
             return 1;
         }
 
@@ -3196,7 +4030,7 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
                 return 1;
             }
             SDL_Rect desc_open_btn = case_description_open_button_rect(fields[CASE_MGMT_FIELD_DESCRIPTION]);
-            if (case_point_in_rect(mx, my, desc_open_btn)) {
+            if (case_rect_is_valid(fields[CASE_MGMT_FIELD_DESCRIPTION]) && case_point_in_rect(mx, my, desc_open_btn)) {
                 Global_Case_Active_Field = CASE_MGMT_FIELD_DESCRIPTION;
                 Global_Case_Description_Popup_Open = 1;
                 Global_Case_Description_Popup_Scroll = 0;
@@ -3209,6 +4043,7 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
             }
 
             for (int i = 0; i < CASE_MGMT_FIELD_COUNT; i++) {
+                if (!case_rect_is_valid(fields[i])) continue;
                 if (case_point_in_rect(mx, my, case_field_hit_rect(fields[i]))) {
                     if (i == CASE_MGMT_FIELD_STATUS) {
                         Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
@@ -3361,6 +4196,7 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
                 int world_x = case_screen_to_world_x(canvas, mx);
                 int world_y = case_screen_to_world_y(canvas, my);
                 Global_Case_Dragging = 1;
+                Global_Case_Drag_Undo_Pushed = 0;
                 Global_Case_Drag_Last_World_X = world_x;
                 Global_Case_Drag_Last_World_Y = world_y;
                 return 1;
@@ -3433,6 +4269,7 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h){
         }
 
         Global_Case_Dragging = 0;
+        Global_Case_Drag_Undo_Pushed = 0;
         Global_Case_Panning = 0;
         Global_Case_Description_Selecting = 0;
         return 1;
@@ -3718,24 +4555,10 @@ static void case_draw_block(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect can
     Type_Case_Block *b = &Global_Case_Blocks[index];
     int selected = case_is_block_selected(index) || index == Global_Case_Selected;
     SDL_Color border = selected ? Case_Border_Hi : Case_Border;
-    SDL_Color status_color = case_status_color(b->status);
-    char task[96];
-    char user[96];
-    char time_text[96];
-    char time_short[96];
-    char status[96];
-    char id_label[64];
     int compact = Global_Case_Zoom < 0.68 || r.w < 190 || r.h < 88;
     int connector = (int)((double)CASE_MGMT_CONNECTOR_SIZE * Global_Case_Zoom);
     if (connector < 6) connector = 6;
     if (connector > 14) connector = 14;
-
-    case_make_timeline_text(b, time_text, sizeof(time_text));
-    case_shorten(b->task, task, sizeof(task), compact ? 18 : 30);
-    case_shorten(b->assigned_to, user, sizeof(user), compact ? 14 : 24);
-    case_shorten(time_text, time_short, sizeof(time_short), compact ? 14 : 24);
-    case_shorten(b->status, status, sizeof(status), compact ? 12 : 18);
-    snprintf(id_label, sizeof(id_label), "BLOCK %03d", b->id);
 
     draw_filled_rect(renderer, r, selected ? Case_Panel_2 : Case_Panel);
     draw_outline_rect(renderer, r, border);
@@ -3746,29 +4569,91 @@ static void case_draw_block(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect can
 
     int header_h = compact ? 24 : 28;
     SDL_Rect header = {r.x, r.y, r.w, header_h};
-    draw_filled_rect(renderer, header, (SDL_Color){0, 35, 14, 255});
+    draw_filled_rect(renderer, header, b->type == CASE_MGMT_BLOCK_CASE ? (SDL_Color){0, 28, 42, 255} : (SDL_Color){0, 35, 14, 255});
     draw_outline_rect(renderer, header, border);
-    draw_text(renderer, font, id_label, r.x + 10, r.y + 7, Case_Text);
 
-    SDL_Rect status_badge = {r.x + r.w - (compact ? 82 : 92), r.y + 5, compact ? 72 : 82, 18};
-    if (status_badge.x > r.x + 92) {
-        draw_outline_rect(renderer, status_badge, status_color);
-        case_draw_text_centered(renderer, font, status, status_badge, status_color);
-    }
+    if (b->type == CASE_MGMT_BLOCK_CASE) {
+        char id_label[64];
+        char case_text[128];
+        char country_text[128];
+        int country_index = case_country_index_by_name(b->country);
+        SDL_Texture *flag = case_country_flag_texture(renderer, country_index);
 
-    if (compact) {
-        draw_text(renderer, font, task, r.x + 10, r.y + 34, Case_Text);
-        if (r.h > 62) draw_text(renderer, font, status, r.x + 10, r.y + 56, status_color);
+        snprintf(id_label, sizeof(id_label), "CASE %03d", b->id);
+        case_shorten(b->case_number[0] ? b->case_number : "Case #", case_text, sizeof(case_text), compact ? 18 : 30);
+        case_shorten(b->country[0] ? b->country : "Country", country_text, sizeof(country_text), compact ? 18 : 30);
+        draw_text(renderer, font, id_label, r.x + 10, r.y + 7, Case_Text);
+
+        if (compact) {
+            draw_text(renderer, font, case_text, r.x + 10, r.y + 34, Case_Text);
+            if (r.h > 62) draw_text(renderer, font, country_text, r.x + 10, r.y + 56, Case_Blue);
+        }
+        else {
+            SDL_Rect flag_rect = {r.x + 12, r.y + 42, 54, 36};
+            draw_filled_rect(renderer, flag_rect, (SDL_Color){0, 4, 8, 255});
+            draw_outline_rect(renderer, flag_rect, country_index >= 0 ? Case_Blue : Case_Border);
+            if (flag) {
+                SDL_RenderCopy(renderer, flag, NULL, &flag_rect);
+            }
+            else if (country_index >= 0) {
+                draw_text(renderer, font, CASE_MGMT_COUNTRIES[country_index].alpha2, flag_rect.x + 14, flag_rect.y + 10, Case_Blue);
+            }
+
+            draw_text(renderer, font, "CASE #", r.x + 78, r.y + 42, Case_Muted);
+            draw_text(renderer, font, case_text, r.x + 146, r.y + 42, Case_Text);
+            draw_text(renderer, font, "COUNTRY", r.x + 78, r.y + 68, Case_Muted);
+            draw_text(renderer, font, country_text, r.x + 146, r.y + 68, Case_Blue);
+        }
     }
     else {
-        draw_text(renderer, font, "TASK", r.x + 10, r.y + 38, Case_Muted);
-        draw_text(renderer, font, task, r.x + 74, r.y + 38, Case_Text);
+        SDL_Color status_color = case_status_color(b->status);
+        char task[96];
+        char user[96];
+        char time_text[96];
+        char time_short[96];
+        char status[96];
+        char id_label[64];
 
-        draw_text(renderer, font, "USER", r.x + 10, r.y + 62, Case_Muted);
-        draw_text(renderer, font, user, r.x + 74, r.y + 62, Case_Text);
+        case_make_timeline_text(b, time_text, sizeof(time_text));
+        case_shorten(b->task, task, sizeof(task), compact ? 18 : 30);
+        case_shorten(b->assigned_to, user, sizeof(user), compact ? 14 : 24);
+        case_shorten(time_text, time_short, sizeof(time_short), compact ? 14 : 24);
+        case_shorten(b->status, status, sizeof(status), compact ? 12 : 18);
+        snprintf(id_label, sizeof(id_label), "TASK %03d", b->id);
 
-        draw_text(renderer, font, "TIME", r.x + 10, r.y + 86, Case_Muted);
-        draw_text(renderer, font, time_short, r.x + 74, r.y + 86, Case_Text);
+        draw_text(renderer, font, id_label, r.x + 10, r.y + 7, Case_Text);
+
+        SDL_Rect status_badge = {r.x + r.w - (compact ? 82 : 92), r.y + 5, compact ? 72 : 82, 18};
+        SDL_Rect priority_badge = {
+            status_badge.x - (compact ? 24 : 28),
+            status_badge.y,
+            compact ? 18 : 22,
+            status_badge.h
+        };
+        SDL_Color priority_color = case_priority_color(b->priority);
+        char priority_text[2] = {'\0', '\0'};
+        if (b->priority[0] >= '1' && b->priority[0] <= '5') {
+            priority_text[0] = b->priority[0];
+        }
+        if (status_badge.x > r.x + 146 && priority_badge.x > r.x + 118) {
+            draw_outline_rect(renderer, priority_badge, priority_color);
+            case_draw_text_centered(renderer, font, priority_text, priority_badge, priority_color);
+            draw_outline_rect(renderer, status_badge, status_color);
+            case_draw_text_centered(renderer, font, status, status_badge, status_color);
+        }
+
+        if (compact) {
+            draw_text(renderer, font, task, r.x + 10, r.y + 34, Case_Text);
+            if (r.h > 62) draw_text(renderer, font, status, r.x + 10, r.y + 56, status_color);
+        }
+        else {
+            draw_text(renderer, font, "TASK", r.x + 10, r.y + 38, Case_Muted);
+            draw_text(renderer, font, task, r.x + 74, r.y + 38, Case_Text);
+            draw_text(renderer, font, "USER", r.x + 10, r.y + 62, Case_Muted);
+            draw_text(renderer, font, user, r.x + 74, r.y + 62, Case_Text);
+            draw_text(renderer, font, "TIME", r.x + 10, r.y + 86, Case_Muted);
+            draw_text(renderer, font, time_short, r.x + 74, r.y + 86, Case_Text);
+        }
     }
 
     SDL_Color conn_color = selected ? Case_Border_Hi : Case_Border;
@@ -4337,6 +5222,146 @@ static void case_draw_description_popup(SDL_Renderer *renderer, TTF_Font *font, 
 
 
 
+
+static void case_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h){
+    if (!renderer || !font || !Global_Case_File_Search_Open) return;
+
+    SDL_Rect popup = case_file_search_popup_rect(win_w, win_h);
+    SDL_Rect close_btn = {popup.x + popup.w - 86, popup.y + 14, 68, 30};
+    SDL_Rect search = case_file_search_input_rect(popup);
+    SDL_Rect current_rect = {popup.x + 18, popup.y + 62, popup.w - 36, 42};
+    SDL_Rect list = {popup.x + 18, popup.y + 124, popup.w - 36, popup.h - 164};
+    int mx = 0;
+    int my = 0;
+    int filtered_count;
+
+    case_get_adjusted_mouse_state(&mx, &my);
+    case_file_search_clamp_scroll();
+    filtered_count = case_file_search_filtered_count();
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_Rect dim = {0, 0, win_w, win_h};
+    draw_filled_rect(renderer, dim, (SDL_Color){0, 0, 0, 155});
+
+    draw_filled_rect(renderer, popup, (SDL_Color){0, 8, 3, 252});
+    draw_outline_rect(renderer, popup, Case_Border_Hi);
+    SDL_Rect inner = {popup.x + 4, popup.y + 4, popup.w - 8, popup.h - 8};
+    draw_outline_rect(renderer, inner, Case_Border);
+
+    draw_text(renderer, font, "CASE FILE SEARCH", popup.x + 18, popup.y + 20, Case_Text);
+    case_draw_button(renderer, font, close_btn, "Close", 0, case_point_in_rect(mx, my, close_btn), 0);
+
+    draw_filled_rect(renderer,
+                     search,
+                     Global_Case_File_Search_Active ? Case_Panel_2 : (SDL_Color){0, 5, 2, 255});
+    draw_outline_rect(renderer,
+                      search,
+                      Global_Case_File_Search_Active ? Case_Border_Hi : Case_Border);
+
+    if (Global_Case_File_Search_Text[0]) {
+        draw_text(renderer, font, Global_Case_File_Search_Text, search.x + 10, search.y + 8, Case_Text);
+    }
+    else {
+        draw_text(renderer, font, "Search case file", search.x + 10, search.y + 8, Case_Muted);
+    }
+
+    if (Global_Case_File_Search_Active && ((SDL_GetTicks64() / 450ULL) % 2ULL) == 0ULL) {
+        int tw = 0;
+        int th = 0;
+        char prefix[CASE_MGMT_FILE_SEARCH_TEXT_MAX];
+        int cursor = Global_Case_File_Search_Cursor;
+        int len = (int)strlen(Global_Case_File_Search_Text);
+        if (cursor < 0) cursor = 0;
+        if (cursor > len) cursor = len;
+        snprintf(prefix, sizeof(prefix), "%.*s", cursor, Global_Case_File_Search_Text);
+        if (font && TTF_SizeText(font, prefix, &tw, &th) != 0) tw = cursor * 8;
+        SDL_SetRenderDrawColor(renderer, 0, 170, 255, 255);
+        SDL_RenderDrawLine(renderer, search.x + 10 + tw, search.y + 6, search.x + 10 + tw, search.y + search.h - 6);
+        SDL_RenderDrawLine(renderer, search.x + 11 + tw, search.y + 6, search.x + 11 + tw, search.y + search.h - 6);
+    }
+
+    draw_text(renderer, font, "Click a file to load it", current_rect.x, current_rect.y - 18, Case_Muted);
+    draw_filled_rect(renderer, current_rect, Case_Panel_2);
+    draw_outline_rect(renderer, current_rect, Case_Border_Hi);
+    {
+        char short_name[CASE_MGMT_SOURCE_FILE_MAX];
+        case_shorten(Global_Case_File_Name[0] ? Global_Case_File_Name : "(none selected)", short_name, sizeof(short_name), 70);
+        draw_text(renderer, font, short_name, current_rect.x + 10, current_rect.y + 12, Case_Text);
+    }
+
+    draw_filled_rect(renderer, list, (SDL_Color){0, 5, 2, 255});
+    draw_outline_rect(renderer, list, Case_Border);
+
+    if (Global_Case_File_Search_Count <= 0) {
+        char empty_msg[640];
+        snprintf(empty_msg, sizeof(empty_msg), "No case files found in %s/", Global_Case_Record_Dir);
+        draw_text(renderer, font, empty_msg, list.x + 12, list.y + 14, Case_Warn);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        return;
+    }
+
+    if (filtered_count <= 0) {
+        draw_text(renderer, font, "No case files match the search.", list.x + 12, list.y + 14, Case_Warn);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        return;
+    }
+
+    int visible = list.h / CASE_MGMT_FILE_SEARCH_ROW_H;
+    if (visible > 14) visible = 14;
+    if (visible < 1) visible = 1;
+
+    Global_Case_File_Search_Hover = -1;
+    if (case_point_in_rect(mx, my, list)) {
+        int row = (my - list.y - 4) / CASE_MGMT_FILE_SEARCH_ROW_H;
+        int filtered_index = Global_Case_File_Search_Scroll + row;
+        int index = case_file_search_filtered_index_at(filtered_index);
+        if (row >= 0 && row < visible && index >= 0 && index < Global_Case_File_Search_Count) {
+            Global_Case_File_Search_Hover = index;
+        }
+    }
+
+    for (int row = 0; row < visible; row++) {
+        int filtered_index = Global_Case_File_Search_Scroll + row;
+        int index = case_file_search_filtered_index_at(filtered_index);
+        SDL_Rect item = {list.x + 4, list.y + 4 + row * CASE_MGMT_FILE_SEARCH_ROW_H, list.w - 8, CASE_MGMT_FILE_SEARCH_ROW_H - 3};
+        int hovered;
+        int selected;
+        char short_name[CASE_MGMT_SOURCE_FILE_MAX];
+
+        if (index < 0 || index >= Global_Case_File_Search_Count) break;
+        hovered = index == Global_Case_File_Search_Hover;
+        selected = case_text_equals_ci(Global_Case_File_Search_Files[index], Global_Case_File_Name);
+
+        if (hovered) {
+            draw_filled_rect(renderer, item, (SDL_Color){0, 44, 16, 255});
+            SDL_Rect halo = {item.x - 2, item.y - 2, item.w + 4, item.h + 4};
+            draw_outline_rect(renderer, halo, Case_Border_Hi);
+        }
+        else if (selected) {
+            draw_filled_rect(renderer, item, (SDL_Color){15, 85, 45, 245});
+        }
+
+        draw_outline_rect(renderer, item, hovered ? Case_Border_Hi : selected ? Case_Text : Case_Border);
+        case_shorten(Global_Case_File_Search_Files[index], short_name, sizeof(short_name), 70);
+        draw_text(renderer,
+                  font,
+                  short_name,
+                  item.x + 10,
+                  item.y + 8,
+                  hovered ? (SDL_Color){235, 255, 240, 255} : selected ? (SDL_Color){255, 255, 255, 255} : Case_Text);
+    }
+
+    char count_label[128];
+    snprintf(count_label,
+             sizeof(count_label),
+             Global_Case_File_Search_Text[0] ? "%d of %d files" : "%d files",
+             filtered_count,
+             Global_Case_File_Search_Count);
+    draw_text(renderer, font, count_label, popup.x + 18, popup.y + popup.h - 24, Case_Muted);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
 static void case_draw_case_dropdown(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect field){
     if (!Global_Case_Case_Dropdown_Open) return;
 
@@ -4431,10 +5456,10 @@ static void case_draw_editor(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect ed
 
     draw_filled_rect(renderer, editor, Case_Panel);
     draw_outline_rect(renderer, editor, Case_Border);
-    draw_text(renderer, font, "BLOCK EDITOR", editor.x + 16, editor.y + 16, Case_Text);
+    draw_text(renderer, font, case_selected_block_is_case() ? "CASE BLOCK EDITOR" : "TASK BLOCK EDITOR", editor.x + 16, editor.y + 16, Case_Text);
 
     if (Global_Case_Selected < 0 || Global_Case_Selected >= Global_Case_Block_Count) {
-        draw_text(renderer, font, "Select a block to edit its task, user, timeline, source, description, and status.",
+        draw_text(renderer, font, "Select a task block or case block to edit it.",
                   editor.x + 16, editor.y + 54, Case_Muted);
         return;
     }
@@ -4449,12 +5474,13 @@ static void case_draw_editor(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect ed
     if (selected_count > 1) {
         char group_label[64];
         snprintf(group_label, sizeof(group_label), "Group Selected: %d blocks", selected_count);
-        draw_text(renderer, font, group_label, editor.x + 16, editor.y + 76, Case_Warn);
+        draw_text(renderer, font, group_label, editor.x + 16, editor.y + 94, Case_Warn);
     }
 
     case_editor_field_rects(editor, fields, &duplicate_btn, &delete_btn);
 
     for (int i = 0; i < CASE_MGMT_FIELD_COUNT; i++) {
+        if (!case_rect_is_valid(fields[i])) continue;
         char *text = case_selected_field_text(i);
         int active = Global_Case_Active_Field == i ||
                      (i == CASE_MGMT_FIELD_CASE_NUMBER && Global_Case_Case_Dropdown_Open) ||
@@ -4520,9 +5546,9 @@ static void case_draw_editor(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect ed
         case_draw_calendar(renderer, font, fields[Global_Case_Calendar_Field]);
     }
 
-    case_draw_case_dropdown(renderer, font, fields[CASE_MGMT_FIELD_CASE_NUMBER]);
-    case_draw_country_dropdown(renderer, font, fields[CASE_MGMT_FIELD_COUNTRY]);
-    case_draw_status_dropdown(renderer, font, fields[CASE_MGMT_FIELD_STATUS]);
+    if (case_rect_is_valid(fields[CASE_MGMT_FIELD_CASE_NUMBER])) case_draw_case_dropdown(renderer, font, fields[CASE_MGMT_FIELD_CASE_NUMBER]);
+    if (case_rect_is_valid(fields[CASE_MGMT_FIELD_COUNTRY])) case_draw_country_dropdown(renderer, font, fields[CASE_MGMT_FIELD_COUNTRY]);
+    if (case_rect_is_valid(fields[CASE_MGMT_FIELD_STATUS])) case_draw_status_dropdown(renderer, font, fields[CASE_MGMT_FIELD_STATUS]);
 }
 
 void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer,
@@ -4532,9 +5558,12 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer,
     SDL_Rect canvas;
     SDL_Rect editor;
     SDL_Rect new_btn;
+    SDL_Rect case_btn;
     SDL_Rect link_btn;
     SDL_Rect save_btn;
     SDL_Rect load_btn;
+    SDL_Rect undo_btn;
+    SDL_Rect file_rect;
     Uint64 now = SDL_GetTicks64();
     int mx = 0;
     int my = 0;
@@ -4544,7 +5573,7 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer,
     canvas = case_canvas_rect(win_w, win_h);
     editor = case_editor_rect(win_w, win_h);
     case_ensure_view(canvas);
-    case_toolbar_rects(win_w, &new_btn, &link_btn, &save_btn, &load_btn);
+    case_toolbar_rects(win_w, &new_btn, &case_btn, &link_btn, &save_btn, &load_btn, &undo_btn, &file_rect);
     case_get_adjusted_mouse_state(&mx, &my);
 
     SDL_SetRenderDrawColor(renderer, Case_BG.r, Case_BG.g, Case_BG.b, Case_BG.a);
@@ -4557,9 +5586,16 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer,
     case_draw_button(renderer,
                      font,
                      new_btn,
-                     "+ Block",
+                     "+ Task",
                      0,
                      case_point_in_rect(mx, my, new_btn),
+                     0);
+    case_draw_button(renderer,
+                     font,
+                     case_btn,
+                     "+ Case",
+                     0,
+                     case_point_in_rect(mx, my, case_btn),
                      0);
     case_draw_button(renderer,
                      font,
@@ -4582,6 +5618,22 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer,
                      0,
                      case_point_in_rect(mx, my, load_btn),
                      0);
+    case_draw_button(renderer,
+                     font,
+                     undo_btn,
+                     "Undo",
+                     Global_Case_Undo_Count > 0,
+                     case_point_in_rect(mx, my, undo_btn),
+                     0);
+
+    case_draw_input(renderer,
+                    font,
+                    file_rect,
+                    "Case File",
+                    Global_Case_File_Name,
+                    Global_Case_File_Name_Active,
+                    Global_Case_File_Name_Cursor,
+                    0);
 
     draw_filled_rect(renderer, canvas, (SDL_Color){0, 5, 2, 235});
     draw_outline_rect(renderer, canvas, Case_Border);
@@ -4626,6 +5678,7 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer,
 
     case_draw_source_popup(renderer, font, win_w, win_h);
     case_draw_description_popup(renderer, font, win_w, win_h);
+    case_draw_file_search_popup(renderer, font, win_w, win_h);
 
     if (Global_Case_Link_Mode) {
         const char *hint = Global_Case_Link_Source >= 0 ?

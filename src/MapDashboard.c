@@ -86,7 +86,7 @@ static int Global_Dashboard_Case_Desc_Wrap_Px = 0;
 #define DASHBOARD_TOP_H               RETROSPECTRUM_DASHBOARD_TAB_BAR_H
 #define DASHBOARD_TAB_H               42
 #define DASHBOARD_TAB_GAP             10
-#define DASHBOARD_TAB_COUNT           5
+#define DASHBOARD_TAB_COUNT           6
 #define DASHBOARD_CARD_H              0
 #define DASHBOARD_MIN_MAP_H           280
 
@@ -205,8 +205,13 @@ static void dashboard_make_tabs(int win_w, Type_Dashboard_Tab tabs[DASHBOARD_TAB
 
     x += tab_w + DASHBOARD_TAB_GAP;
     tabs[4].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
-    tabs[4].label = "CASE MANAGEMENT";
-    tabs[4].event_id = DASHBOARD_EVENT_CASE_MANAGEMENT;
+    tabs[4].label = "DECODE";
+    tabs[4].event_id = DASHBOARD_EVENT_DECODE;
+
+    x += tab_w + DASHBOARD_TAB_GAP;
+    tabs[5].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
+    tabs[5].label = "CASE MANAGEMENT";
+    tabs[5].event_id = DASHBOARD_EVENT_CASE_MANAGEMENT;
 }
 
 void dashboard_draw_tab(SDL_Renderer *renderer,
@@ -1633,13 +1638,15 @@ int dashboard_handle_top_tab_event(Type_Dashboard_State *dashboard,
             if (key == SDLK_2) return DASHBOARD_EVENT_RETROSPECTRUM;
             if (key == SDLK_3) return DASHBOARD_EVENT_ANALYSIS;
             if (key == SDLK_4) return DASHBOARD_EVENT_CLASSIFICATION;
-            if (key == SDLK_5) return DASHBOARD_EVENT_CASE_MANAGEMENT;
+            if (key == SDLK_5) return DASHBOARD_EVENT_DECODE;
+            if (key == SDLK_6) return DASHBOARD_EVENT_CASE_MANAGEMENT;
         }
         if (key == SDLK_F1) return DASHBOARD_EVENT_MAP;
         if (key == SDLK_F2) return DASHBOARD_EVENT_RETROSPECTRUM;
         if (key == SDLK_F3) return DASHBOARD_EVENT_ANALYSIS;
         if (key == SDLK_F4) return DASHBOARD_EVENT_CLASSIFICATION;
-        if (key == SDLK_F5) return DASHBOARD_EVENT_CASE_MANAGEMENT;
+        if (key == SDLK_F5) return DASHBOARD_EVENT_DECODE;
+        if (key == SDLK_F6) return DASHBOARD_EVENT_CASE_MANAGEMENT;
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
