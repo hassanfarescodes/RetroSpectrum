@@ -14,27 +14,28 @@
  *   #include "world_map_bin_loader.c"
  *   WORLD_MAP_load("world_map.bin");
  *   WORLD_MAP_handle_event(&event, map_rect);
- *   WORLD_MAP_draw(renderer, font, map_rect, sidebar_rect, mouse_x, mouse_y, "flags");
+ *   WORLD_MAP_draw(renderer, font, map_rect, sidebar_rect, mouse_x, mouse_y,
+ * "flags");
  *
  * Left-click a country to zoom the map view to that country.
  * Drag with the left mouse button to pan across the map.
  * Mouse wheel zooms in/out around the cursor. Escape resets the view.
  * Dateline-spanning countries use the clicked land segment for zoom bounds.
- * High-resolution coastline/island/border linework is loaded from world_map.bin.
- * Dateline line jumps are skipped to prevent horizontal wrap artifacts.
- * Country polygons are now high-resolution and are used for fill, hit-testing,
- * visible borders, and hover selection, so the hover outline matches the border
- * geometry exactly.
+ * High-resolution coastline/island/border linework is loaded from
+ * world_map.bin. Dateline line jumps are skipped to prevent horizontal wrap
+ * artifacts. Country polygons are now high-resolution and are used for fill,
+ * hit-testing, visible borders, and hover selection, so the hover outline
+ * matches the border geometry exactly.
  */
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifndef WORLD_MAP_SIDEBAR_W
 #define WORLD_MAP_SIDEBAR_W 340
@@ -48,7 +49,7 @@
 #define WM_BIN_VERSION 2U
 
 #define WM_DETAIL_LAYER_BORDER 0U
-#define WM_DETAIL_LAYER_COAST  1U
+#define WM_DETAIL_LAYER_COAST 1U
 
 typedef struct WM_Point {
     int16_t lon100;
@@ -125,41 +126,42 @@ static WM_Map_Data WM_DATA = {0};
 static WM_View WM_VIEW = {-180.0, 180.0, -90.0, 90.0, -1, 0, 0, 0, 0, 0, 0};
 static int WM_LAST_HOVER_POLYGON = -1;
 
-static int WM_read_exact(FILE *fp, void *dst, size_t bytes){
+static int WM_read_exact(FILE *fp, void *dst, size_t bytes) {
     return fp && dst && fread(dst, 1, bytes, fp) == bytes;
 }
 
-static int WM_read_u32(FILE *fp, uint32_t *out){
+static int WM_read_u32(FILE *fp, uint32_t *out) {
     unsigned char b[4];
-    if (!WM_read_exact(fp, b, 4)) return 0;
-    *out = ((uint32_t)b[0]) |
-           ((uint32_t)b[1] << 8) |
-           ((uint32_t)b[2] << 16) |
-           ((uint32_t)b[3] << 24);
+    if (!WM_read_exact(fp, b, 4)) {
+        return 0;
+    }
+    *out = ((uint32_t)b[0]) | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24);
     return 1;
 }
 
-static int WM_read_u16(FILE *fp, uint16_t *out){
+static int WM_read_u16(FILE *fp, uint16_t *out) {
     unsigned char b[2];
-    if (!WM_read_exact(fp, b, 2)) return 0;
+    if (!WM_read_exact(fp, b, 2)) {
+        return 0;
+    }
     *out = (uint16_t)(((uint16_t)b[0]) | ((uint16_t)b[1] << 8));
     return 1;
 }
 
-static int WM_read_i16(FILE *fp, int16_t *out){
+static int WM_read_i16(FILE *fp, int16_t *out) {
     uint16_t v = 0;
-    if (!WM_read_u16(fp, &v)) return 0;
+    if (!WM_read_u16(fp, &v)) {
+        return 0;
+    }
     *out = (int16_t)v;
     return 1;
 }
 
-static void WM_recompute_bounds_from_points(WM_Point *points,
-                                            uint32_t point_count,
-                                            WM_Polygon *polygons,
-                                            uint32_t polygon_count,
-                                            WM_Country *countries,
-                                            uint32_t country_count){
-    if (!points || !polygons || !countries) return;
+static void WM_recompute_bounds_from_points(WM_Point *points, uint32_t point_count, WM_Polygon *polygons,
+                                            uint32_t polygon_count, WM_Country *countries, uint32_t country_count) {
+    if (!points || !polygons || !countries) {
+        return;
+    }
 
     for (uint32_t c = 0; c < country_count; c++) {
         countries[c].min_lon100 = 32767;
@@ -170,7 +172,9 @@ static void WM_recompute_bounds_from_points(WM_Point *points,
 
     for (uint32_t p = 0; p < polygon_count; p++) {
         WM_Polygon *poly = &polygons[p];
-        if (poly->count == 0 || poly->start >= point_count || poly->start + poly->count > point_count) continue;
+        if (poly->count == 0 || poly->start >= point_count || poly->start + poly->count > point_count) {
+            continue;
+        }
 
         int16_t min_lon = points[poly->start].lon100;
         int16_t max_lon = points[poly->start].lon100;
@@ -179,10 +183,18 @@ static void WM_recompute_bounds_from_points(WM_Point *points,
 
         for (uint32_t i = 1; i < poly->count; i++) {
             WM_Point pt = points[poly->start + i];
-            if (pt.lon100 < min_lon) min_lon = pt.lon100;
-            if (pt.lon100 > max_lon) max_lon = pt.lon100;
-            if (pt.lat100 < min_lat) min_lat = pt.lat100;
-            if (pt.lat100 > max_lat) max_lat = pt.lat100;
+            if (pt.lon100 < min_lon) {
+                min_lon = pt.lon100;
+            }
+            if (pt.lon100 > max_lon) {
+                max_lon = pt.lon100;
+            }
+            if (pt.lat100 < min_lat) {
+                min_lat = pt.lat100;
+            }
+            if (pt.lat100 > max_lat) {
+                max_lat = pt.lat100;
+            }
         }
 
         poly->min_lon100 = min_lon;
@@ -192,10 +204,18 @@ static void WM_recompute_bounds_from_points(WM_Point *points,
 
         if (poly->country < country_count) {
             WM_Country *country = &countries[poly->country];
-            if (min_lon < country->min_lon100) country->min_lon100 = min_lon;
-            if (max_lon > country->max_lon100) country->max_lon100 = max_lon;
-            if (min_lat < country->min_lat100) country->min_lat100 = min_lat;
-            if (max_lat > country->max_lat100) country->max_lat100 = max_lat;
+            if (min_lon < country->min_lon100) {
+                country->min_lon100 = min_lon;
+            }
+            if (max_lon > country->max_lon100) {
+                country->max_lon100 = max_lon;
+            }
+            if (min_lat < country->min_lat100) {
+                country->min_lat100 = min_lat;
+            }
+            if (max_lat > country->max_lat100) {
+                country->max_lat100 = max_lat;
+            }
         }
     }
 
@@ -209,15 +229,14 @@ static void WM_recompute_bounds_from_points(WM_Point *points,
     }
 }
 
-static void WM_draw_text(SDL_Renderer *renderer,
-                         TTF_Font *font,
-                         const char *text,
-                         int x,
-                         int y,
-                         SDL_Color color){
-    if (!renderer || !font || !text || text[0] == '\0') return;
+static void WM_draw_text(SDL_Renderer *renderer, TTF_Font *font, const char *text, int x, int y, SDL_Color color) {
+    if (!renderer || !font || !text || text[0] == '\0') {
+        return;
+    }
     SDL_Surface *surface = TTF_RenderUTF8_Blended(font, text, color);
-    if (!surface) return;
+    if (!surface) {
+        return;
+    }
     SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!texture) {
         SDL_FreeSurface(surface);
@@ -229,11 +248,15 @@ static void WM_draw_text(SDL_Renderer *renderer,
     SDL_FreeSurface(surface);
 }
 
-static void WM_copy_text(char *dst, size_t dst_size, const char *src){
+static void WM_copy_text(char *dst, size_t dst_size, const char *src) {
     size_t i = 0;
 
-    if (!dst || dst_size == 0) return;
-    if (!src) src = "";
+    if (!dst || dst_size == 0) {
+        return;
+    }
+    if (!src) {
+        src = "";
+    }
 
     while (i + 1 < dst_size && src[i]) {
         dst[i] = src[i];
@@ -243,12 +266,11 @@ static void WM_copy_text(char *dst, size_t dst_size, const char *src){
     dst[i] = '\0';
 }
 
-static void WM_draw_text_wrapped(SDL_Renderer *renderer,
-                                 TTF_Font *font,
-                                 const char *text,
-                                 SDL_Rect rect,
-                                 SDL_Color color){
-    if (!renderer || !font || !text) return;
+static void WM_draw_text_wrapped(SDL_Renderer *renderer, TTF_Font *font, const char *text, SDL_Rect rect,
+                                 SDL_Color color) {
+    if (!renderer || !font || !text) {
+        return;
+    }
 
     char line[256];
     line[0] = '\0';
@@ -260,16 +282,23 @@ static void WM_draw_text_wrapped(SDL_Renderer *renderer,
         char word[128];
         int wi = 0;
 
-        while (*p == ' ') p++;
+        while (*p == ' ') {
+            p++;
+        }
         while (*p && *p != ' ' && wi < (int)sizeof(word) - 1) {
             word[wi++] = *p++;
         }
         word[wi] = '\0';
-        if (wi == 0) break;
+        if (wi == 0) {
+            break;
+        }
 
         char trial[384];
-        if (line[0]) snprintf(trial, sizeof(trial), "%s %s", line, word);
-        else snprintf(trial, sizeof(trial), "%s", word);
+        if (line[0]) {
+            snprintf(trial, sizeof(trial), "%s %s", line, word);
+        } else {
+            snprintf(trial, sizeof(trial), "%s", word);
+        }
 
         int tw = 0;
         int th = 0;
@@ -292,10 +321,14 @@ static void WM_draw_text_wrapped(SDL_Renderer *renderer,
     }
 }
 
-void WORLD_MAP_free_flags(void){
-    if (!WM_DATA.countries) return;
+void WORLD_MAP_free_flags(void) {
+    if (!WM_DATA.countries) {
+        return;
+    }
     for (uint32_t i = 0; i < WM_DATA.country_count; i++) {
-        if (WM_DATA.countries[i].flag_texture) SDL_DestroyTexture(WM_DATA.countries[i].flag_texture);
+        if (WM_DATA.countries[i].flag_texture) {
+            SDL_DestroyTexture(WM_DATA.countries[i].flag_texture);
+        }
         WM_DATA.countries[i].flag_texture = NULL;
         WM_DATA.countries[i].flag_attempted = 0;
         WM_DATA.countries[i].flag_w = 0;
@@ -303,7 +336,7 @@ void WORLD_MAP_free_flags(void){
     }
 }
 
-void WORLD_MAP_reset_view(void){
+void WORLD_MAP_reset_view(void) {
     WM_VIEW.min_lon = -180.0;
     WM_VIEW.max_lon = 180.0;
     WM_VIEW.min_lat = -90.0;
@@ -318,7 +351,7 @@ void WORLD_MAP_reset_view(void){
     WM_LAST_HOVER_POLYGON = -1;
 }
 
-void WORLD_MAP_free(void){
+void WORLD_MAP_free(void) {
     WORLD_MAP_free_flags();
     free(WM_DATA.points);
     free(WM_DATA.polygons);
@@ -330,9 +363,11 @@ void WORLD_MAP_free(void){
     WORLD_MAP_reset_view();
 }
 
-int WORLD_MAP_load(const char *path){
+int WORLD_MAP_load(const char *path) {
     FILE *fp = fopen(path ? path : "world_map.bin", "rb");
-    if (!fp) return 0;
+    if (!fp) {
+        return 0;
+    }
 
     WORLD_MAP_free();
 
@@ -345,13 +380,9 @@ int WORLD_MAP_load(const char *path){
     uint32_t detail_point_count = 0;
     uint32_t detail_segment_count = 0;
 
-    if (!WM_read_exact(fp, magic, 8) || memcmp(magic, WM_BIN_MAGIC, 8) != 0 ||
-        !WM_read_u32(fp, &version) || version != WM_BIN_VERSION ||
-        !WM_read_u32(fp, &point_count) ||
-        !WM_read_u32(fp, &polygon_count) ||
-        !WM_read_u32(fp, &country_count) ||
-        !WM_read_u32(fp, &string_bytes) ||
-        !WM_read_u32(fp, &detail_point_count) ||
+    if (!WM_read_exact(fp, magic, 8) || memcmp(magic, WM_BIN_MAGIC, 8) != 0 || !WM_read_u32(fp, &version) ||
+        version != WM_BIN_VERSION || !WM_read_u32(fp, &point_count) || !WM_read_u32(fp, &polygon_count) ||
+        !WM_read_u32(fp, &country_count) || !WM_read_u32(fp, &string_bytes) || !WM_read_u32(fp, &detail_point_count) ||
         !WM_read_u32(fp, &detail_segment_count)) {
         fclose(fp);
         return 0;
@@ -376,17 +407,18 @@ int WORLD_MAP_load(const char *path){
     }
 
     for (uint32_t i = 0; i < point_count; i++) {
-        if (!WM_read_i16(fp, &points[i].lon100) || !WM_read_i16(fp, &points[i].lat100)) goto fail;
+        if (!WM_read_i16(fp, &points[i].lon100) || !WM_read_i16(fp, &points[i].lat100)) {
+            goto fail;
+        }
     }
 
     for (uint32_t i = 0; i < polygon_count; i++) {
-        if (!WM_read_u32(fp, &polygons[i].start) ||
-            !WM_read_u32(fp, &polygons[i].count) ||
-            !WM_read_u16(fp, &polygons[i].country) ||
-            !WM_read_i16(fp, &polygons[i].min_lon100) ||
-            !WM_read_i16(fp, &polygons[i].min_lat100) ||
-            !WM_read_i16(fp, &polygons[i].max_lon100) ||
-            !WM_read_i16(fp, &polygons[i].max_lat100)) goto fail;
+        if (!WM_read_u32(fp, &polygons[i].start) || !WM_read_u32(fp, &polygons[i].count) ||
+            !WM_read_u16(fp, &polygons[i].country) || !WM_read_i16(fp, &polygons[i].min_lon100) ||
+            !WM_read_i16(fp, &polygons[i].min_lat100) || !WM_read_i16(fp, &polygons[i].max_lon100) ||
+            !WM_read_i16(fp, &polygons[i].max_lat100)) {
+            goto fail;
+        }
     }
 
     uint32_t *name_offsets = calloc(country_count, sizeof(uint32_t));
@@ -398,14 +430,10 @@ int WORLD_MAP_load(const char *path){
     }
 
     for (uint32_t i = 0; i < country_count; i++) {
-        if (!WM_read_u32(fp, &name_offsets[i]) ||
-            !WM_read_u32(fp, &alpha_offsets[i]) ||
-            !WM_read_u32(fp, &countries[i].poly_start) ||
-            !WM_read_u32(fp, &countries[i].poly_count) ||
-            !WM_read_i16(fp, &countries[i].min_lon100) ||
-            !WM_read_i16(fp, &countries[i].min_lat100) ||
-            !WM_read_i16(fp, &countries[i].max_lon100) ||
-            !WM_read_i16(fp, &countries[i].max_lat100)) {
+        if (!WM_read_u32(fp, &name_offsets[i]) || !WM_read_u32(fp, &alpha_offsets[i]) ||
+            !WM_read_u32(fp, &countries[i].poly_start) || !WM_read_u32(fp, &countries[i].poly_count) ||
+            !WM_read_i16(fp, &countries[i].min_lon100) || !WM_read_i16(fp, &countries[i].min_lat100) ||
+            !WM_read_i16(fp, &countries[i].max_lon100) || !WM_read_i16(fp, &countries[i].max_lat100)) {
             free(name_offsets);
             free(alpha_offsets);
             goto fail;
@@ -419,8 +447,7 @@ int WORLD_MAP_load(const char *path){
     }
 
     for (uint32_t i = 0; i < detail_point_count; i++) {
-        if (!WM_read_i16(fp, &detail_points[i].lon100) ||
-            !WM_read_i16(fp, &detail_points[i].lat100)) {
+        if (!WM_read_i16(fp, &detail_points[i].lon100) || !WM_read_i16(fp, &detail_points[i].lat100)) {
             free(name_offsets);
             free(alpha_offsets);
             goto fail;
@@ -428,12 +455,9 @@ int WORLD_MAP_load(const char *path){
     }
 
     for (uint32_t i = 0; i < detail_segment_count; i++) {
-        if (!WM_read_u32(fp, &detail_segments[i].start) ||
-            !WM_read_u32(fp, &detail_segments[i].count) ||
-            !WM_read_u16(fp, &detail_segments[i].layer) ||
-            !WM_read_i16(fp, &detail_segments[i].min_lon100) ||
-            !WM_read_i16(fp, &detail_segments[i].min_lat100) ||
-            !WM_read_i16(fp, &detail_segments[i].max_lon100) ||
+        if (!WM_read_u32(fp, &detail_segments[i].start) || !WM_read_u32(fp, &detail_segments[i].count) ||
+            !WM_read_u16(fp, &detail_segments[i].layer) || !WM_read_i16(fp, &detail_segments[i].min_lon100) ||
+            !WM_read_i16(fp, &detail_segments[i].min_lat100) || !WM_read_i16(fp, &detail_segments[i].max_lon100) ||
             !WM_read_i16(fp, &detail_segments[i].max_lat100)) {
             free(name_offsets);
             free(alpha_offsets);
@@ -483,24 +507,28 @@ fail:
     return 0;
 }
 
-static int WM_ensure_loaded(void){
-    if (WM_DATA.loaded) return 1;
-    if (WM_DATA.attempted_default_load) return 0;
+static int WM_ensure_loaded(void) {
+    if (WM_DATA.loaded) {
+        return 1;
+    }
+    if (WM_DATA.attempted_default_load) {
+        return 0;
+    }
     WM_DATA.attempted_default_load = 1;
     return WORLD_MAP_load("world_map.bin");
 }
 
-static void WM_project_point(int16_t lon100,
-                             int16_t lat100,
-                             SDL_Rect map_rect,
-                             int *out_x,
-                             int *out_y){
+static void WM_project_point(int16_t lon100, int16_t lat100, SDL_Rect map_rect, int *out_x, int *out_y) {
     double lon = (double)lon100 / 100.0;
     double lat = (double)lat100 / 100.0;
     double lon_span = WM_VIEW.max_lon - WM_VIEW.min_lon;
     double lat_span = WM_VIEW.max_lat - WM_VIEW.min_lat;
-    if (lon_span <= 0.0001) lon_span = 360.0;
-    if (lat_span <= 0.0001) lat_span = 180.0;
+    if (lon_span <= 0.0001) {
+        lon_span = 360.0;
+    }
+    if (lat_span <= 0.0001) {
+        lat_span = 180.0;
+    }
 
     double xf = (lon - WM_VIEW.min_lon) / lon_span;
     double yf = (WM_VIEW.max_lat - lat) / lat_span;
@@ -512,41 +540,53 @@ static void WM_project_point(int16_t lon100,
     int max_x = map_rect.x + map_rect.w * 2;
     int min_y = map_rect.y - map_rect.h;
     int max_y = map_rect.y + map_rect.h * 2;
-    if (x < min_x) x = min_x;
-    if (x > max_x) x = max_x;
-    if (y < min_y) y = min_y;
-    if (y > max_y) y = max_y;
+    if (x < min_x) {
+        x = min_x;
+    }
+    if (x > max_x) {
+        x = max_x;
+    }
+    if (y < min_y) {
+        y = min_y;
+    }
+    if (y > max_y) {
+        y = max_y;
+    }
 
     *out_x = x;
     *out_y = y;
 }
 
-static void WM_screen_to_lonlat100(SDL_Rect map_rect,
-                                   int x,
-                                   int y,
-                                   int16_t *lon100,
-                                   int16_t *lat100){
+static void WM_screen_to_lonlat100(SDL_Rect map_rect, int x, int y, int16_t *lon100, int16_t *lat100) {
     double xf = (double)(x - map_rect.x) / (double)map_rect.w;
     double yf = (double)(y - map_rect.y) / (double)map_rect.h;
     double lon = WM_VIEW.min_lon + xf * (WM_VIEW.max_lon - WM_VIEW.min_lon);
     double lat = WM_VIEW.max_lat - yf * (WM_VIEW.max_lat - WM_VIEW.min_lat);
 
-    if (lon < -180.0) lon = -180.0;
-    if (lon > 180.0) lon = 180.0;
-    if (lat < -90.0) lat = -90.0;
-    if (lat > 90.0) lat = 90.0;
+    if (lon < -180.0) {
+        lon = -180.0;
+    }
+    if (lon > 180.0) {
+        lon = 180.0;
+    }
+    if (lat < -90.0) {
+        lat = -90.0;
+    }
+    if (lat > 90.0) {
+        lat = 90.0;
+    }
 
     *lon100 = (int16_t)(lon * 100.0);
     *lat100 = (int16_t)(lat * 100.0);
 }
 
-static int WM_point_in_polygon_lonlat(int16_t test_lon100,
-                                      int16_t test_lat100,
-                                      const WM_Polygon *poly){
+static int WM_point_in_polygon_lonlat(int16_t test_lon100, int16_t test_lat100, const WM_Polygon *poly) {
     int inside = 0;
     uint32_t start = poly->start;
     uint32_t count = poly->count;
-    if (!WM_DATA.points || count < 3 || start + count > WM_DATA.point_count) return 0;
+    if (!WM_DATA.points || count < 3 || start + count > WM_DATA.point_count) {
+        return 0;
+    }
     for (uint32_t i = 0, j = count - 1; i < count; j = i++) {
         double xi = (double)WM_DATA.points[start + i].lon100;
         double yi = (double)WM_DATA.points[start + i].lat100;
@@ -554,9 +594,10 @@ static int WM_point_in_polygon_lonlat(int16_t test_lon100,
         double yj = (double)WM_DATA.points[start + j].lat100;
         double yv = (double)test_lat100;
         double xv = (double)test_lon100;
-        int intersect = ((yi > yv) != (yj > yv)) &&
-                        (xv < (xj - xi) * (yv - yi) / ((yj - yi) + 1e-12) + xi);
-        if (intersect) inside = !inside;
+        int intersect = ((yi > yv) != (yj > yv)) && (xv < (xj - xi) * (yv - yi) / ((yj - yi) + 1e-12) + xi);
+        if (intersect) {
+            inside = !inside;
+        }
     }
     return inside;
 }
@@ -565,18 +606,22 @@ static int WM_country_at(SDL_Rect map_rect, int mouse_x, int mouse_y);
 
 static void WM_clamp_view(void);
 
-static int WM_polygon_intersects_view(const WM_Polygon *poly){
-    if (!poly) return 0;
+static int WM_polygon_intersects_view(const WM_Polygon *poly) {
+    if (!poly) {
+        return 0;
+    }
     double min_lon = (double)poly->min_lon100 / 100.0;
     double max_lon = (double)poly->max_lon100 / 100.0;
     double min_lat = (double)poly->min_lat100 / 100.0;
     double max_lat = (double)poly->max_lat100 / 100.0;
-    return !(max_lon < WM_VIEW.min_lon || min_lon > WM_VIEW.max_lon ||
-             max_lat < WM_VIEW.min_lat || min_lat > WM_VIEW.max_lat);
+    return !(max_lon < WM_VIEW.min_lon || min_lon > WM_VIEW.max_lon || max_lat < WM_VIEW.min_lat ||
+             min_lat > WM_VIEW.max_lat);
 }
 
-static void WM_zoom_to_country(int country_index, int polygon_index, SDL_Rect map_rect){
-    if (country_index < 0 || country_index >= (int)WM_DATA.country_count || map_rect.w <= 0 || map_rect.h <= 0) return;
+static void WM_zoom_to_country(int country_index, int polygon_index, SDL_Rect map_rect) {
+    if (country_index < 0 || country_index >= (int)WM_DATA.country_count || map_rect.w <= 0 || map_rect.h <= 0) {
+        return;
+    }
 
     WM_Country *country = &WM_DATA.countries[country_index];
     double min_lon = (double)country->min_lon100 / 100.0;
@@ -600,8 +645,12 @@ static void WM_zoom_to_country(int country_index, int polygon_index, SDL_Rect ma
     double lon_span = max_lon - min_lon;
     double lat_span = max_lat - min_lat;
 
-    if (lon_span < 1.0) lon_span = 1.0;
-    if (lat_span < 1.0) lat_span = 1.0;
+    if (lon_span < 1.0) {
+        lon_span = 1.0;
+    }
+    if (lat_span < 1.0) {
+        lat_span = 1.0;
+    }
 
     double map_aspect = (double)map_rect.w / (double)map_rect.h;
     double view_aspect = lon_span / lat_span;
@@ -615,8 +664,12 @@ static void WM_zoom_to_country(int country_index, int polygon_index, SDL_Rect ma
     lon_span *= 1.08;
     lat_span *= 1.08;
 
-    if (lon_span > 360.0) lon_span = 360.0;
-    if (lat_span > 180.0) lat_span = 180.0;
+    if (lon_span > 360.0) {
+        lon_span = 360.0;
+    }
+    if (lat_span > 180.0) {
+        lat_span = 180.0;
+    }
 
     WM_VIEW.min_lon = center_lon - lon_span * 0.5;
     WM_VIEW.max_lon = center_lon + lon_span * 0.5;
@@ -627,7 +680,7 @@ static void WM_zoom_to_country(int country_index, int polygon_index, SDL_Rect ma
     WM_VIEW.zoomed_country = country_index;
 }
 
-static void WM_clamp_view(void){
+static void WM_clamp_view(void) {
     if (WM_VIEW.min_lon < -180.0) {
         WM_VIEW.max_lon += -180.0 - WM_VIEW.min_lon;
         WM_VIEW.min_lon = -180.0;
@@ -645,33 +698,61 @@ static void WM_clamp_view(void){
         WM_VIEW.max_lat = 90.0;
     }
 
-    if (WM_VIEW.min_lon < -180.0) WM_VIEW.min_lon = -180.0;
-    if (WM_VIEW.max_lon > 180.0) WM_VIEW.max_lon = 180.0;
-    if (WM_VIEW.min_lat < -90.0) WM_VIEW.min_lat = -90.0;
-    if (WM_VIEW.max_lat > 90.0) WM_VIEW.max_lat = 90.0;
+    if (WM_VIEW.min_lon < -180.0) {
+        WM_VIEW.min_lon = -180.0;
+    }
+    if (WM_VIEW.max_lon > 180.0) {
+        WM_VIEW.max_lon = 180.0;
+    }
+    if (WM_VIEW.min_lat < -90.0) {
+        WM_VIEW.min_lat = -90.0;
+    }
+    if (WM_VIEW.max_lat > 90.0) {
+        WM_VIEW.max_lat = 90.0;
+    }
 }
 
-static void WM_zoom_view_at(double focus_lon, double focus_lat, double factor){
+static void WM_zoom_view_at(double focus_lon, double focus_lat, double factor) {
     double lon_span = WM_VIEW.max_lon - WM_VIEW.min_lon;
     double lat_span = WM_VIEW.max_lat - WM_VIEW.min_lat;
-    if (lon_span <= 0.0001) lon_span = 360.0;
-    if (lat_span <= 0.0001) lat_span = 180.0;
+    if (lon_span <= 0.0001) {
+        lon_span = 360.0;
+    }
+    if (lat_span <= 0.0001) {
+        lat_span = 180.0;
+    }
 
     double focus_x = (focus_lon - WM_VIEW.min_lon) / lon_span;
     double focus_y = (WM_VIEW.max_lat - focus_lat) / lat_span;
 
-    if (focus_x < 0.0) focus_x = 0.0;
-    if (focus_x > 1.0) focus_x = 1.0;
-    if (focus_y < 0.0) focus_y = 0.0;
-    if (focus_y > 1.0) focus_y = 1.0;
+    if (focus_x < 0.0) {
+        focus_x = 0.0;
+    }
+    if (focus_x > 1.0) {
+        focus_x = 1.0;
+    }
+    if (focus_y < 0.0) {
+        focus_y = 0.0;
+    }
+    if (focus_y > 1.0) {
+        focus_y = 1.0;
+    }
 
     lon_span *= factor;
     lat_span *= factor;
 
-    if (lon_span < 0.25) lon_span = 0.25;
-    if (lat_span < 0.25) lat_span = 0.25;
-    if (lon_span > 360.0) lon_span = 360.0;
-    if (lat_span > 180.0) lat_span = 180.0;
+    if (lon_span < 0.25) {
+        lon_span = 0.25;
+    }
+    if (lat_span < 0.25) {
+        lat_span = 0.25;
+    }
+    if (lon_span > 360.0) {
+        lon_span = 360.0;
+    }
+    if (lat_span > 180.0) {
+        lat_span = 180.0;
+    }
 
     WM_VIEW.min_lon = focus_lon - focus_x * lon_span;
     WM_VIEW.max_lon = WM_VIEW.min_lon + lon_span;
@@ -681,13 +762,19 @@ static void WM_zoom_view_at(double focus_lon, double focus_lat, double factor){
     WM_VIEW.zoomed_country = -1;
 }
 
-static void WM_pan_view_pixels(SDL_Rect map_rect, int dx, int dy){
-    if (map_rect.w <= 0 || map_rect.h <= 0) return;
+static void WM_pan_view_pixels(SDL_Rect map_rect, int dx, int dy) {
+    if (map_rect.w <= 0 || map_rect.h <= 0) {
+        return;
+    }
 
     double lon_span = WM_VIEW.max_lon - WM_VIEW.min_lon;
     double lat_span = WM_VIEW.max_lat - WM_VIEW.min_lat;
-    if (lon_span <= 0.0001) lon_span = 360.0;
-    if (lat_span <= 0.0001) lat_span = 180.0;
+    if (lon_span <= 0.0001) {
+        lon_span = 360.0;
+    }
+    if (lat_span <= 0.0001) {
+        lat_span = 180.0;
+    }
 
     double dlon = -((double)dx / (double)map_rect.w) * lon_span;
     double dlat = ((double)dy / (double)map_rect.h) * lat_span;
@@ -700,12 +787,12 @@ static void WM_pan_view_pixels(SDL_Rect map_rect, int dx, int dy){
     WM_VIEW.zoomed_country = -1;
 }
 
-void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect){
-    if (!event) return;
+void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect) {
+    if (!event) {
+        return;
+    }
 
-    if (event->type == SDL_KEYDOWN &&
-        event->key.keysym.sym == SDLK_ESCAPE &&
-        event->key.repeat == 0) {
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE && event->key.repeat == 0) {
         WORLD_MAP_reset_view();
         return;
     }
@@ -715,24 +802,25 @@ void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect){
         int mouse_y = 0;
         SDL_GetMouseState(&mouse_x, &mouse_y);
 
-        if (mouse_x < map_rect.x || mouse_x >= map_rect.x + map_rect.w ||
-            mouse_y < map_rect.y || mouse_y >= map_rect.y + map_rect.h) return;
+        if (mouse_x < map_rect.x || mouse_x >= map_rect.x + map_rect.w || mouse_y < map_rect.y ||
+            mouse_y >= map_rect.y + map_rect.h) {
+            return;
+        }
 
         int16_t lon100 = 0;
         int16_t lat100 = 0;
         WM_screen_to_lonlat100(map_rect, mouse_x, mouse_y, &lon100, &lat100);
 
         double factor = event->wheel.y > 0 ? 0.82 : 1.22;
-        if (event->wheel.y == 0) return;
+        if (event->wheel.y == 0) {
+            return;
+        }
 
-        WM_zoom_view_at((double)lon100 / 100.0,
-                        (double)lat100 / 100.0,
-                        factor);
+        WM_zoom_view_at((double)lon100 / 100.0, (double)lat100 / 100.0, factor);
         return;
     }
 
-    if (event->type == SDL_MOUSEBUTTONDOWN &&
-        event->button.button == SDL_BUTTON_LEFT) {
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
         if (event->button.x >= map_rect.x && event->button.x < map_rect.x + map_rect.w &&
             event->button.y >= map_rect.y && event->button.y < map_rect.y + map_rect.h) {
             WM_VIEW.dragging = 1;
@@ -763,9 +851,7 @@ void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect){
         return;
     }
 
-    if (event->type == SDL_MOUSEBUTTONUP &&
-        event->button.button == SDL_BUTTON_LEFT &&
-        WM_VIEW.dragging) {
+    if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT && WM_VIEW.dragging) {
         int released_x = event->button.x;
         int released_y = event->button.y;
         int should_click_zoom = !WM_VIEW.drag_moved;
@@ -773,8 +859,7 @@ void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect){
         WM_VIEW.dragging = 0;
         WM_VIEW.drag_moved = 0;
 
-        if (should_click_zoom &&
-            released_x >= map_rect.x && released_x < map_rect.x + map_rect.w &&
+        if (should_click_zoom && released_x >= map_rect.x && released_x < map_rect.x + map_rect.w &&
             released_y >= map_rect.y && released_y < map_rect.y + map_rect.h) {
             int hover_country = WM_country_at(map_rect, released_x, released_y);
             if (hover_country >= 0) {
@@ -785,11 +870,15 @@ void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect){
     }
 }
 
-static int WM_country_at(SDL_Rect map_rect, int mouse_x, int mouse_y){
+static int WM_country_at(SDL_Rect map_rect, int mouse_x, int mouse_y) {
     WM_LAST_HOVER_POLYGON = -1;
-    if (!WM_ensure_loaded()) return -1;
-    if (mouse_x < map_rect.x || mouse_x >= map_rect.x + map_rect.w ||
-        mouse_y < map_rect.y || mouse_y >= map_rect.y + map_rect.h) return -1;
+    if (!WM_ensure_loaded()) {
+        return -1;
+    }
+    if (mouse_x < map_rect.x || mouse_x >= map_rect.x + map_rect.w || mouse_y < map_rect.y ||
+        mouse_y >= map_rect.y + map_rect.h) {
+        return -1;
+    }
 
     int16_t lon100 = 0;
     int16_t lat100 = 0;
@@ -797,14 +886,20 @@ static int WM_country_at(SDL_Rect map_rect, int mouse_x, int mouse_y){
 
     for (int c = (int)WM_DATA.country_count - 1; c >= 0; c--) {
         const WM_Country *country = &WM_DATA.countries[c];
-        if (lon100 < country->min_lon100 || lon100 > country->max_lon100 ||
-            lat100 < country->min_lat100 || lat100 > country->max_lat100) continue;
+        if (lon100 < country->min_lon100 || lon100 > country->max_lon100 || lat100 < country->min_lat100 ||
+            lat100 > country->max_lat100) {
+            continue;
+        }
         for (uint32_t k = 0; k < country->poly_count; k++) {
             uint32_t pi = country->poly_start + k;
-            if (pi >= WM_DATA.polygon_count) continue;
+            if (pi >= WM_DATA.polygon_count) {
+                continue;
+            }
             const WM_Polygon *poly = &WM_DATA.polygons[pi];
-            if (lon100 < poly->min_lon100 || lon100 > poly->max_lon100 ||
-                lat100 < poly->min_lat100 || lat100 > poly->max_lat100) continue;
+            if (lon100 < poly->min_lon100 || lon100 > poly->max_lon100 || lat100 < poly->min_lat100 ||
+                lat100 > poly->max_lat100) {
+                continue;
+            }
             if (WM_point_in_polygon_lonlat(lon100, lat100, poly)) {
                 WM_LAST_HOVER_POLYGON = (int)pi;
                 return c;
@@ -815,13 +910,19 @@ static int WM_country_at(SDL_Rect map_rect, int mouse_x, int mouse_y){
     return -1;
 }
 
-static void WM_fill_poly(SDL_Renderer *renderer, SDL_Point *pts, int n){
-    if (!renderer || !pts || n < 3) return;
+static void WM_fill_poly(SDL_Renderer *renderer, SDL_Point *pts, int n) {
+    if (!renderer || !pts || n < 3) {
+        return;
+    }
     int min_y = pts[0].y;
     int max_y = pts[0].y;
     for (int i = 1; i < n; i++) {
-        if (pts[i].y < min_y) min_y = pts[i].y;
-        if (pts[i].y > max_y) max_y = pts[i].y;
+        if (pts[i].y < min_y) {
+            min_y = pts[i].y;
+        }
+        if (pts[i].y > max_y) {
+            max_y = pts[i].y;
+        }
     }
 
     int nodes[WORLD_MAP_MAX_SCREEN_POINTS];
@@ -852,28 +953,30 @@ static void WM_fill_poly(SDL_Renderer *renderer, SDL_Point *pts, int n){
     }
 }
 
-
-static int WM_detail_segment_intersects_view(const WM_DetailSegment *seg){
-    if (!seg) return 0;
+static int WM_detail_segment_intersects_view(const WM_DetailSegment *seg) {
+    if (!seg) {
+        return 0;
+    }
     double min_lon = (double)seg->min_lon100 / 100.0;
     double max_lon = (double)seg->max_lon100 / 100.0;
     double min_lat = (double)seg->min_lat100 / 100.0;
     double max_lat = (double)seg->max_lat100 / 100.0;
-    return !(max_lon < WM_VIEW.min_lon || min_lon > WM_VIEW.max_lon ||
-             max_lat < WM_VIEW.min_lat || min_lat > WM_VIEW.max_lat);
+    return !(max_lon < WM_VIEW.min_lon || min_lon > WM_VIEW.max_lon || max_lat < WM_VIEW.min_lat ||
+             min_lat > WM_VIEW.max_lat);
 }
 
-static int WM_lon_jump_crosses_dateline(int16_t a_lon100, int16_t b_lon100){
+static int WM_lon_jump_crosses_dateline(int16_t a_lon100, int16_t b_lon100) {
     int diff = (int)a_lon100 - (int)b_lon100;
-    if (diff < 0) diff = -diff;
+    if (diff < 0) {
+        diff = -diff;
+    }
     return diff > 18000;
 }
 
-static void WM_draw_detail_pair(SDL_Renderer *renderer,
-                                SDL_Rect map_rect,
-                                WM_Point a,
-                                WM_Point b){
-    if (WM_lon_jump_crosses_dateline(a.lon100, b.lon100)) return;
+static void WM_draw_detail_pair(SDL_Renderer *renderer, SDL_Rect map_rect, WM_Point a, WM_Point b) {
+    if (WM_lon_jump_crosses_dateline(a.lon100, b.lon100)) {
+        return;
+    }
 
     int ax = 0;
     int ay = 0;
@@ -885,18 +988,23 @@ static void WM_draw_detail_pair(SDL_Renderer *renderer,
     SDL_RenderDrawLine(renderer, ax, ay, bx, by);
 }
 
-static void WM_draw_detail_lines(SDL_Renderer *renderer, SDL_Rect map_rect){
-    if (!renderer || !WM_DATA.detail_points || !WM_DATA.detail_segments) return;
+static void WM_draw_detail_lines(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    if (!renderer || !WM_DATA.detail_points || !WM_DATA.detail_segments) {
+        return;
+    }
 
     for (uint32_t s = 0; s < WM_DATA.detail_segment_count; s++) {
         WM_DetailSegment *seg = &WM_DATA.detail_segments[s];
         if (seg->count < 2 || seg->start >= WM_DATA.detail_point_count ||
-            seg->start + seg->count > WM_DATA.detail_point_count) continue;
-        if (!WM_detail_segment_intersects_view(seg)) continue;
+            seg->start + seg->count > WM_DATA.detail_point_count) {
+            continue;
+        }
+        if (!WM_detail_segment_intersects_view(seg)) {
+            continue;
+        }
 
-        SDL_Color color = seg->layer == WM_DETAIL_LAYER_BORDER ?
-                          (SDL_Color){0, 210, 90, 210} :
-                          (SDL_Color){0, 255, 120, 230};
+        SDL_Color color =
+            seg->layer == WM_DETAIL_LAYER_BORDER ? (SDL_Color){0, 210, 90, 210} : (SDL_Color){0, 255, 120, 230};
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 
         for (uint32_t i = 1; i < seg->count; i++) {
@@ -907,30 +1015,37 @@ static void WM_draw_detail_lines(SDL_Renderer *renderer, SDL_Rect map_rect){
     }
 }
 
-static void WM_draw_hover_detail_lines(SDL_Renderer *renderer,
-                                       SDL_Rect map_rect,
-                                       int hover_country){
-    if (!renderer || hover_country < 0 || hover_country >= (int)WM_DATA.country_count) return;
+static void WM_draw_hover_detail_lines(SDL_Renderer *renderer, SDL_Rect map_rect, int hover_country) {
+    if (!renderer || hover_country < 0 || hover_country >= (int)WM_DATA.country_count) {
+        return;
+    }
 
     const WM_Country *country = &WM_DATA.countries[hover_country];
     SDL_SetRenderDrawColor(renderer, 0, 255, 95, 255);
 
     for (uint32_t k = 0; k < country->poly_count; k++) {
         uint32_t pi = country->poly_start + k;
-        if (pi >= WM_DATA.polygon_count) continue;
+        if (pi >= WM_DATA.polygon_count) {
+            continue;
+        }
         const WM_Polygon *poly = &WM_DATA.polygons[pi];
-        if (poly->country != (uint16_t)hover_country) continue;
-        if (!WM_polygon_intersects_view(poly)) continue;
-        if (poly->count < 3 || poly->count > WORLD_MAP_MAX_SCREEN_POINTS) continue;
-        if (poly->start + poly->count > WM_DATA.point_count) continue;
+        if (poly->country != (uint16_t)hover_country) {
+            continue;
+        }
+        if (!WM_polygon_intersects_view(poly)) {
+            continue;
+        }
+        if (poly->count < 3 || poly->count > WORLD_MAP_MAX_SCREEN_POINTS) {
+            continue;
+        }
+        if (poly->start + poly->count > WM_DATA.point_count) {
+            continue;
+        }
 
         SDL_Point pts[WORLD_MAP_MAX_SCREEN_POINTS];
         for (uint32_t i = 0; i < poly->count; i++) {
-            WM_project_point(WM_DATA.points[poly->start + i].lon100,
-                             WM_DATA.points[poly->start + i].lat100,
-                             map_rect,
-                             &pts[i].x,
-                             &pts[i].y);
+            WM_project_point(WM_DATA.points[poly->start + i].lon100, WM_DATA.points[poly->start + i].lat100, map_rect,
+                             &pts[i].x, &pts[i].y);
         }
 
         for (uint32_t i = 1; i < poly->count; i++) {
@@ -944,28 +1059,24 @@ static void WM_draw_hover_detail_lines(SDL_Renderer *renderer,
         WM_Point last = WM_DATA.points[poly->start + poly->count - 1];
         WM_Point first = WM_DATA.points[poly->start];
         if (!WM_lon_jump_crosses_dateline(last.lon100, first.lon100)) {
-            SDL_RenderDrawLine(renderer, pts[poly->count - 1].x, pts[poly->count - 1].y,
-                               pts[0].x, pts[0].y);
+            SDL_RenderDrawLine(renderer, pts[poly->count - 1].x, pts[poly->count - 1].y, pts[0].x, pts[0].y);
         }
     }
 }
 
-static void WM_draw_polygon(SDL_Renderer *renderer,
-                            SDL_Rect map_rect,
-                            const WM_Polygon *poly,
-                            int fill,
-                            SDL_Color fill_color,
-                            SDL_Color outline_color){
-    if (!renderer || !poly || poly->count < 3 || poly->count > WORLD_MAP_MAX_SCREEN_POINTS) return;
-    if (poly->start + poly->count > WM_DATA.point_count) return;
+static void WM_draw_polygon(SDL_Renderer *renderer, SDL_Rect map_rect, const WM_Polygon *poly, int fill,
+                            SDL_Color fill_color, SDL_Color outline_color) {
+    if (!renderer || !poly || poly->count < 3 || poly->count > WORLD_MAP_MAX_SCREEN_POINTS) {
+        return;
+    }
+    if (poly->start + poly->count > WM_DATA.point_count) {
+        return;
+    }
 
     SDL_Point pts[WORLD_MAP_MAX_SCREEN_POINTS];
     for (uint32_t i = 0; i < poly->count; i++) {
-        WM_project_point(WM_DATA.points[poly->start + i].lon100,
-                         WM_DATA.points[poly->start + i].lat100,
-                         map_rect,
-                         &pts[i].x,
-                         &pts[i].y);
+        WM_project_point(WM_DATA.points[poly->start + i].lon100, WM_DATA.points[poly->start + i].lat100, map_rect,
+                         &pts[i].x, &pts[i].y);
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -985,15 +1096,19 @@ static void WM_draw_polygon(SDL_Renderer *renderer,
     }
 }
 
-static void WM_load_flag(SDL_Renderer *renderer, WM_Country *country, const char *flags_dir){
-    if (!renderer || !country || country->flag_attempted) return;
+static void WM_load_flag(SDL_Renderer *renderer, WM_Country *country, const char *flags_dir) {
+    if (!renderer || !country || country->flag_attempted) {
+        return;
+    }
     country->flag_attempted = 1;
 
     char path[512];
     snprintf(path, sizeof(path), "%s/%s.png", flags_dir ? flags_dir : "flags", country->alpha2 ? country->alpha2 : "");
 
     SDL_Surface *surf = IMG_Load(path);
-    if (!surf) return;
+    if (!surf) {
+        return;
+    }
 
     country->flag_texture = SDL_CreateTextureFromSurface(renderer, surf);
     country->flag_w = surf->w;
@@ -1001,11 +1116,8 @@ static void WM_load_flag(SDL_Renderer *renderer, WM_Country *country, const char
     SDL_FreeSurface(surf);
 }
 
-static void WM_draw_sidebar(SDL_Renderer *renderer,
-                            TTF_Font *font,
-                            SDL_Rect sidebar,
-                            int hover_country,
-                            const char *flags_dir){
+static void WM_draw_sidebar(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect sidebar, int hover_country,
+                            const char *flags_dir) {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 235);
     SDL_RenderFillRect(renderer, &sidebar);
@@ -1018,19 +1130,13 @@ static void WM_draw_sidebar(SDL_Renderer *renderer,
     y += 42;
 
     if (hover_country < 0 || hover_country >= (int)WM_DATA.country_count) {
-        WM_draw_text_wrapped(renderer,
-                             font,
-                             "Hover over a country",
-                             (SDL_Rect){x, y, sidebar.w - 36, 70},
+        WM_draw_text_wrapped(renderer, font, "Hover over a country", (SDL_Rect){x, y, sidebar.w - 36, 70},
                              (SDL_Color){120, 160, 135, 255});
         return;
     }
 
     WM_Country *country = &WM_DATA.countries[hover_country];
-    WM_draw_text_wrapped(renderer,
-                         font,
-                         country->name,
-                         (SDL_Rect){x, y, sidebar.w - 36, 80},
+    WM_draw_text_wrapped(renderer, font, country->name, (SDL_Rect){x, y, sidebar.w - 36, 80},
                          (SDL_Color){0, 255, 90, 255});
     y += 88;
 
@@ -1051,38 +1157,25 @@ static void WM_draw_sidebar(SDL_Renderer *renderer,
         double scale = scale_x < scale_y ? scale_x : scale_y;
         int fw = (int)((double)country->flag_w * scale);
         int fh = (int)((double)country->flag_h * scale);
-        SDL_Rect dst = {
-            flag_box.x + (flag_box.w - fw) / 2,
-            flag_box.y + (flag_box.h - fh) / 2,
-            fw,
-            fh
-        };
+        SDL_Rect dst = {flag_box.x + (flag_box.w - fw) / 2, flag_box.y + (flag_box.h - fh) / 2, fw, fh};
         SDL_RenderCopy(renderer, country->flag_texture, NULL, &dst);
     } else {
-        WM_draw_text_wrapped(renderer,
-                             font,
-                             "Flag image missing. Run python3 download_world_flags.py",
+        WM_draw_text_wrapped(renderer, font, "Flag image missing. Run python3 download_world_flags.py",
                              (SDL_Rect){flag_box.x + 12, flag_box.y + 18, flag_box.w - 24, flag_box.h - 36},
                              (SDL_Color){150, 150, 150, 255});
     }
 }
 
-void WORLD_MAP_draw(SDL_Renderer *renderer,
-                    TTF_Font *font,
-                    SDL_Rect map_rect,
-                    SDL_Rect sidebar_rect,
-                    int mouse_x,
-                    int mouse_y,
-                    const char *flags_dir){
-    if (!renderer) return;
+void WORLD_MAP_draw(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect map_rect, SDL_Rect sidebar_rect, int mouse_x,
+                    int mouse_y, const char *flags_dir) {
+    if (!renderer) {
+        return;
+    }
 
     if (!WM_ensure_loaded()) {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderFillRect(renderer, &map_rect);
-        WM_draw_text_wrapped(renderer,
-                             font,
-                             "world_map.bin missing or invalid",
-                             map_rect,
+        WM_draw_text_wrapped(renderer, font, "world_map.bin missing or invalid", map_rect,
                              (SDL_Color){255, 80, 80, 255});
         return;
     }
@@ -1105,13 +1198,12 @@ void WORLD_MAP_draw(SDL_Renderer *renderer,
 
     SDL_RenderSetClipRect(renderer, &map_rect);
     for (uint32_t i = 0; i < WM_DATA.polygon_count; i++) {
-        if (!WM_polygon_intersects_view(&WM_DATA.polygons[i])) continue;
+        if (!WM_polygon_intersects_view(&WM_DATA.polygons[i])) {
+            continue;
+        }
         int c = WM_DATA.polygons[i].country;
         int is_hover = (c == hover);
-        WM_draw_polygon(renderer,
-                        map_rect,
-                        &WM_DATA.polygons[i],
-                        1,
+        WM_draw_polygon(renderer, map_rect, &WM_DATA.polygons[i], 1,
                         is_hover ? (SDL_Color){0, 150, 65, 70} : (SDL_Color){0, 35, 18, 135},
                         is_hover ? (SDL_Color){0, 255, 95, 0} : (SDL_Color){0, 85, 38, 115});
     }
@@ -1125,25 +1217,28 @@ void WORLD_MAP_draw(SDL_Renderer *renderer,
 }
 
 #ifndef WORLD_MAP_NO_DEMO
-static TTF_Font *WM_load_font(int size){
-    const char *paths[] = {
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        NULL
-    };
+static TTF_Font *WM_load_font(int size) {
+    const char *paths[] = {"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                           "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                           "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf", NULL};
     for (int i = 0; paths[i]; i++) {
         TTF_Font *f = TTF_OpenFont(paths[i], size);
-        if (f) return f;
+        if (f) {
+            return f;
+        }
     }
     return NULL;
 }
 
-int main(int argc, char **argv){
+int main(int argc, char **argv) {
     const char *bin_path = argc > 1 ? argv[1] : "world_map.bin";
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) return 1;
-    if (TTF_Init() != 0) return 1;
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        return 1;
+    }
+    if (TTF_Init() != 0) {
+        return 1;
+    }
     IMG_Init(IMG_INIT_PNG);
 
     if (!WORLD_MAP_load(bin_path)) {
@@ -1151,16 +1246,16 @@ int main(int argc, char **argv){
         return 1;
     }
 
-    SDL_Window *win = SDL_CreateWindow("World Map Hover Flags - Binary Data",
-                                       SDL_WINDOWPOS_CENTERED,
-                                       SDL_WINDOWPOS_CENTERED,
-                                       1400,
-                                       780,
-                                       SDL_WINDOW_RESIZABLE);
-    if (!win) return 1;
+    SDL_Window *win = SDL_CreateWindow("World Map Hover Flags - Binary Data", SDL_WINDOWPOS_CENTERED,
+                                       SDL_WINDOWPOS_CENTERED, 1400, 780, SDL_WINDOW_RESIZABLE);
+    if (!win) {
+        return 1;
+    }
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!ren) return 1;
+    if (!ren) {
+        return 1;
+    }
 
     TTF_Font *font = WM_load_font(18);
     int running = 1;
@@ -1176,7 +1271,9 @@ int main(int argc, char **argv){
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) running = 0;
+            if (e.type == SDL_QUIT) {
+                running = 0;
+            }
             WORLD_MAP_handle_event(&e, map);
         }
 
@@ -1191,7 +1288,9 @@ int main(int argc, char **argv){
     }
 
     WORLD_MAP_free();
-    if (font) TTF_CloseFont(font);
+    if (font) {
+        TTF_CloseFont(font);
+    }
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
     IMG_Quit();

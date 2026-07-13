@@ -21,12 +21,14 @@ from typing import Iterable
 
 try:
     import numpy as np
+
 except Exception as exc:  # pragma: no cover
     print(f"numpy import failed: {exc}", file=sys.stderr)
     raise SystemExit(2)
 
 try:
     from gnuradio import gr, blocks, digital  # noqa: F401
+
 except Exception as exc:  # pragma: no cover
     print(f"GNU Radio Python import failed: {exc}", file=sys.stderr)
     print("Install GNU Radio, then try again: sudo apt install gnuradio python3-numpy", file=sys.stderr)
@@ -48,8 +50,14 @@ MODES = [
 
 
 def read_complex16_raw(path: Path, start_sample: int, count_iq: int) -> np.ndarray:
+
+    # Purpose: Read interleaved int16 IQ samples from disk starting at a requested IQ sample offset
+
+    # Return: A complex64 NumPy array normalized to approximately [-1.0, 1.0] per I/Q component
+
     if start_sample < 0:
         raise ValueError("start-sample must be >= 0")
+
     if count_iq <= 0:
         raise ValueError("sample count must be > 0")
 
@@ -59,21 +67,30 @@ def read_complex16_raw(path: Path, start_sample: int, count_iq: int) -> np.ndarr
 
     if raw.size < 2:
         return np.array([], dtype=np.complex64)
+
     if raw.size % 2:
         raw = raw[:-1]
 
     iq = raw.reshape((-1, 2)).astype(np.float32)
+
     return ((iq[:, 0] + 1j * iq[:, 1]) / 32768.0).astype(np.complex64)
 
 
 def symbol_views(path: Path, start_sample: int, max_symbols: int, sps: int):
+
+    # Purpose: Build symbol-spaced views from raw IQ by grouping samples into fixed samples-per-symbol blocks
+
+    # Return: A tuple of complex symbol averages, magnitude-power symbol averages, and the trimmed raw complex samples
+
     if sps <= 0:
         raise ValueError("samples/symbol must be > 0")
+
     if max_symbols <= 0:
         raise ValueError("max-symbols must be > 0")
 
     c = read_complex16_raw(path, start_sample, max_symbols * sps)
     usable = (c.size // sps) * sps
+
     if usable <= 0:
         return (
             np.array([], dtype=np.complex64),
@@ -85,10 +102,15 @@ def symbol_views(path: Path, start_sample: int, max_symbols: int, sps: int):
     blocks_view = c.reshape((-1, sps))
     complex_symbols = blocks_view.mean(axis=1).astype(np.complex64)
     mag_symbols = np.mean(np.abs(blocks_view) ** 2, axis=1).astype(np.float32)
+
     return complex_symbols, mag_symbols, c
 
 
 def normalize_complex(x: np.ndarray) -> np.ndarray:
+    # Purpose: Normalize complex samples to unit average power while preserving phase relationships.
+    #
+    # Return: A complex64 NumPy array scaled by sqrt(mean(|x|^2)) when power is valid.
+    #
     if x.size == 0:
         return x.astype(np.complex64)
     p = float(np.mean(np.abs(x) ** 2))
@@ -98,6 +120,10 @@ def normalize_complex(x: np.ndarray) -> np.ndarray:
 
 
 def normalize_float(x: np.ndarray) -> np.ndarray:
+    # Purpose: Normalize real-valued samples into a 0-to-1 range using their minimum and maximum values.
+    #
+    # Return: A float32 NumPy array scaled to [0, 1] when the input range is valid.
+    #
     if x.size == 0:
         return x.astype(np.float32)
     lo = float(np.min(x))
@@ -108,6 +134,12 @@ def normalize_float(x: np.ndarray) -> np.ndarray:
 
 
 def run_ook_symbol_slicer(mag_symbols: np.ndarray, normalize: bool) -> list[int]:
+    # Purpose: Demodulate simple OOK/ASK symbol-power values by thresholding each symbol into a binary decision.
+    #
+    # Return: A list of 0/1 bit decisions produced by the GNU Radio threshold and byte-conversion blocks.
+    #
+    # Equation: b_k = 1 if P_k >= T else 0, where P_k = mean(|x_k[n]|^2) and T = min(P) + 0.5(max(P) - min(P)).
+    #
     if mag_symbols.size == 0:
         return []
 
@@ -134,6 +166,10 @@ def run_ook_symbol_slicer(mag_symbols: np.ndarray, normalize: bool) -> list[int]
 
 
 def merge_short_runs(runs: list[tuple[int, int]], min_len: int) -> list[tuple[int, int]]:
+    # Purpose: Merge short state runs into the previous run to suppress tiny threshold fragments.
+    #
+    # Return: A list of (state, length) runs with adjacent equal states coalesced after short-run merging.
+    #
     if not runs or min_len <= 1:
         return runs
 
@@ -156,6 +192,10 @@ def merge_short_runs(runs: list[tuple[int, int]], min_len: int) -> list[tuple[in
 
 
 def build_runs_from_states(states: np.ndarray) -> list[tuple[int, int]]:
+    # Purpose: Convert a binary or discrete state array into consecutive run-length segments.
+    #
+    # Return: A list of (state, length) tuples representing each contiguous state run.
+    #
     if states.size == 0:
         return []
 
@@ -175,6 +215,10 @@ def build_runs_from_states(states: np.ndarray) -> list[tuple[int, int]]:
 
 
 def threshold_binary_robust(x: np.ndarray) -> np.ndarray:
+    # Purpose: Convert real-valued samples into binary states using percentile-based thresholds that avoid outlier-heavy min/max decisions.
+    #
+    # Return: A uint8 NumPy array of 0/1 states, or an empty array when no valid threshold exists.
+    #
     """Return 0/1 states using percentile thresholds instead of raw min/max."""
     if x.size == 0:
         return np.array([], dtype=np.uint8)
@@ -201,6 +245,12 @@ def threshold_binary_robust(x: np.ndarray) -> np.ndarray:
 
 
 def decode_pwm_pairs_from_runs(runs: list[tuple[int, int]], min_len: int) -> list[int]:
+    # Purpose: Decode PWM-style OOK run pairs by comparing high-pulse length against following low-gap length.
+    #
+    # Return: A list of bits where longer high-than-low pairs map to 1 and shorter high-than-low pairs map to 0.
+    #
+    # Equation: b_i = 1 if L_high,i > L_low,i else 0 for valid high-low run pairs.
+    #
     bits: list[int] = []
     i = 0
     min_len = max(1, min_len)
@@ -223,6 +273,12 @@ def decode_pwm_pairs_from_runs(runs: list[tuple[int, int]], min_len: int) -> lis
 
 
 def run_ook_raw_pulse_decoder(samples: np.ndarray, sps: int, normalize: bool) -> list[int]:
+    # Purpose: Demodulate PWM-style OOK RAW samples by envelope detection, smoothing, thresholding, and high-low run comparison.
+    #
+    # Return: A list of recovered 0/1 bits from direct sample runs or slot-quantized fallback runs.
+    #
+    # Equation: E[n] = |x[n]|^2 and b_i = 1 if L_high,i > L_low,i else 0 after thresholding E[n].
+    #
     """
     Decode PWM-style OOK RAW pulses by measuring high/low runs.
 
@@ -268,6 +324,12 @@ def run_ook_raw_pulse_decoder(samples: np.ndarray, sps: int, normalize: bool) ->
 
 
 def phase_discriminator(samples: np.ndarray) -> np.ndarray:
+    # Purpose: Demodulate instantaneous phase change from complex IQ samples for FM/FSK-style frequency decisions.
+    #
+    # Return: A float32 NumPy array of per-sample phase differences in radians.
+    #
+    # Equation: phi[n] = angle(x[n] * conj(x[n-1])).
+    #
     if samples.size < 2:
         return np.array([], dtype=np.float32)
     x = normalize_complex(samples)
@@ -275,6 +337,10 @@ def phase_discriminator(samples: np.ndarray) -> np.ndarray:
 
 
 def moving_average(x: np.ndarray, n: int) -> np.ndarray:
+    # Purpose: Smooth a real-valued sequence with a rectangular moving-average kernel.
+    #
+    # Return: A float32 NumPy array containing the same-mode convolution result.
+    #
     if x.size == 0 or n <= 1:
         return x.astype(np.float32)
     n = min(n, x.size)
@@ -283,6 +349,10 @@ def moving_average(x: np.ndarray, n: int) -> np.ndarray:
 
 
 def symbol_average_float(x: np.ndarray, sps: int, max_symbols: int) -> np.ndarray:
+    # Purpose: Convert a real-valued sample stream into symbol-spaced values by averaging fixed samples-per-symbol blocks.
+    #
+    # Return: A float32 NumPy array of at most max_symbols averaged symbol values.
+    #
     if x.size == 0 or sps <= 0:
         return np.array([], dtype=np.float32)
     usable = (x.size // sps) * sps
@@ -293,6 +363,12 @@ def symbol_average_float(x: np.ndarray, sps: int, max_symbols: int) -> np.ndarra
 
 
 def run_fsk2(samples: np.ndarray, sps: int, max_symbols: int, gfsk: bool = False) -> list[int]:
+    # Purpose: Demodulate 2-FSK/GFSK/AFSK-style IQ by phase discrimination, optional smoothing, symbol averaging, and median slicing.
+    #
+    # Return: A list of 0/1 bit decisions from the symbol-averaged discriminator output.
+    #
+    # Equation: b_k = 1 if v_k >= median(v) else 0, where v_k = mean(angle(x[n] * conj(x[n-1]))) over symbol k.
+    #
     freq = phase_discriminator(samples)
     if gfsk:
         freq = moving_average(freq, max(3, sps // 3))
@@ -304,6 +380,10 @@ def run_fsk2(samples: np.ndarray, sps: int, max_symbols: int, gfsk: bool = False
 
 
 def kmeans_1d(vals: np.ndarray, k: int, rounds: int = 24) -> np.ndarray:
+    # Purpose: Estimate one-dimensional cluster centers for multi-level symbol decisions.
+    #
+    # Return: A sorted float32 NumPy array containing k estimated cluster centers.
+    #
     if vals.size == 0:
         return np.array([], dtype=np.float32)
     if vals.size < k:
@@ -327,6 +407,12 @@ def kmeans_1d(vals: np.ndarray, k: int, rounds: int = 24) -> np.ndarray:
 
 
 def run_fsk4(samples: np.ndarray, sps: int, max_symbols: int) -> list[int]:
+    # Purpose: Demodulate 4-FSK IQ by phase discrimination, symbol averaging, four-center clustering, and nearest-center labeling.
+    #
+    # Return: A list of 2-bit symbol labels represented as integers from 0 to 3.
+    #
+    # Equation: s_k = argmin_j |v_k - c_j|, where v_k = mean(angle(x[n] * conj(x[n-1]))) over symbol k.
+    #
     vals = symbol_average_float(phase_discriminator(samples), sps, max_symbols)
     if vals.size == 0:
         return []
@@ -336,6 +422,10 @@ def run_fsk4(samples: np.ndarray, sps: int, max_symbols: int) -> list[int]:
 
 
 def constellation_points(mod: str) -> tuple[np.ndarray, int]:
+    # Purpose: Provide ideal constellation points and natural bits-per-symbol for supported PSK/QAM modes.
+    #
+    # Return: A tuple containing a complex64 NumPy array of ideal points and the natural bits-per-symbol value.
+    #
     if mod == "bpsk":
         return np.array([-1 + 0j, 1 + 0j], dtype=np.complex64), 1
     if mod == "qpsk":
@@ -355,6 +445,12 @@ def constellation_points(mod: str) -> tuple[np.ndarray, int]:
 
 
 def run_constellation_demod(symbols: np.ndarray, mod: str, normalize: bool) -> tuple[list[int], int]:
+    # Purpose: Demodulate PSK/QAM symbols using GNU Radio BPSK/QPSK decoding when available or nearest-constellation fallback decisions.
+    #
+    # Return: A tuple containing integer symbol labels and the natural bits-per-symbol value for the modulation.
+    #
+    # Equation: s_k = argmin_j |x_k - p_j|, where x_k is the received symbol and p_j is an ideal constellation point.
+    #
     if symbols.size == 0:
         return [], 1
 
@@ -389,6 +485,10 @@ def run_constellation_demod(symbols: np.ndarray, mod: str, normalize: bool) -> t
 
 
 def symbol_to_bits(symbol: int, bps: int, invert: bool) -> str:
+    # Purpose: Convert one integer symbol label into a fixed-width binary string with optional bit inversion.
+    #
+    # Return: A string of bps characters containing only 0 and 1.
+    #
     out = []
     for bit_index in range(bps - 1, -1, -1):
         bit = (symbol >> bit_index) & 1
@@ -399,6 +499,10 @@ def symbol_to_bits(symbol: int, bps: int, invert: bool) -> str:
 
 
 def write_bits(symbols: Iterable[int], bps: int, invert: bool, tight: bool) -> None:
+    # Purpose: Format recovered symbols as bits and write the resulting bitstream to standard output.
+    #
+    # Return: None; the function writes text output directly to stdout.
+    #
     sep = "" if tight else " "
     parts = [symbol_to_bits(int(sym), bps, invert) for sym in symbols]
     sys.stdout.write(sep.join(parts))
@@ -406,6 +510,10 @@ def write_bits(symbols: Iterable[int], bps: int, invert: bool, tight: bool) -> N
 
 
 def main() -> int:
+    # Purpose: Parse command-line arguments, load IQ samples, dispatch the selected demodulator, and write recovered bits.
+    #
+    # Return: An integer process status code where 0 indicates success and nonzero values indicate errors.
+    #
     ap = argparse.ArgumentParser(description="RetroSpectrum GNU Radio .complex16 demod helper")
     ap.add_argument("--input", required=True)
     ap.add_argument("--mod", choices=MODES, required=True)

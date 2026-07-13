@@ -1,24 +1,22 @@
 #ifndef GUIS_H
 #define GUIS_H
 
-
-#include <stdint.h>
-#include <stddef.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #ifndef ANALYSIS_MAX_FILES
-#define ANALYSIS_MAX_FILES               512
+#define ANALYSIS_MAX_FILES 512
 #endif
 
 #ifndef ANALYSIS_MAX_RENDER_W
-#define ANALYSIS_MAX_RENDER_W            8192
+#define ANALYSIS_MAX_RENDER_W 8192
 #endif
 
 #ifndef ANALYSIS_MAX_CONST_POINTS
-#define ANALYSIS_MAX_CONST_POINTS        4096
+#define ANALYSIS_MAX_CONST_POINTS 4096
 #endif
-
 
 // Track active settings
 typedef enum {
@@ -34,20 +32,20 @@ typedef enum {
 
 // GUI Rectangle
 typedef struct {
-  SDL_Rect rect;
-  char text[32];
-  const char *label;
-  Type_Active_Fields id;
+    SDL_Rect rect;
+    char text[32];
+    const char *label;
+    Type_Active_Fields id;
 } Type_Input_Box;
 
 // Selector window
 typedef struct {
-  double X0;
-  double X1;
-  int enabled;
-  int dragging;
-  int resizing_left;
-  int resizing_right;
+    double X0;
+    double X1;
+    int enabled;
+    int dragging;
+    int resizing_left;
+    int resizing_right;
 } Type_Selector;
 
 // Globals used by drawing functions
@@ -100,7 +98,6 @@ extern int Global_Analysis_Filter_Active;
 extern double Global_Analysis_Filter_Y0;
 extern double Global_Analysis_Filter_Y1;
 
-
 // Functions still defined in RetroSpectrum.c but used by GUIs.c
 
 double limit_double(double value, double low, double high);
@@ -109,17 +106,11 @@ uint32_t selection_BW_Hz(void);
 double recommended_antenna_length_inches(uint64_t freq_hz);
 void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h);
 
-
 // GUI functions defined in GUIs.c
 
 TTF_Font *load_font(int size);
 
-void draw_text(SDL_Renderer *renderer,
-               TTF_Font *font,
-               const char *text,
-               int x,
-               int y,
-               SDL_Color color);
+void draw_text(SDL_Renderer *renderer, TTF_Font *font, const char *text, int x, int y, SDL_Color color);
 
 uint32_t rgb(uint8_t r, uint8_t g, uint8_t b);
 
@@ -133,11 +124,7 @@ void draw_outline_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color);
 
 void draw_made_in_usa(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 
-void draw_button(SDL_Renderer *renderer,
-                 TTF_Font *font,
-                 SDL_Rect rect,
-                 const char *label,
-                 int active,
+void draw_button(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *label, int active,
                  int is_record_button);
 
 int point_in_rect(int x, int y, SDL_Rect r);
@@ -145,37 +132,17 @@ int near_px(int a, int b, int tolerance);
 
 void draw_input_box(SDL_Renderer *renderer, TTF_Font *font, Type_Input_Box *box, int active);
 
-void draw_checkbox(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *label, 
-                   int checked);
+void draw_checkbox(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *label, int checked);
 
-void layout_controls(int win_w,
-                     Type_Input_Box *freq_box,
-                     Type_Input_Box *sr_box,
-                     Type_Input_Box *display_box,
-                     Type_Input_Box *lna_box,
-                     Type_Input_Box *vga_box,
-                     Type_Input_Box *fps_box,
-                     Type_Input_Box *rows_box,
-                     SDL_Rect *amp_box,
-                     SDL_Rect *dc_box,
-                     SDL_Rect *sel_button,
+void layout_controls(int win_w, Type_Input_Box *freq_box, Type_Input_Box *sr_box, Type_Input_Box *display_box,
+                     Type_Input_Box *lna_box, Type_Input_Box *vga_box, Type_Input_Box *fps_box,
+                     Type_Input_Box *rows_box, SDL_Rect *amp_box, SDL_Rect *dc_box, SDL_Rect *sel_button,
                      SDL_Rect *rec_button);
 
-void draw_control_panel(SDL_Renderer *renderer,
-                        TTF_Font *font,
-                        int win_w,
-                        Type_Input_Box *freq_box,
-                        Type_Input_Box *sr_box,
-                        Type_Input_Box *display_box,
-                        Type_Input_Box *lna_box,
-                        Type_Input_Box *vga_box,
-                        Type_Input_Box *fps_box,
-                        Type_Input_Box *rows_box,
-                        SDL_Rect amp_box,
-                        SDL_Rect dc_box,
-                        SDL_Rect sel_button,
-                        SDL_Rect rec_button,
-                        Type_Active_Fields active);
+void draw_control_panel(SDL_Renderer *renderer, TTF_Font *font, int win_w, Type_Input_Box *freq_box,
+                        Type_Input_Box *sr_box, Type_Input_Box *display_box, Type_Input_Box *lna_box,
+                        Type_Input_Box *vga_box, Type_Input_Box *fps_box, Type_Input_Box *rows_box, SDL_Rect amp_box,
+                        SDL_Rect dc_box, SDL_Rect sel_button, SDL_Rect rec_button, Type_Active_Fields active);
 
 void draw_frequency_axis(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect waterfall_rect);
 
@@ -199,8 +166,6 @@ void append_text(char *dst, size_t dst_sz, const char *src);
 
 void backspace_text(char *dst);
 
-
-
 int cmp_double_for_qsort(const void *a, const void *b);
 
 void get_visible_bin_range(int *start_bin, int *end_bin);
@@ -209,46 +174,23 @@ double estimate_noise_floor_median_visible(double *db, int start_bin, int end_bi
 
 void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, double *db);
 
-void ANALYSIS_draw_line_plot(SDL_Renderer *renderer,
-                             SDL_Rect rect,
-                             const float *values,
-                             int count,
-                             int bipolar,
-                             SDL_Color color,
-                             const char *title,
-                             TTF_Font *font);
+void ANALYSIS_draw_line_plot(SDL_Renderer *renderer, SDL_Rect rect, const float *values, int count, int bipolar,
+                             SDL_Color color, const char *title, TTF_Font *font);
 
-void ANALYSIS_draw_constellation_plot(SDL_Renderer *renderer,
-                                      SDL_Rect rect,
-                                      const float *i_values,
-                                      const float *q_values,
-                                      int count,
-                                      TTF_Font *font);
+void ANALYSIS_draw_constellation_plot(SDL_Renderer *renderer, SDL_Rect rect, const float *i_values,
+                                      const float *q_values, int count, TTF_Font *font);
 
-void ANALYSIS_make_ellipsis_text(TTF_Font *font,
-                                 const char *src,
-                                 char *dst,
-                                 size_t dst_sz,
-                                 int max_px);
+void ANALYSIS_make_ellipsis_text(TTF_Font *font, const char *src, char *dst, size_t dst_sz, int max_px);
 
-void ANALYSIS_draw_loading_indicator(SDL_Renderer *renderer,
-                                     TTF_Font *font,
-                                     SDL_Rect parent_rect);
+void ANALYSIS_draw_loading_indicator(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect parent_rect);
 
 void ANALYSIS_draw_file_list(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect);
 
 void ANALYSIS_draw_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect spec_rect);
 
-void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
-                               TTF_Font *font,
-                               SDL_Texture *texture,
-                               uint32_t *pixels,
-                               int tex_w,
-                               int tex_h,
-                               int win_w,
-                               int win_h);
+void ANALYSIS_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture *texture, uint32_t *pixels,
+                               int tex_w, int tex_h, int win_w, int win_h);
 
 void ANALYSIS_exit_mode(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *texture);
-
 
 #endif

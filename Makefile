@@ -1,16 +1,5 @@
 # ============================================================================
 # RetroSpectrum Makefile
-# Project layout:
-#   include/*.h
-#   src/*.c
-#   build/
-#
-# Important:
-#   - RetroSpectrum.c is the main application entry point.
-#   - MapDashboard.c contains the dashboard/map/case logic.
-#   - world_map_bin_loader.c is included inside MapDashboard.c with
-#     WORLD_MAP_NO_DEMO, so DO NOT compile it separately.
-#   - RetroSpectrum_dashboard_only.c / map-only backups are not compiled.
 # ============================================================================
 
 CC      := gcc
@@ -20,8 +9,35 @@ SRC_DIR := src
 INC_DIR := include
 BUILD_DIR := build
 
+OPENSSL_MIN_VERSION := 3.5.6
+SQLCIPHER_MIN_VERSION := 4.6.1
+OPENSSL_VERSION := $(shell pkg-config --modversion openssl 2>/dev/null)
+# Debian/Parrot's sqlcipher.pc reports the embedded SQLite version (for example
+# 3.46.1), not the SQLCipher release. Ask SQLCipher itself for cipher_version.
+SQLCIPHER_VERSION := $(shell sqlcipher ':memory:' 'PRAGMA cipher_version;' 2>/dev/null | awk 'NR == 1 { print $$1 }')
+OPENSSL_OK := $(shell pkg-config --atleast-version=$(OPENSSL_MIN_VERSION) openssl 2>/dev/null && echo 1 || echo 0)
+SQLCIPHER_OK := $(shell \
+	if pkg-config --exists sqlcipher 2>/dev/null && \
+	   command -v sqlcipher >/dev/null 2>&1 && \
+	   [ -n "$(SQLCIPHER_VERSION)" ] && \
+	   dpkg --compare-versions "$(SQLCIPHER_VERSION)" ge "$(SQLCIPHER_MIN_VERSION)"; \
+	then echo 1; else echo 0; fi)
+
+ifeq ($(OPENSSL_OK),0)
+$(error OpenSSL $(OPENSSL_MIN_VERSION)+ development files are required. Found: $(OPENSSL_VERSION))
+endif
+ifeq ($(SQLCIPHER_OK),0)
+$(error SQLCipher $(SQLCIPHER_MIN_VERSION)+ runtime and development files are required. PRAGMA cipher_version reported: $(SQLCIPHER_VERSION))
+endif
+
 SRCS := \
 	$(SRC_DIR)/RetroSpectrum.c \
+	$(SRC_DIR)/AuthScreen.c \
+	$(SRC_DIR)/AuthAdmin.c \
+	$(SRC_DIR)/ServerIdentity.c \
+	$(SRC_DIR)/SecureNetwork.c \
+	$(SRC_DIR)/DatabaseCrypto.c \
+	$(SRC_DIR)/DataStore.c \
 	$(SRC_DIR)/MapDashboard.c \
 	$(SRC_DIR)/GUIs.c \
 	$(SRC_DIR)/AnalysisWorkstation.c \
@@ -31,9 +47,12 @@ SRCS := \
 
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-CFLAGS  := -Wall -Wextra -O2 -std=c11 -I$(INC_DIR)
-LDFLAGS :=
-LDLIBS  := -lhackrf -lfftw3 -lSDL2 -lSDL2_ttf -lSDL2_image -lm -lpthread
+CPPFLAGS := -I$(INC_DIR) $(shell pkg-config --cflags openssl sqlcipher)
+CFLAGS  := -Wall -Wextra -Wformat=2 -Wformat-security -O2 -std=c11 \
+           -fstack-protector-strong -D_FORTIFY_SOURCE=3 -fPIE -fno-common
+LDFLAGS := -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack
+LDLIBS  := -lhackrf -lfftw3 -lSDL2 -lSDL2_ttf -lSDL2_image -largon2 \
+           $(shell pkg-config --libs openssl sqlcipher) -lm -lpthread
 
 MAP_SRC := $(SRC_DIR)/world_map.bin
 MAP_DST := $(BUILD_DIR)/world_map.bin
@@ -93,7 +112,7 @@ $(TARGET): $(OBJS) | $(BUILD_DIR)
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	@printf "\r$(CLEAR)Compiling: $< -> $@\n"
 	@$(DRAW_PROGRESS)
-	@$(CC) $(CFLAGS) -c $< -o $@ > "$(LOG_FILE)" 2>&1 || { printf "\n"; cat "$(LOG_FILE)"; exit 1; }
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@ > "$(LOG_FILE)" 2>&1 || { printf "\n"; cat "$(LOG_FILE)"; exit 1; }
 	@rm -f "$(LOG_FILE)"
 	@$(STEP_DONE)
 

@@ -22,11 +22,8 @@ extern int Global_CaseManagement_Mode;
 
 void CASE_MANAGEMENT_enter_mode(const char *record_dir);
 void CASE_MANAGEMENT_exit_mode(void);
-int  CASE_MANAGEMENT_is_text_entry_active(void);
-int  CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h);
-void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer,
-                                      TTF_Font *font,
-                                      int win_w,
-                                      int win_h);
+int CASE_MANAGEMENT_is_text_entry_active(void);
+int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h);
+void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 
 #endif

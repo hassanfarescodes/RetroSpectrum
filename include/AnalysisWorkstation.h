@@ -1,10 +1,10 @@
 #ifndef ANALYSIS_WORKSTATION_H
 #define ANALYSIS_WORKSTATION_H
 
-#include <stdint.h>
-#include <stddef.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "GUIs.h"
 
@@ -52,43 +52,20 @@ extern float Global_Analysis_PSD_Line[ANALYSIS_MAX_RENDER_W];
 extern float Global_Analysis_Const_I[4096];
 extern float Global_Analysis_Const_Q[4096];
 
-void ANALYSIS_enter_mode(const char *record_dir,
-                         uint64_t fallback_center_hz,
-                         uint32_t fallback_rec_out_rate_hz,
+void ANALYSIS_enter_mode(const char *record_dir, uint64_t fallback_center_hz, uint32_t fallback_rec_out_rate_hz,
                          uint32_t fallback_sample_rate_hz);
 
-void ANALYSIS_exit_mode(uint32_t *pixels,
-                        int tex_w,
-                        int tex_h,
-                        SDL_Texture *texture);
+void ANALYSIS_exit_mode(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *texture);
 
-int ANALYSIS_handle_event(SDL_Event *event,
-                          int win_w,
-                          int win_h,
-                          uint32_t *pixels,
-                          int tex_w,
-                          int tex_h,
-                          SDL_Texture *waterfall_texture,
-                          uint64_t *next_waterfall_ms,
-                          Type_Active_Fields *active);
+int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixels, int tex_w, int tex_h,
+                          SDL_Texture *waterfall_texture, uint64_t *next_waterfall_ms, Type_Active_Fields *active);
 
 void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h);
 
-void ANALYSIS_draw_workstation(SDL_Renderer *renderer,
-                               TTF_Font *font,
-                               SDL_Texture *texture,
-                               uint32_t *pixels,
-                               int tex_w,
-                               int tex_h,
-                               int win_w,
-                               int win_h);
+void ANALYSIS_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture *texture, uint32_t *pixels,
+                               int tex_w, int tex_h, int win_w, int win_h);
 
-void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer,
-                                        TTF_Font *font,
-                                        SDL_Texture *texture,
-                                        int tex_w,
-                                        int tex_h,
-                                        int win_w,
-                                        int win_h);
+void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture *texture, int tex_w,
+                                        int tex_h, int win_w, int win_h);
 
 #endif

@@ -24,11 +24,8 @@ extern int Global_Decode_Mode;
 
 void DECODE_enter_mode(const char *record_dir);
 void DECODE_exit_mode(void);
-int  DECODE_is_text_entry_active(void);
-int  DECODE_handle_event(const SDL_Event *event, int win_w, int win_h);
-void DECODE_draw_workstation(SDL_Renderer *renderer,
-                             TTF_Font *font,
-                             int win_w,
-                             int win_h);
+int DECODE_is_text_entry_active(void);
+int DECODE_handle_event(const SDL_Event *event, int win_w, int win_h);
+void DECODE_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 
 #endif

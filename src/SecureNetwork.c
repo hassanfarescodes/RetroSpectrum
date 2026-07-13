@@ -1,0 +1,1303 @@
+#define _POSIX_C_SOURCE 200809L
+
+#include "SecureNetwork.h"
+#include "AuthService.h"
+#include "ServerIdentity.h"
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+
+#if OPENSSL_VERSION_NUMBER < 0x30500000L
+#error "SecureNetwork.c requires OpenSSL 3.5.0 or newer."
+#endif
+
+#define SECURE_NETWORK_MAGIC 0x52535051U
+#define SECURE_NETWORK_VERSION 1U
+#define SECURE_NETWORK_MAX_PAYLOAD (64U * 1024U * 1024U + 4096U)
+#define SECURE_NETWORK_MAX_CLIENTS 32
+#define SECURE_NETWORK_HANDSHAKES_PER_MINUTE 20
+#define SECURE_NETWORK_EXPORTER_BYTES 64
+#define SECURE_NETWORK_NONCE_BYTES 32
+#define SECURE_NETWORK_HEADER_BYTES 16
+#define SECURE_NETWORK_RESPONSE_FLAG 0x8000U
+#define SECURE_NETWORK_TIMEOUT_SECONDS 30
+
+#define SECURE_NETWORK_TYPE_AUTH 1U
+#define SECURE_NETWORK_TYPE_SAVE 2U
+#define SECURE_NETWORK_TYPE_LOAD 3U
+#define SECURE_NETWORK_TYPE_LIST 4U
+#define SECURE_NETWORK_TYPE_LOGOUT 5U
+#define SECURE_NETWORK_TYPE_USER_LIST 6U
+
+#define SECURE_NETWORK_STATUS_ERROR 0U
+#define SECURE_NETWORK_STATUS_OK 1U
+#define SECURE_NETWORK_STATUS_TOTP_REQUIRED 2U
+
+static const unsigned char Secure_Network_Proof_Domain[] =
+    "RetroSpectrum ML-DSA-87 TLS channel proof v1";
+static const char Secure_Network_Exporter_Label[] =
+    "EXPORTER-RetroSpectrum-PQ-Identity-v1";
+
+static SSL_CTX *Global_Secure_Server_Context = NULL;
+static int Global_Secure_Listen_Fd = -1;
+static pthread_t Global_Secure_Server_Thread;
+static int Global_Secure_Server_Thread_Started = 0;
+static volatile int Global_Secure_Server_Running = 0;
+static pthread_mutex_t Global_Secure_Server_Lock = PTHREAD_MUTEX_INITIALIZER;
+static int Global_Secure_Active_Clients = 0;
+static char Global_Secure_Status[256] = "Secure network transport is not running.";
+
+static SSL_CTX *Global_Secure_Client_Context = NULL;
+static SSL *Global_Secure_Client_SSL = NULL;
+static int Global_Secure_Client_Fd = -1;
+static int Global_Secure_Client_Authenticated = 0;
+static pthread_mutex_t Global_Secure_Client_Lock = PTHREAD_MUTEX_INITIALIZER;
+static uint32_t Global_Secure_Request_Id = 1;
+
+struct Type_Secure_Rate_Entry {
+    uint32_t address;
+    time_t window_start;
+    unsigned int count;
+};
+static struct Type_Secure_Rate_Entry Global_Secure_Rate_Entries[64];
+static pthread_mutex_t Global_Secure_Rate_Lock = PTHREAD_MUTEX_INITIALIZER;
+
+typedef struct Type_Secure_Client_Thread {
+    int fd;
+    struct sockaddr_in peer;
+} Type_Secure_Client_Thread;
+
+static void secure_network_set_error(char *error, size_t error_size, const char *message) {
+    if (error && error_size > 0) {
+        snprintf(error, error_size, "%s", message ? message : "Secure network error.");
+    }
+}
+
+static void secure_network_set_status(const char *message) {
+    pthread_mutex_lock(&Global_Secure_Server_Lock);
+    snprintf(Global_Secure_Status, sizeof(Global_Secure_Status), "%s", message ? message : "");
+    pthread_mutex_unlock(&Global_Secure_Server_Lock);
+}
+
+static void secure_network_store_u16(unsigned char *output, uint16_t value) {
+    value = htons(value);
+    memcpy(output, &value, sizeof(value));
+}
+
+static void secure_network_store_u32(unsigned char *output, uint32_t value) {
+    value = htonl(value);
+    memcpy(output, &value, sizeof(value));
+}
+
+static void secure_network_store_u64(unsigned char *output, uint64_t value) {
+    for (int i = 7; i >= 0; i--) {
+        output[i] = (unsigned char)(value & 0xffU);
+        value >>= 8;
+    }
+}
+
+static uint16_t secure_network_load_u16(const unsigned char *input) {
+    uint16_t value;
+    memcpy(&value, input, sizeof(value));
+    return ntohs(value);
+}
+
+static uint32_t secure_network_load_u32(const unsigned char *input) {
+    uint32_t value;
+    memcpy(&value, input, sizeof(value));
+    return ntohl(value);
+}
+
+static uint64_t secure_network_load_u64(const unsigned char *input) {
+    uint64_t value = 0;
+    for (int i = 0; i < 8; i++) {
+        value = (value << 8) | input[i];
+    }
+    return value;
+}
+
+static int secure_network_ssl_write_all(SSL *ssl, const void *data, size_t size) {
+    const unsigned char *bytes = data;
+    size_t offset = 0;
+
+    while (offset < size) {
+        size_t written = 0;
+        if (SSL_write_ex(ssl, bytes + offset, size - offset, &written) != 1 || written == 0) {
+            return 0;
+        }
+        offset += written;
+    }
+    return 1;
+}
+
+static int secure_network_ssl_read_all(SSL *ssl, void *data, size_t size) {
+    unsigned char *bytes = data;
+    size_t offset = 0;
+
+    while (offset < size) {
+        size_t received = 0;
+        if (SSL_read_ex(ssl, bytes + offset, size - offset, &received) != 1 || received == 0) {
+            return 0;
+        }
+        offset += received;
+    }
+    return 1;
+}
+
+static int secure_network_send_frame(SSL *ssl, uint16_t type, uint32_t request_id,
+                                     const void *payload, size_t payload_size) {
+    unsigned char header[SECURE_NETWORK_HEADER_BYTES];
+
+    if (!ssl || payload_size > SECURE_NETWORK_MAX_PAYLOAD ||
+        (payload_size > 0 && !payload)) {
+        return 0;
+    }
+    secure_network_store_u32(header, SECURE_NETWORK_MAGIC);
+    secure_network_store_u16(header + 4, SECURE_NETWORK_VERSION);
+    secure_network_store_u16(header + 6, type);
+    secure_network_store_u32(header + 8, request_id);
+    secure_network_store_u32(header + 12, (uint32_t)payload_size);
+    return secure_network_ssl_write_all(ssl, header, sizeof(header)) &&
+           (payload_size == 0 || secure_network_ssl_write_all(ssl, payload, payload_size));
+}
+
+static int secure_network_receive_frame(SSL *ssl, uint16_t *type, uint32_t *request_id,
+                                        unsigned char **payload, size_t *payload_size) {
+    unsigned char header[SECURE_NETWORK_HEADER_BYTES];
+    uint32_t length;
+    unsigned char *buffer = NULL;
+
+    if (!ssl || !type || !request_id || !payload || !payload_size ||
+        !secure_network_ssl_read_all(ssl, header, sizeof(header)) ||
+        secure_network_load_u32(header) != SECURE_NETWORK_MAGIC ||
+        secure_network_load_u16(header + 4) != SECURE_NETWORK_VERSION) {
+        return 0;
+    }
+
+    *type = secure_network_load_u16(header + 6);
+    *request_id = secure_network_load_u32(header + 8);
+    length = secure_network_load_u32(header + 12);
+    if (length > SECURE_NETWORK_MAX_PAYLOAD) {
+        return 0;
+    }
+    if (length > 0) {
+        buffer = OPENSSL_malloc(length);
+        if (!buffer || !secure_network_ssl_read_all(ssl, buffer, length)) {
+            OPENSSL_clear_free(buffer, length);
+            return 0;
+        }
+    }
+    *payload = buffer;
+    *payload_size = length;
+    return 1;
+}
+
+static EVP_PKEY *secure_network_generate_tls_key(void) {
+    EVP_PKEY_CTX *context = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+    EVP_PKEY *key = NULL;
+
+    if (!context || EVP_PKEY_keygen_init(context) <= 0 ||
+        EVP_PKEY_CTX_set_group_name(context, "secp384r1") <= 0 ||
+        EVP_PKEY_generate(context, &key) <= 0) {
+        EVP_PKEY_free(key);
+        key = NULL;
+    }
+    EVP_PKEY_CTX_free(context);
+    return key;
+}
+
+static X509 *secure_network_generate_tls_certificate(EVP_PKEY *key) {
+    X509 *certificate = NULL;
+    X509_NAME *name;
+    unsigned int serial = 0;
+
+    if (!key || RAND_bytes((unsigned char *)&serial, sizeof(serial)) != 1 ||
+        !(certificate = X509_new()) || X509_set_version(certificate, 2) != 1 ||
+        ASN1_INTEGER_set(X509_get_serialNumber(certificate), (long)(serial | 1U)) != 1 ||
+        !X509_gmtime_adj(X509_getm_notBefore(certificate), -60) ||
+        !X509_gmtime_adj(X509_getm_notAfter(certificate), 86400) ||
+        X509_set_pubkey(certificate, key) != 1) {
+        X509_free(certificate);
+        return NULL;
+    }
+
+    name = X509_get_subject_name(certificate);
+    if (!name || X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC,
+                                             (const unsigned char *)"RetroSpectrum Ephemeral TLS",
+                                             -1, -1, 0) != 1 ||
+        X509_set_issuer_name(certificate, name) != 1 ||
+        X509_sign(certificate, key, EVP_sha384()) <= 0) {
+        X509_free(certificate);
+        return NULL;
+    }
+    return certificate;
+}
+
+static int secure_network_configure_context(SSL_CTX *context) {
+    if (!context ||
+        SSL_CTX_set_min_proto_version(context, TLS1_3_VERSION) != 1 ||
+        SSL_CTX_set_max_proto_version(context, TLS1_3_VERSION) != 1 ||
+        SSL_CTX_set1_groups_list(context, "SecP384r1MLKEM1024") != 1 ||
+        SSL_CTX_set_ciphersuites(context, "TLS_AES_256_GCM_SHA384") != 1) {
+        return 0;
+    }
+
+    SSL_CTX_set_security_level(context, 4);
+    SSL_CTX_set_options(context, SSL_OP_NO_COMPRESSION | SSL_OP_NO_RENEGOTIATION |
+                                  SSL_OP_NO_TICKET);
+    SSL_CTX_set_session_cache_mode(context, SSL_SESS_CACHE_OFF);
+    SSL_CTX_set_max_early_data(context, 0);
+    return 1;
+}
+
+static SSL_CTX *secure_network_create_server_context(void) {
+    SSL_CTX *context = SSL_CTX_new(TLS_server_method());
+    EVP_PKEY *key = NULL;
+    X509 *certificate = NULL;
+
+    if (!context || !secure_network_configure_context(context) ||
+        !(key = secure_network_generate_tls_key()) ||
+        !(certificate = secure_network_generate_tls_certificate(key)) ||
+        SSL_CTX_use_certificate(context, certificate) != 1 ||
+        SSL_CTX_use_PrivateKey(context, key) != 1 ||
+        SSL_CTX_check_private_key(context) != 1) {
+        SSL_CTX_free(context);
+        context = NULL;
+    }
+    X509_free(certificate);
+    EVP_PKEY_free(key);
+    return context;
+}
+
+static SSL_CTX *secure_network_create_client_context(void) {
+    SSL_CTX *context = SSL_CTX_new(TLS_client_method());
+    if (!context || !secure_network_configure_context(context)) {
+        SSL_CTX_free(context);
+        return NULL;
+    }
+    /* The ephemeral TLS certificate is intentionally not trusted. The imported
+       ML-DSA-87 key authenticates a channel-bound proof before any credential
+       or application data is sent. */
+    SSL_CTX_set_verify(context, SSL_VERIFY_NONE, NULL);
+    return context;
+}
+
+static int secure_network_validate_negotiated_tls(SSL *ssl) {
+    const char *cipher;
+    const char *group;
+
+    if (!ssl || SSL_version(ssl) != TLS1_3_VERSION) {
+        return 0;
+    }
+    cipher = SSL_get_cipher_name(ssl);
+    group = SSL_get0_group_name(ssl);
+    return cipher && group &&
+           strcmp(cipher, "TLS_AES_256_GCM_SHA384") == 0 &&
+           strcmp(group, "SecP384r1MLKEM1024") == 0 &&
+           SSL_session_reused(ssl) == 0;
+}
+
+static int secure_network_export_binding(SSL *ssl,
+                                         unsigned char output[SECURE_NETWORK_EXPORTER_BYTES]) {
+    return ssl && SSL_export_keying_material(ssl, output, SECURE_NETWORK_EXPORTER_BYTES,
+                                             Secure_Network_Exporter_Label,
+                                             sizeof(Secure_Network_Exporter_Label) - 1,
+                                             NULL, 0, 0) == 1;
+}
+
+static size_t secure_network_build_proof_message(
+    const unsigned char client_nonce[SECURE_NETWORK_NONCE_BYTES],
+    const unsigned char server_nonce[SECURE_NETWORK_NONCE_BYTES],
+    const unsigned char binding[SECURE_NETWORK_EXPORTER_BYTES],
+    unsigned char *message, size_t message_size) {
+    size_t domain_size = sizeof(Secure_Network_Proof_Domain) - 1;
+    size_t required = domain_size + 2 * SECURE_NETWORK_NONCE_BYTES + SECURE_NETWORK_EXPORTER_BYTES + 2;
+    size_t offset = 0;
+
+    if (!client_nonce || !server_nonce || !binding || !message || message_size < required) {
+        return 0;
+    }
+    memcpy(message + offset, Secure_Network_Proof_Domain, domain_size);
+    offset += domain_size;
+    secure_network_store_u16(message + offset, SECURE_NETWORK_VERSION);
+    offset += 2;
+    memcpy(message + offset, client_nonce, SECURE_NETWORK_NONCE_BYTES);
+    offset += SECURE_NETWORK_NONCE_BYTES;
+    memcpy(message + offset, server_nonce, SECURE_NETWORK_NONCE_BYTES);
+    offset += SECURE_NETWORK_NONCE_BYTES;
+    memcpy(message + offset, binding, SECURE_NETWORK_EXPORTER_BYTES);
+    return required;
+}
+
+static int secure_network_server_identity_proof(SSL *ssl) {
+    unsigned char client_nonce[SECURE_NETWORK_NONCE_BYTES];
+    unsigned char server_nonce[SECURE_NETWORK_NONCE_BYTES];
+    unsigned char binding[SECURE_NETWORK_EXPORTER_BYTES];
+    unsigned char proof_message[256];
+    unsigned char signature[SERVER_IDENTITY_SIGNATURE_BYTES];
+    size_t proof_size;
+    int success = 0;
+
+    if (!secure_network_ssl_read_all(ssl, client_nonce, sizeof(client_nonce)) ||
+        RAND_bytes(server_nonce, sizeof(server_nonce)) != 1 ||
+        !secure_network_export_binding(ssl, binding) ||
+        !(proof_size = secure_network_build_proof_message(client_nonce, server_nonce, binding,
+                                                           proof_message, sizeof(proof_message))) ||
+        !SERVER_IDENTITY_sign_local(proof_message, proof_size, signature) ||
+        !secure_network_ssl_write_all(ssl, server_nonce, sizeof(server_nonce)) ||
+        !secure_network_ssl_write_all(ssl, signature, sizeof(signature))) {
+        goto cleanup;
+    }
+    success = 1;
+
+cleanup:
+    OPENSSL_cleanse(client_nonce, sizeof(client_nonce));
+    OPENSSL_cleanse(server_nonce, sizeof(server_nonce));
+    OPENSSL_cleanse(binding, sizeof(binding));
+    OPENSSL_cleanse(proof_message, sizeof(proof_message));
+    OPENSSL_cleanse(signature, sizeof(signature));
+    return success;
+}
+
+static int secure_network_client_identity_proof(SSL *ssl, char *error, size_t error_size) {
+    unsigned char client_nonce[SECURE_NETWORK_NONCE_BYTES];
+    unsigned char server_nonce[SECURE_NETWORK_NONCE_BYTES];
+    unsigned char binding[SECURE_NETWORK_EXPORTER_BYTES];
+    unsigned char proof_message[256];
+    unsigned char signature[SERVER_IDENTITY_SIGNATURE_BYTES];
+    size_t proof_size;
+    int success = 0;
+
+    if (RAND_bytes(client_nonce, sizeof(client_nonce)) != 1 ||
+        !secure_network_ssl_write_all(ssl, client_nonce, sizeof(client_nonce)) ||
+        !secure_network_ssl_read_all(ssl, server_nonce, sizeof(server_nonce)) ||
+        !secure_network_ssl_read_all(ssl, signature, sizeof(signature)) ||
+        !secure_network_export_binding(ssl, binding) ||
+        !(proof_size = secure_network_build_proof_message(client_nonce, server_nonce, binding,
+                                                           proof_message, sizeof(proof_message))) ||
+        !SERVER_IDENTITY_verify_trusted(proof_message, proof_size, signature)) {
+        secure_network_set_error(error, error_size,
+                                 "The server failed ML-DSA-87 channel-bound identity verification.");
+        goto cleanup;
+    }
+    success = 1;
+
+cleanup:
+    OPENSSL_cleanse(client_nonce, sizeof(client_nonce));
+    OPENSSL_cleanse(server_nonce, sizeof(server_nonce));
+    OPENSSL_cleanse(binding, sizeof(binding));
+    OPENSSL_cleanse(proof_message, sizeof(proof_message));
+    OPENSSL_cleanse(signature, sizeof(signature));
+    return success;
+}
+
+static int secure_network_handshake_allowed(uint32_t address) {
+    time_t now = time(NULL);
+    int allowed = 0;
+    size_t selected = 0;
+    time_t oldest = now;
+
+    pthread_mutex_lock(&Global_Secure_Rate_Lock);
+    for (size_t i = 0; i < sizeof(Global_Secure_Rate_Entries) / sizeof(Global_Secure_Rate_Entries[0]); i++) {
+        struct Type_Secure_Rate_Entry *entry = &Global_Secure_Rate_Entries[i];
+        if (entry->address == address) {
+            if (now - entry->window_start >= 60) {
+                entry->window_start = now;
+                entry->count = 0;
+            }
+            if (entry->count < SECURE_NETWORK_HANDSHAKES_PER_MINUTE) {
+                entry->count++;
+                allowed = 1;
+            }
+            pthread_mutex_unlock(&Global_Secure_Rate_Lock);
+            return allowed;
+        }
+        if (entry->address == 0) {
+            selected = i;
+            oldest = 0;
+            break;
+        }
+        if (entry->window_start < oldest) {
+            oldest = entry->window_start;
+            selected = i;
+        }
+    }
+    Global_Secure_Rate_Entries[selected].address = address;
+    Global_Secure_Rate_Entries[selected].window_start = now;
+    Global_Secure_Rate_Entries[selected].count = 1;
+    pthread_mutex_unlock(&Global_Secure_Rate_Lock);
+    return 1;
+}
+
+static int secure_network_send_status(SSL *ssl, uint16_t request_type, uint32_t request_id,
+                                      uint32_t status, const char *message,
+                                      const void *extra, size_t extra_size) {
+    size_t message_size = message ? strlen(message) : 0;
+    size_t payload_size = 8 + message_size + extra_size;
+    unsigned char *payload;
+    int result;
+
+    if (message_size > 65535 || payload_size > SECURE_NETWORK_MAX_PAYLOAD) {
+        return 0;
+    }
+    payload = OPENSSL_malloc(payload_size);
+    if (!payload) {
+        return 0;
+    }
+    secure_network_store_u32(payload, status);
+    secure_network_store_u32(payload + 4, (uint32_t)message_size);
+    if (message_size > 0) {
+        memcpy(payload + 8, message, message_size);
+    }
+    if (extra_size > 0) {
+        memcpy(payload + 8 + message_size, extra, extra_size);
+    }
+    result = secure_network_send_frame(ssl, request_type | SECURE_NETWORK_RESPONSE_FLAG,
+                                       request_id, payload, payload_size);
+    OPENSSL_clear_free(payload, payload_size);
+    return result;
+}
+
+static int secure_network_parse_auth(const unsigned char *payload, size_t payload_size,
+                                     char **username, char **password, char **totp) {
+    uint16_t username_size;
+    uint16_t password_size;
+    uint16_t totp_size;
+    size_t required;
+    size_t offset = 8;
+
+    if (!payload || payload_size < 8 || !username || !password || !totp) {
+        return 0;
+    }
+    username_size = secure_network_load_u16(payload);
+    password_size = secure_network_load_u16(payload + 2);
+    totp_size = secure_network_load_u16(payload + 4);
+    required = 8U + username_size + password_size + totp_size;
+    if (required != payload_size || username_size == 0 || username_size > 63 ||
+        password_size == 0 || password_size > 127 || totp_size > 8) {
+        return 0;
+    }
+
+    *username = OPENSSL_zalloc((size_t)username_size + 1);
+    *password = OPENSSL_zalloc((size_t)password_size + 1);
+    *totp = OPENSSL_zalloc((size_t)totp_size + 1);
+    if (!*username || !*password || !*totp) {
+        return 0;
+    }
+    memcpy(*username, payload + offset, username_size);
+    offset += username_size;
+    memcpy(*password, payload + offset, password_size);
+    offset += password_size;
+    if (totp_size > 0) {
+        memcpy(*totp, payload + offset, totp_size);
+    }
+    return 1;
+}
+
+static int secure_network_handle_auth(SSL *ssl, uint32_t request_id,
+                                      const unsigned char *payload, size_t payload_size,
+                                      const char *remote_ip, int *authenticated, int *is_admin) {
+    char *username = NULL;
+    char *password = NULL;
+    char *totp = NULL;
+    char message[256];
+    int admin = 0;
+    int result;
+    unsigned char extra[4];
+
+    if (!secure_network_parse_auth(payload, payload_size, &username, &password, &totp)) {
+        secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id,
+                                   SECURE_NETWORK_STATUS_ERROR, "Malformed authentication request.", NULL, 0);
+        goto cleanup;
+    }
+
+    result = AUTH_SERVER_authenticate(username, password, totp, remote_ip, &admin,
+                                      message, sizeof(message));
+    if (result == AUTH_SERVER_RESULT_SUCCESS) {
+        *authenticated = 1;
+        *is_admin = admin;
+        secure_network_store_u32(extra, (uint32_t)admin);
+        secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id,
+                                   SECURE_NETWORK_STATUS_OK, "Authenticated.", extra, sizeof(extra));
+    } else if (result == AUTH_SERVER_RESULT_TOTP_REQUIRED) {
+        secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id,
+                                   SECURE_NETWORK_STATUS_TOTP_REQUIRED,
+                                   "Authenticator code required.", NULL, 0);
+    } else {
+        secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id,
+                                   SECURE_NETWORK_STATUS_ERROR,
+                                   message[0] ? message : "Authentication failed.", NULL, 0);
+    }
+
+cleanup:
+    if (username) OPENSSL_clear_free(username, strlen(username));
+    if (password) OPENSSL_clear_free(password, strlen(password));
+    if (totp) OPENSSL_clear_free(totp, strlen(totp));
+    return 1;
+}
+
+static int secure_network_handle_save(SSL *ssl, uint32_t request_id,
+                                      const unsigned char *payload, size_t payload_size) {
+    uint16_t kind_size, name_size, case_size;
+    uint32_t content_size;
+    size_t offset = 12;
+    size_t required;
+    char kind[64], name[DATASTORE_DOCUMENT_NAME_MAX], case_number[DATASTORE_CASE_NUMBER_MAX];
+    char error[256] = "";
+
+    if (!payload || payload_size < 12) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, "Malformed save request.", NULL, 0);
+    }
+    kind_size = secure_network_load_u16(payload);
+    name_size = secure_network_load_u16(payload + 2);
+    case_size = secure_network_load_u16(payload + 4);
+    content_size = secure_network_load_u32(payload + 8);
+    required = 12U + kind_size + name_size + case_size + content_size;
+    if (required != payload_size || kind_size == 0 || kind_size >= sizeof(kind) ||
+        name_size == 0 || name_size >= sizeof(name) || case_size >= sizeof(case_number)) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, "Malformed save request.", NULL, 0);
+    }
+    memcpy(kind, payload + offset, kind_size); kind[kind_size] = '\0'; offset += kind_size;
+    memcpy(name, payload + offset, name_size); name[name_size] = '\0'; offset += name_size;
+    memcpy(case_number, payload + offset, case_size); case_number[case_size] = '\0'; offset += case_size;
+
+    if (!DATASTORE_server_save_content(kind, name, case_number, payload + offset, content_size,
+                                       error, sizeof(error))) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, error, NULL, 0);
+    }
+    return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id,
+                                      SECURE_NETWORK_STATUS_OK, "Saved.", NULL, 0);
+}
+
+static int secure_network_handle_load(SSL *ssl, uint32_t request_id,
+                                      const unsigned char *payload, size_t payload_size) {
+    uint16_t kind_size, name_size;
+    char kind[64], name[DATASTORE_DOCUMENT_NAME_MAX];
+    unsigned char *content = NULL;
+    size_t content_size = 0;
+    int found = 0;
+    char error[256] = "";
+    unsigned char *extra = NULL;
+    size_t extra_size = 8;
+    int result;
+
+    if (!payload || payload_size < 4) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LOAD, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, "Malformed load request.", NULL, 0);
+    }
+    kind_size = secure_network_load_u16(payload);
+    name_size = secure_network_load_u16(payload + 2);
+    if (4U + kind_size + name_size != payload_size || kind_size == 0 || kind_size >= sizeof(kind) ||
+        name_size == 0 || name_size >= sizeof(name)) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LOAD, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, "Malformed load request.", NULL, 0);
+    }
+    memcpy(kind, payload + 4, kind_size); kind[kind_size] = '\0';
+    memcpy(name, payload + 4 + kind_size, name_size); name[name_size] = '\0';
+
+    if (!DATASTORE_server_load_content(kind, name, &content, &content_size, &found,
+                                       error, sizeof(error))) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LOAD, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, error, NULL, 0);
+    }
+    extra_size += content_size;
+    extra = OPENSSL_malloc(extra_size);
+    if (!extra) {
+        DATASTORE_free_content(content, content_size);
+        return 0;
+    }
+    secure_network_store_u32(extra, (uint32_t)found);
+    secure_network_store_u32(extra + 4, (uint32_t)content_size);
+    if (content_size > 0) memcpy(extra + 8, content, content_size);
+    result = secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LOAD, request_id,
+                                        SECURE_NETWORK_STATUS_OK, "Loaded.", extra, extra_size);
+    OPENSSL_clear_free(extra, extra_size);
+    DATASTORE_free_content(content, content_size);
+    return result;
+}
+
+static int secure_network_handle_list(SSL *ssl, uint32_t request_id,
+                                      const unsigned char *payload, size_t payload_size) {
+    uint16_t kind_size;
+    char kind[64];
+    Type_DataStore_Document_Summary documents[512];
+    size_t count = 0;
+    size_t extra_size = 4;
+    unsigned char *extra;
+    size_t offset = 4;
+    char error[256] = "";
+    int result;
+
+    if (!payload || payload_size < 2) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LIST, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, "Malformed list request.", NULL, 0);
+    }
+    kind_size = secure_network_load_u16(payload);
+    if (2U + kind_size != payload_size || kind_size == 0 || kind_size >= sizeof(kind)) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LIST, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, "Malformed list request.", NULL, 0);
+    }
+    memcpy(kind, payload + 2, kind_size); kind[kind_size] = '\0';
+    if (!DATASTORE_server_list_documents(kind, documents, 512, &count, error, sizeof(error))) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LIST, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, error, NULL, 0);
+    }
+    for (size_t i = 0; i < count; i++) {
+        extra_size += 12 + strlen(documents[i].document_name) + strlen(documents[i].case_number);
+    }
+    extra = OPENSSL_malloc(extra_size);
+    if (!extra) return 0;
+    secure_network_store_u32(extra, (uint32_t)count);
+    for (size_t i = 0; i < count; i++) {
+        size_t name_size = strlen(documents[i].document_name);
+        size_t case_size = strlen(documents[i].case_number);
+        secure_network_store_u16(extra + offset, (uint16_t)name_size);
+        secure_network_store_u16(extra + offset + 2, (uint16_t)case_size);
+        secure_network_store_u64(extra + offset + 4, (uint64_t)documents[i].updated_at);
+        offset += 12;
+        memcpy(extra + offset, documents[i].document_name, name_size); offset += name_size;
+        memcpy(extra + offset, documents[i].case_number, case_size); offset += case_size;
+    }
+    result = secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LIST, request_id,
+                                        SECURE_NETWORK_STATUS_OK, "Listed.", extra, extra_size);
+    OPENSSL_clear_free(extra, extra_size);
+    return result;
+}
+
+static int secure_network_handle_user_list(SSL *ssl, uint32_t request_id) {
+    Type_Auth_User_Summary users[512];
+    size_t count = 0;
+    size_t extra_size = 4;
+    size_t offset = 4;
+    unsigned char *extra;
+    char error[256] = "";
+    int result;
+
+    if (!AUTH_DB_server_list_users(users, 512, &count, error, sizeof(error))) {
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_LIST, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, error, NULL, 0);
+    }
+    for (size_t i = 0; i < count; i++) {
+        extra_size += 20 + strlen(users[i].username);
+    }
+    extra = OPENSSL_malloc(extra_size);
+    if (!extra) {
+        return 0;
+    }
+    secure_network_store_u32(extra, (uint32_t)count);
+    for (size_t i = 0; i < count; i++) {
+        size_t username_size = strlen(users[i].username);
+        secure_network_store_u16(extra + offset, (uint16_t)username_size);
+        secure_network_store_u16(extra + offset + 2, (uint16_t)users[i].role);
+        secure_network_store_u32(extra + offset + 4, (uint32_t)users[i].is_admin);
+        secure_network_store_u32(extra + offset + 8, (uint32_t)users[i].totp_enabled);
+        secure_network_store_u64(extra + offset + 12, (uint64_t)users[i].created_at);
+        offset += 20;
+        memcpy(extra + offset, users[i].username, username_size);
+        offset += username_size;
+    }
+    result = secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_LIST, request_id,
+                                        SECURE_NETWORK_STATUS_OK, "Users listed.", extra, extra_size);
+    OPENSSL_clear_free(extra, extra_size);
+    return result;
+}
+
+static void *secure_network_client_thread(void *argument) {
+    Type_Secure_Client_Thread *client = argument;
+    SSL *ssl = NULL;
+    char remote_ip[INET_ADDRSTRLEN] = "unknown";
+    int authenticated = 0;
+    int is_admin = 0;
+
+    inet_ntop(AF_INET, &client->peer.sin_addr, remote_ip, sizeof(remote_ip));
+    ssl = SSL_new(Global_Secure_Server_Context);
+    if (!ssl) goto cleanup;
+    SSL_set_fd(ssl, client->fd);
+    if (SSL_accept(ssl) != 1 || !secure_network_validate_negotiated_tls(ssl) ||
+        !secure_network_server_identity_proof(ssl)) {
+        goto cleanup;
+    }
+
+    while (Global_Secure_Server_Running) {
+        uint16_t type;
+        uint32_t request_id;
+        unsigned char *payload = NULL;
+        size_t payload_size = 0;
+        int keep = 1;
+
+        if (!secure_network_receive_frame(ssl, &type, &request_id, &payload, &payload_size)) {
+            break;
+        }
+        if (type == SECURE_NETWORK_TYPE_AUTH) {
+            keep = secure_network_handle_auth(ssl, request_id, payload, payload_size,
+                                              remote_ip, &authenticated, &is_admin);
+        } else if (!authenticated) {
+            keep = secure_network_send_status(ssl, type, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                              "Authentication is required.", NULL, 0);
+        } else if (type == SECURE_NETWORK_TYPE_SAVE) {
+            keep = secure_network_handle_save(ssl, request_id, payload, payload_size);
+        } else if (type == SECURE_NETWORK_TYPE_LOAD) {
+            keep = secure_network_handle_load(ssl, request_id, payload, payload_size);
+        } else if (type == SECURE_NETWORK_TYPE_LIST) {
+            keep = secure_network_handle_list(ssl, request_id, payload, payload_size);
+        } else if (type == SECURE_NETWORK_TYPE_USER_LIST && payload_size == 0) {
+            keep = secure_network_handle_user_list(ssl, request_id);
+        } else if (type == SECURE_NETWORK_TYPE_LOGOUT) {
+            secure_network_send_status(ssl, type, request_id, SECURE_NETWORK_STATUS_OK,
+                                       "Logged out.", NULL, 0);
+            keep = 0;
+        } else {
+            keep = secure_network_send_status(ssl, type, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                              "Unsupported request type.", NULL, 0);
+        }
+        OPENSSL_clear_free(payload, payload_size);
+        if (!keep) break;
+    }
+
+cleanup:
+    if (ssl) {
+        SSL_shutdown(ssl);
+        SSL_free(ssl);
+    }
+    close(client->fd);
+    OPENSSL_clear_free(client, sizeof(*client));
+    pthread_mutex_lock(&Global_Secure_Server_Lock);
+    if (Global_Secure_Active_Clients > 0) Global_Secure_Active_Clients--;
+    pthread_mutex_unlock(&Global_Secure_Server_Lock);
+    return NULL;
+}
+
+static void *secure_network_server_thread(void *unused) {
+    (void)unused;
+    while (Global_Secure_Server_Running) {
+        Type_Secure_Client_Thread *client;
+        socklen_t peer_size;
+        pthread_t thread;
+        int fd;
+
+        client = OPENSSL_zalloc(sizeof(*client));
+        if (!client) {
+            struct timespec delay = {0, 100000000L};
+            nanosleep(&delay, NULL);
+            continue;
+        }
+        peer_size = sizeof(client->peer);
+        fd = accept(Global_Secure_Listen_Fd, (struct sockaddr *)&client->peer, &peer_size);
+        if (fd < 0) {
+            OPENSSL_free(client);
+            if (errno == EINTR) continue;
+            if (!Global_Secure_Server_Running) break;
+            continue;
+        }
+        client->fd = fd;
+        if (!secure_network_handshake_allowed(client->peer.sin_addr.s_addr)) {
+            close(fd);
+            OPENSSL_free(client);
+            continue;
+        }
+        pthread_mutex_lock(&Global_Secure_Server_Lock);
+        if (Global_Secure_Active_Clients >= SECURE_NETWORK_MAX_CLIENTS) {
+            pthread_mutex_unlock(&Global_Secure_Server_Lock);
+            close(fd);
+            OPENSSL_free(client);
+            continue;
+        }
+        Global_Secure_Active_Clients++;
+        pthread_mutex_unlock(&Global_Secure_Server_Lock);
+
+        {
+            struct timeval timeout = {SECURE_NETWORK_TIMEOUT_SECONDS, 0};
+            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+        }
+        if (pthread_create(&thread, NULL, secure_network_client_thread, client) != 0) {
+            close(fd);
+            OPENSSL_free(client);
+            pthread_mutex_lock(&Global_Secure_Server_Lock);
+            Global_Secure_Active_Clients--;
+            pthread_mutex_unlock(&Global_Secure_Server_Lock);
+            continue;
+        }
+        pthread_detach(thread);
+    }
+    return NULL;
+}
+
+int SECURE_NETWORK_start_server(char *error, size_t error_size) {
+    struct sockaddr_in address;
+    int enabled = 1;
+
+    if (Global_Secure_Server_Thread_Started) return 1;
+    if (error && error_size > 0) error[0] = '\0';
+
+    Global_Secure_Server_Context = secure_network_create_server_context();
+    if (!Global_Secure_Server_Context) {
+        secure_network_set_error(error, error_size,
+                                 "Unable to configure TLS 1.3 SecP384r1MLKEM1024 server context.");
+        return 0;
+    }
+    Global_Secure_Listen_Fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (Global_Secure_Listen_Fd < 0) goto failure;
+    setsockopt(Global_Secure_Listen_Fd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled));
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(SECURE_NETWORK_PORT);
+    address.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(Global_Secure_Listen_Fd, (struct sockaddr *)&address, sizeof(address)) != 0 ||
+        listen(Global_Secure_Listen_Fd, 32) != 0) goto failure;
+
+    Global_Secure_Server_Running = 1;
+    if (pthread_create(&Global_Secure_Server_Thread, NULL, secure_network_server_thread, NULL) != 0) {
+        Global_Secure_Server_Running = 0;
+        goto failure;
+    }
+    Global_Secure_Server_Thread_Started = 1;
+    secure_network_set_status("TLS 1.3 SecP384r1MLKEM1024 server listening on port 47742.");
+    return 1;
+
+failure:
+    secure_network_set_error(error, error_size, "Unable to bind secure server port 47742.");
+    if (Global_Secure_Listen_Fd >= 0) close(Global_Secure_Listen_Fd);
+    Global_Secure_Listen_Fd = -1;
+    SSL_CTX_free(Global_Secure_Server_Context);
+    Global_Secure_Server_Context = NULL;
+    return 0;
+}
+
+void SECURE_NETWORK_stop_server(void) {
+    SECURE_NETWORK_disconnect();
+    Global_Secure_Server_Running = 0;
+    if (Global_Secure_Listen_Fd >= 0) {
+        shutdown(Global_Secure_Listen_Fd, SHUT_RDWR);
+        close(Global_Secure_Listen_Fd);
+        Global_Secure_Listen_Fd = -1;
+    }
+    if (Global_Secure_Server_Thread_Started) {
+        pthread_join(Global_Secure_Server_Thread, NULL);
+        Global_Secure_Server_Thread_Started = 0;
+    }
+    SSL_CTX_free(Global_Secure_Server_Context);
+    Global_Secure_Server_Context = NULL;
+    secure_network_set_status("Secure network transport stopped.");
+}
+
+static void secure_network_close_client_locked(void) {
+    if (Global_Secure_Client_SSL) {
+        SSL_shutdown(Global_Secure_Client_SSL);
+        SSL_free(Global_Secure_Client_SSL);
+        Global_Secure_Client_SSL = NULL;
+    }
+    if (Global_Secure_Client_Fd >= 0) {
+        close(Global_Secure_Client_Fd);
+        Global_Secure_Client_Fd = -1;
+    }
+    SSL_CTX_free(Global_Secure_Client_Context);
+    Global_Secure_Client_Context = NULL;
+    Global_Secure_Client_Authenticated = 0;
+}
+
+void SECURE_NETWORK_disconnect(void) {
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+    if (Global_Secure_Client_SSL && Global_Secure_Client_Authenticated) {
+        secure_network_send_frame(Global_Secure_Client_SSL, SECURE_NETWORK_TYPE_LOGOUT,
+                                  Global_Secure_Request_Id++, NULL, 0);
+    }
+    secure_network_close_client_locked();
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+}
+
+static int secure_network_connect_locked(char *error, size_t error_size) {
+    char host[INET_ADDRSTRLEN];
+    struct sockaddr_in address;
+
+    if (Global_Secure_Client_SSL) return 1;
+    if (!SERVER_IDENTITY_get_trusted_host(host, sizeof(host))) {
+        secure_network_set_error(error, error_size,
+                                 "The trusted server has not been discovered on the LAN yet.");
+        return 0;
+    }
+    Global_Secure_Client_Context = secure_network_create_client_context();
+    if (!Global_Secure_Client_Context) {
+        secure_network_set_error(error, error_size, "Unable to configure the post-quantum TLS client.");
+        return 0;
+    }
+    Global_Secure_Client_Fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (Global_Secure_Client_Fd < 0) goto failure;
+    {
+        struct timeval timeout = {SECURE_NETWORK_TIMEOUT_SECONDS, 0};
+        setsockopt(Global_Secure_Client_Fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        setsockopt(Global_Secure_Client_Fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    }
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(SECURE_NETWORK_PORT);
+    if (inet_pton(AF_INET, host, &address.sin_addr) != 1 ||
+        connect(Global_Secure_Client_Fd, (struct sockaddr *)&address, sizeof(address)) != 0) {
+        secure_network_set_error(error, error_size, "Unable to connect to the trusted server on port 47742.");
+        goto failure;
+    }
+    Global_Secure_Client_SSL = SSL_new(Global_Secure_Client_Context);
+    if (!Global_Secure_Client_SSL) goto failure;
+    SSL_set_fd(Global_Secure_Client_SSL, Global_Secure_Client_Fd);
+    if (SSL_connect(Global_Secure_Client_SSL) != 1 ||
+        !secure_network_validate_negotiated_tls(Global_Secure_Client_SSL) ||
+        !secure_network_client_identity_proof(Global_Secure_Client_SSL, error, error_size)) {
+        goto failure;
+    }
+    return 1;
+
+failure:
+    secure_network_close_client_locked();
+    if (error && error_size > 0 && error[0] == '\0') {
+        secure_network_set_error(error, error_size, "The secure server connection failed.");
+    }
+    return 0;
+}
+
+static int secure_network_receive_status_locked(uint16_t request_type, uint32_t request_id,
+                                                uint32_t *status, char *message, size_t message_size,
+                                                unsigned char **extra, size_t *extra_size) {
+    uint16_t type;
+    uint32_t response_id;
+    unsigned char *payload = NULL;
+    size_t payload_size = 0;
+    uint32_t message_length;
+
+    if (!secure_network_receive_frame(Global_Secure_Client_SSL, &type, &response_id,
+                                      &payload, &payload_size) ||
+        type != (request_type | SECURE_NETWORK_RESPONSE_FLAG) || response_id != request_id ||
+        payload_size < 8) {
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+    }
+    *status = secure_network_load_u32(payload);
+    message_length = secure_network_load_u32(payload + 4);
+    if ((size_t)message_length + 8 > payload_size) {
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+    }
+    if (message && message_size > 0) {
+        size_t copy = message_length < message_size - 1 ? message_length : message_size - 1;
+        memcpy(message, payload + 8, copy);
+        message[copy] = '\0';
+    }
+    if (extra && extra_size) {
+        *extra_size = payload_size - 8 - message_length;
+        *extra = NULL;
+        if (*extra_size > 0) {
+            *extra = OPENSSL_malloc(*extra_size);
+            if (!*extra) {
+                OPENSSL_clear_free(payload, payload_size);
+                return 0;
+            }
+            memcpy(*extra, payload + 8 + message_length, *extra_size);
+        }
+    }
+    OPENSSL_clear_free(payload, payload_size);
+    return 1;
+}
+
+int SECURE_NETWORK_authenticate(const char *username, const char *password, const char *totp,
+                                int *is_admin, char *error, size_t error_size) {
+    size_t username_size = username ? strlen(username) : 0;
+    size_t password_size = password ? strlen(password) : 0;
+    size_t totp_size = totp ? strlen(totp) : 0;
+    size_t payload_size = 8 + username_size + password_size + totp_size;
+    unsigned char *payload = NULL;
+    uint32_t request_id, status;
+    unsigned char *extra = NULL;
+    size_t extra_size = 0;
+    int result = SECURE_NETWORK_AUTH_ERROR;
+
+    if (error && error_size > 0) error[0] = '\0';
+    if (!username || !password || username_size == 0 || username_size > 63 ||
+        password_size == 0 || password_size > 127 || totp_size > 8) {
+        secure_network_set_error(error, error_size, "Invalid remote authentication request.");
+        return SECURE_NETWORK_AUTH_ERROR;
+    }
+
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+    if (!secure_network_connect_locked(error, error_size)) goto cleanup;
+    payload = OPENSSL_zalloc(payload_size);
+    if (!payload) goto cleanup;
+    secure_network_store_u16(payload, (uint16_t)username_size);
+    secure_network_store_u16(payload + 2, (uint16_t)password_size);
+    secure_network_store_u16(payload + 4, (uint16_t)totp_size);
+    memcpy(payload + 8, username, username_size);
+    memcpy(payload + 8 + username_size, password, password_size);
+    if (totp_size > 0) memcpy(payload + 8 + username_size + password_size, totp, totp_size);
+
+    request_id = Global_Secure_Request_Id++;
+    if (!secure_network_send_frame(Global_Secure_Client_SSL, SECURE_NETWORK_TYPE_AUTH,
+                                   request_id, payload, payload_size) ||
+        !secure_network_receive_status_locked(SECURE_NETWORK_TYPE_AUTH, request_id, &status,
+                                              error, error_size, &extra, &extra_size)) {
+        secure_network_set_error(error, error_size, "The encrypted authentication exchange failed.");
+        secure_network_close_client_locked();
+        goto cleanup;
+    }
+    if (status == SECURE_NETWORK_STATUS_OK) {
+        Global_Secure_Client_Authenticated = 1;
+        if (is_admin) *is_admin = extra_size >= 4 && secure_network_load_u32(extra) != 0;
+        result = SECURE_NETWORK_AUTH_SUCCESS;
+    } else if (status == SECURE_NETWORK_STATUS_TOTP_REQUIRED) {
+        result = SECURE_NETWORK_AUTH_TOTP_REQUIRED;
+    }
+
+cleanup:
+    OPENSSL_clear_free(payload, payload_size);
+    OPENSSL_clear_free(extra, extra_size);
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    return result;
+}
+
+int SECURE_NETWORK_is_authenticated_remote(void) {
+    int result;
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+    result = Global_Secure_Client_Authenticated;
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    return result;
+}
+
+const char *SECURE_NETWORK_status(void) {
+    return Global_Secure_Status;
+}
+
+static int secure_network_request_locked(uint16_t type, const void *payload, size_t payload_size,
+                                         uint32_t *status, char *error, size_t error_size,
+                                         unsigned char **extra, size_t *extra_size) {
+    uint32_t request_id;
+    if (!Global_Secure_Client_Authenticated || !Global_Secure_Client_SSL) {
+        secure_network_set_error(error, error_size, "No authenticated remote-server session exists.");
+        return 0;
+    }
+    request_id = Global_Secure_Request_Id++;
+    if (!secure_network_send_frame(Global_Secure_Client_SSL, type, request_id, payload, payload_size) ||
+        !secure_network_receive_status_locked(type, request_id, status, error, error_size,
+                                              extra, extra_size)) {
+        secure_network_close_client_locked();
+        secure_network_set_error(error, error_size, "The encrypted server request failed.");
+        return 0;
+    }
+    return 1;
+}
+
+int SECURE_NETWORK_save_document(const char *document_kind, const char *document_name,
+                                 const char *case_number, const void *content, size_t content_size,
+                                 char *error, size_t error_size) {
+    size_t kind_size = document_kind ? strlen(document_kind) : 0;
+    size_t name_size = document_name ? strlen(document_name) : 0;
+    size_t case_size = case_number ? strlen(case_number) : 0;
+    size_t payload_size = 12 + kind_size + name_size + case_size + content_size;
+    unsigned char *payload;
+    size_t offset = 12;
+    uint32_t status;
+    int success = 0;
+
+    if (kind_size == 0 || kind_size > 63 || name_size == 0 || name_size >= DATASTORE_DOCUMENT_NAME_MAX ||
+        case_size >= DATASTORE_CASE_NUMBER_MAX || content_size > 64U * 1024U * 1024U) {
+        secure_network_set_error(error, error_size, "Invalid remote document save request.");
+        return 0;
+    }
+    payload = OPENSSL_malloc(payload_size);
+    if (!payload) return 0;
+    secure_network_store_u16(payload, (uint16_t)kind_size);
+    secure_network_store_u16(payload + 2, (uint16_t)name_size);
+    secure_network_store_u16(payload + 4, (uint16_t)case_size);
+    secure_network_store_u16(payload + 6, 0);
+    secure_network_store_u32(payload + 8, (uint32_t)content_size);
+    memcpy(payload + offset, document_kind, kind_size); offset += kind_size;
+    memcpy(payload + offset, document_name, name_size); offset += name_size;
+    if (case_size > 0) { memcpy(payload + offset, case_number, case_size); offset += case_size; }
+    if (content_size > 0) memcpy(payload + offset, content, content_size);
+
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+    success = secure_network_request_locked(SECURE_NETWORK_TYPE_SAVE, payload, payload_size,
+                                            &status, error, error_size, NULL, NULL) &&
+              status == SECURE_NETWORK_STATUS_OK;
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    OPENSSL_clear_free(payload, payload_size);
+    return success;
+}
+
+int SECURE_NETWORK_load_document(const char *document_kind, const char *document_name,
+                                 unsigned char **content, size_t *content_size, int *found,
+                                 char *error, size_t error_size) {
+    size_t kind_size = document_kind ? strlen(document_kind) : 0;
+    size_t name_size = document_name ? strlen(document_name) : 0;
+    size_t payload_size = 4 + kind_size + name_size;
+    unsigned char *payload, *extra = NULL;
+    size_t extra_size = 0;
+    uint32_t status, found_value, length;
+    int success = 0;
+
+    if (!content || !content_size || !found || kind_size == 0 || kind_size > 63 ||
+        name_size == 0 || name_size >= DATASTORE_DOCUMENT_NAME_MAX) return 0;
+    *content = NULL; *content_size = 0; *found = 0;
+    payload = OPENSSL_malloc(payload_size);
+    if (!payload) return 0;
+    secure_network_store_u16(payload, (uint16_t)kind_size);
+    secure_network_store_u16(payload + 2, (uint16_t)name_size);
+    memcpy(payload + 4, document_kind, kind_size);
+    memcpy(payload + 4 + kind_size, document_name, name_size);
+
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+    if (!secure_network_request_locked(SECURE_NETWORK_TYPE_LOAD, payload, payload_size,
+                                       &status, error, error_size, &extra, &extra_size) ||
+        status != SECURE_NETWORK_STATUS_OK || extra_size < 8) goto cleanup;
+    found_value = secure_network_load_u32(extra);
+    length = secure_network_load_u32(extra + 4);
+    if ((size_t)length + 8 != extra_size) goto cleanup;
+    *found = found_value != 0;
+    if (*found && length > 0) {
+        *content = malloc(length);
+        if (!*content) goto cleanup;
+        memcpy(*content, extra + 8, length);
+        *content_size = length;
+    }
+    success = 1;
+
+cleanup:
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    OPENSSL_clear_free(payload, payload_size);
+    OPENSSL_clear_free(extra, extra_size);
+    if (!success) {
+        free(*content); *content = NULL; *content_size = 0; *found = 0;
+    }
+    return success;
+}
+
+int SECURE_NETWORK_list_documents(const char *document_kind,
+                                  Type_DataStore_Document_Summary *documents,
+                                  size_t capacity, size_t *count,
+                                  char *error, size_t error_size) {
+    size_t kind_size = document_kind ? strlen(document_kind) : 0;
+    unsigned char payload[66], *extra = NULL;
+    size_t extra_size = 0, offset = 4, available;
+    uint32_t status, total;
+    int success = 0;
+
+    if (!documents || !count || kind_size == 0 || kind_size > 63) return 0;
+    *count = 0;
+    secure_network_store_u16(payload, (uint16_t)kind_size);
+    memcpy(payload + 2, document_kind, kind_size);
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+    if (!secure_network_request_locked(SECURE_NETWORK_TYPE_LIST, payload, 2 + kind_size,
+                                       &status, error, error_size, &extra, &extra_size) ||
+        status != SECURE_NETWORK_STATUS_OK || extra_size < 4) goto cleanup;
+    total = secure_network_load_u32(extra);
+    available = total < capacity ? total : capacity;
+    for (size_t i = 0; i < total; i++) {
+        uint16_t name_size, case_size;
+        uint64_t updated;
+        if (offset + 12 > extra_size) goto cleanup;
+        name_size = secure_network_load_u16(extra + offset);
+        case_size = secure_network_load_u16(extra + offset + 2);
+        updated = secure_network_load_u64(extra + offset + 4);
+        offset += 12;
+        if (offset + name_size + case_size > extra_size ||
+            name_size >= DATASTORE_DOCUMENT_NAME_MAX || case_size >= DATASTORE_CASE_NUMBER_MAX) goto cleanup;
+        if (i < available) {
+            memcpy(documents[i].document_name, extra + offset, name_size);
+            documents[i].document_name[name_size] = '\0';
+            memcpy(documents[i].case_number, extra + offset + name_size, case_size);
+            documents[i].case_number[case_size] = '\0';
+            documents[i].updated_at = (long long)updated;
+        }
+        offset += name_size + case_size;
+    }
+    if (offset != extra_size) goto cleanup;
+    *count = available;
+    success = 1;
+
+cleanup:
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    OPENSSL_clear_free(extra, extra_size);
+    return success;
+}
+
+
+int SECURE_NETWORK_list_users(Type_Auth_User_Summary *users, size_t capacity, size_t *count,
+                              char *error, size_t error_size) {
+    uint32_t status, total;
+    unsigned char *extra = NULL;
+    size_t extra_size = 0;
+    size_t offset = 4;
+    size_t available;
+    int success = 0;
+
+    if (!users || !count || capacity == 0) {
+        secure_network_set_error(error, error_size, "Invalid user-list request.");
+        return 0;
+    }
+    *count = 0;
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+    if (!secure_network_request_locked(SECURE_NETWORK_TYPE_USER_LIST, NULL, 0,
+                                       &status, error, error_size, &extra, &extra_size) ||
+        status != SECURE_NETWORK_STATUS_OK || extra_size < 4) {
+        goto cleanup;
+    }
+    total = secure_network_load_u32(extra);
+    available = total < capacity ? total : capacity;
+    for (size_t i = 0; i < total; i++) {
+        uint16_t username_size;
+        uint16_t role;
+        uint32_t is_admin;
+        uint32_t totp_enabled;
+        uint64_t created_at;
+        if (offset + 20 > extra_size) {
+            goto cleanup;
+        }
+        username_size = secure_network_load_u16(extra + offset);
+        role = secure_network_load_u16(extra + offset + 2);
+        is_admin = secure_network_load_u32(extra + offset + 4);
+        totp_enabled = secure_network_load_u32(extra + offset + 8);
+        created_at = secure_network_load_u64(extra + offset + 12);
+        offset += 20;
+        if (offset + username_size > extra_size || username_size > AUTH_PUBLIC_USERNAME_MAX) {
+            goto cleanup;
+        }
+        if (i < available) {
+            memset(&users[i], 0, sizeof(users[i]));
+            memcpy(users[i].username, extra + offset, username_size);
+            users[i].username[username_size] = '\0';
+            users[i].role = role <= AUTH_ROLE_ADMIN
+                                ? (int)role
+                                : (is_admin ? AUTH_ROLE_CO_ADMIN : AUTH_ROLE_USER);
+            users[i].is_admin = users[i].role >= AUTH_ROLE_CO_ADMIN;
+            users[i].totp_enabled = totp_enabled != 0;
+            users[i].created_at = (int64_t)created_at;
+        }
+        offset += username_size;
+    }
+    if (offset != extra_size) {
+        goto cleanup;
+    }
+    *count = available;
+    success = 1;
+
+cleanup:
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    OPENSSL_clear_free(extra, extra_size);
+    return success;
+}

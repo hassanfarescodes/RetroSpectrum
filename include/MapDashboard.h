@@ -59,31 +59,15 @@ typedef struct Type_Dashboard_State {
 int dashboard_init(Type_Dashboard_State *dashboard, const char *map_bin_path);
 void dashboard_shutdown(void);
 
-int dashboard_handle_top_tab_event(Type_Dashboard_State *dashboard,
-                                   const SDL_Event *event,
-                                   int win_w,
+int dashboard_handle_top_tab_event(Type_Dashboard_State *dashboard, const SDL_Event *event, int win_w,
                                    int text_entry_active);
 
-int dashboard_handle_event(Type_Dashboard_State *dashboard,
-                           const SDL_Event *event,
-                           int win_w,
-                           int win_h);
+int dashboard_handle_event(Type_Dashboard_State *dashboard, const SDL_Event *event, int win_w, int win_h);
 
-void dashboard_draw(Type_Dashboard_State *dashboard,
-                    SDL_Renderer *renderer,
-                    TTF_Font *font_small,
-                    TTF_Font *font_medium,
-                    int win_w,
-                    int win_h,
-                    int mouse_x,
-                    int mouse_y);
+void dashboard_draw(Type_Dashboard_State *dashboard, SDL_Renderer *renderer, TTF_Font *font_small,
+                    TTF_Font *font_medium, int win_w, int win_h, int mouse_x, int mouse_y);
 
-void dashboard_draw_top_bar(SDL_Renderer *renderer,
-                            TTF_Font *font_small,
-                            TTF_Font *font_medium,
-                            int win_w,
-                            int mouse_x,
-                            int mouse_y,
-                            int active_tab);
+void dashboard_draw_top_bar(SDL_Renderer *renderer, TTF_Font *font_small, TTF_Font *font_medium, int win_w, int mouse_x,
+                            int mouse_y, int active_tab);
 
 #endif
