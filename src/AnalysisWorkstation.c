@@ -60,9 +60,17 @@
 #endif
 
 static void ANALYSIS_get_adjusted_mouse_state(int *x, int *y) {
+    /*
+        Purpose: Gets the adjusted mouse state
+        Returns: No value
+    */
+
     SDL_GetMouseState(x, y);
+
     if (y) {
+
         *y -= RETROSPECTRUM_DASHBOARD_TAB_BAR_H;
+
     }
 }
 
@@ -72,19 +80,36 @@ static uint32_t Global_Analysis_Fallback_Rec_Out_Rate_Hz = 0;
 static uint32_t Global_Analysis_Fallback_Sample_Rate_Hz = 0;
 
 static double ANALYSIS_limit_double(double value, double low, double high) {
+    /*
+        Purpose: Limits the double
+        Returns: Computed value
+    */
+
     if (value < low) {
+
         return low;
+
     }
+
     if (value > high) {
+
         return high;
+
     }
     return value;
 }
 
 static void ANALYSIS_set_context(const char *record_dir, uint64_t fallback_center_hz, uint32_t fallback_rec_out_rate_hz,
                                  uint32_t fallback_sample_rate_hz) {
+    /*
+        Purpose: Sets the context
+        Returns: No value
+    */
+
     if (record_dir && record_dir[0] != '\0') {
+
         snprintf(Global_Analysis_Record_Dir, sizeof(Global_Analysis_Record_Dir), "%s", record_dir);
+
     }
 
     Global_Analysis_Fallback_Center_Hz = fallback_center_hz;
@@ -250,8 +275,15 @@ static int Global_Analysis_Active_Workspace = 0;
 static int Global_Analysis_Workspaces_Initialized = 0;
 
 static void ANALYSIS_save_workspace_state(int index) {
+    /*
+        Purpose: Saves the workspace state
+        Returns: No value
+    */
+
     if (index < 0 || index >= ANALYSIS_WORKSPACE_COUNT) {
+
         return;
+
     }
 
     Type_Analysis_Workspace_State *ws = &Global_Analysis_Workspaces[index];
@@ -312,8 +344,15 @@ static void ANALYSIS_save_workspace_state(int index) {
 }
 
 static void ANALYSIS_load_workspace_state(int index) {
+    /*
+        Purpose: Loads the workspace state
+        Returns: No value
+    */
+
     if (index < 0 || index >= ANALYSIS_WORKSPACE_COUNT) {
+
         return;
+
     }
 
     Type_Analysis_Workspace_State *ws = &Global_Analysis_Workspaces[index];
@@ -374,8 +413,15 @@ static void ANALYSIS_load_workspace_state(int index) {
 }
 
 static void ANALYSIS_switch_workspace(int delta) {
+    /*
+        Purpose: Switches the workspace
+        Returns: No value
+    */
+
     if (delta == 0) {
+
         return;
+
     }
 
     ANALYSIS_save_workspace_state(Global_Analysis_Active_Workspace);
@@ -383,11 +429,15 @@ static void ANALYSIS_switch_workspace(int delta) {
     Global_Analysis_Active_Workspace += delta;
 
     if (Global_Analysis_Active_Workspace < 0) {
+
         Global_Analysis_Active_Workspace = ANALYSIS_WORKSPACE_COUNT - 1;
+
     }
 
     if (Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
+
         Global_Analysis_Active_Workspace = 0;
+
     }
 
     ANALYSIS_load_workspace_state(Global_Analysis_Active_Workspace);
@@ -420,11 +470,8 @@ static int ANALYSIS_name_compare(const void *a, const void *b) {
 
 static int ANALYSIS_is_complex16_file(const char *name) {
     /*
-
-    Purpose: Checks whether a filename has the complex16 recording suffix
-
-    Return: Match status
-
+        Purpose: Checks whether a filename has the complex16 recording suffix
+        Returns: Match status
     */
 
     size_t len = strlen(name);
@@ -432,7 +479,9 @@ static int ANALYSIS_is_complex16_file(const char *name) {
     size_t suffix_len = strlen(suffix);
 
     if (len < suffix_len) {
+
         return 0;
+
     }
 
     return strcmp(name + len - suffix_len, suffix) == 0;
@@ -440,11 +489,8 @@ static int ANALYSIS_is_complex16_file(const char *name) {
 
 static void ANALYSIS_clear_loaded_file(void) {
     /*
-
-    Purpose: Clears the currently loaded analysis recording state
-
-    Return: No return
-
+        Purpose: Clears the currently loaded analysis recording state
+        Returns: No value
     */
 
     Global_Analysis_Loaded_Index = -1;
@@ -497,11 +543,8 @@ static void ANALYSIS_clear_loaded_file(void) {
 
 static void ANALYSIS_parse_recording_metadata(const char *name) {
     /*
-
-    Purpose: Parses sample rate and center frequency from a recording filename
-
-    Return: No return
-
+        Purpose: Parses sample rate and center frequency from a recording filename
+        Returns: No value
     */
 
     Global_Analysis_Center_Hz = (double)Global_Analysis_Fallback_Center_Hz;
@@ -512,35 +555,42 @@ static void ANALYSIS_parse_recording_metadata(const char *name) {
     const char *cap = strstr(name, "_CAPTURE_");
 
     if (cap) {
+
         double mhz = 0.0;
 
         if (sscanf(cap, "_CAPTURE_%lfMHz", &mhz) == 1 && mhz > 0.0) {
+
             Global_Analysis_Center_Hz = mhz * 1e6;
+
         }
+
     }
 
     const char *sr = strstr(name, "_SR_");
 
     if (sr) {
+
         double khz = 0.0;
 
         if (sscanf(sr, "_SR_%lfk", &khz) == 1 && khz > 0.0) {
+
             Global_Analysis_Sample_Rate = khz * 1000.0;
+
         }
+
     }
 
     if (Global_Analysis_Sample_Rate <= 0.0) {
+
         Global_Analysis_Sample_Rate = (double)Global_Analysis_Fallback_Sample_Rate_Hz;
+
     }
 }
 
 static int ANALYSIS_scan_recordings(void) {
     /*
-
-    Purpose: Scans the recording directory for complex16 files
-
-    Return: Scan status
-
+        Purpose: Scans the recording directory for complex16 files
+        Returns: Scan status
     */
 
     DIR *dir = opendir(Global_Analysis_Record_Dir);
@@ -548,17 +598,22 @@ static int ANALYSIS_scan_recordings(void) {
     Global_Analysis_File_Count = 0;
 
     if (!dir) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Could not open recording directory: %.180s",
                  Global_Analysis_Record_Dir);
         ANALYSIS_clear_loaded_file();
         return 0;
+
     }
 
     struct dirent *entry = NULL;
 
     while ((entry = readdir(dir)) != NULL && Global_Analysis_File_Count < ANALYSIS_MAX_FILES) {
+
         if (!ANALYSIS_is_complex16_file(entry->d_name)) {
+
             continue;
+
         }
 
         snprintf(Global_Analysis_Files[Global_Analysis_File_Count],
@@ -572,28 +627,38 @@ static int ANALYSIS_scan_recordings(void) {
           ANALYSIS_name_compare);
 
     if (Global_Analysis_File_Count <= 0) {
+
         Global_Analysis_Selected = 0;
         Global_Analysis_List_Scroll = 0;
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "No .complex16 recordings found in %.180s",
                  Global_Analysis_Record_Dir);
         ANALYSIS_clear_loaded_file();
         return 0;
+
     }
 
     if (Global_Analysis_Selected < 0) {
+
         Global_Analysis_Selected = 0;
+
     }
 
     if (Global_Analysis_Selected >= Global_Analysis_File_Count) {
+
         Global_Analysis_Selected = Global_Analysis_File_Count - 1;
+
     }
 
     if (Global_Analysis_List_Scroll < 0) {
+
         Global_Analysis_List_Scroll = 0;
+
     }
 
     if (Global_Analysis_List_Scroll >= Global_Analysis_File_Count) {
+
         Global_Analysis_List_Scroll = Global_Analysis_File_Count - 1;
+
     }
 
     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Found %d recording(s) in %.180s",
@@ -604,15 +669,14 @@ static int ANALYSIS_scan_recordings(void) {
 
 static int ANALYSIS_open_selected_recording(void) {
     /*
-
-    Purpose: Opens the selected recording for analysis
-
-    Return: Open status
-
+        Purpose: Opens the selected recording for analysis
+        Returns: Open status
     */
 
     if (Global_Analysis_File_Count <= 0) {
+
         return 0;
+
     }
 
     Global_Analysis_Loading = 1;
@@ -626,35 +690,43 @@ static int ANALYSIS_open_selected_recording(void) {
     FILE *fp = fopen(path, "rb");
 
     if (!fp) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to open %.180s",
                  Global_Analysis_Files[Global_Analysis_Selected]);
         ANALYSIS_clear_loaded_file();
         Global_Analysis_Loading = 0;
         return 0;
+
     }
 
     if (fseek(fp, 0, SEEK_END) != 0) {
+
         fclose(fp);
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to seek recording");
         ANALYSIS_clear_loaded_file();
         Global_Analysis_Loading = 0;
         return 0;
+
     }
 
     long bytes = ftell(fp);
     fclose(fp);
 
     if (bytes <= 0) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Recording is empty");
         ANALYSIS_clear_loaded_file();
         Global_Analysis_Loading = 0;
         return 0;
+
     }
 
     size_t count_i16 = (size_t)bytes / sizeof(int16_t);
 
     if (count_i16 % 2) {
+
         count_i16--;
+
     }
 
     snprintf(Global_Analysis_Path, sizeof(Global_Analysis_Path), "%s", path);
@@ -665,7 +737,9 @@ static int ANALYSIS_open_selected_recording(void) {
     Global_Analysis_View_Len = Global_Analysis_IQ_Count;
 
     if (Global_Analysis_View_Len < ANALYSIS_FFT_SIZE) {
+
         Global_Analysis_View_Len = Global_Analysis_IQ_Count;
+
     }
 
     ANALYSIS_parse_recording_metadata(Global_Analysis_Files[Global_Analysis_Selected]);
@@ -691,31 +765,36 @@ static int ANALYSIS_open_selected_recording(void) {
 
 static void ANALYSIS_select_relative(int delta) {
     /*
-
-    Purpose: Moves the selected analysis file by a relative offset
-
-    Return: No return
-
+        Purpose: Moves the selected analysis file by a relative offset
+        Returns: No value
     */
 
     if (Global_Analysis_File_Count <= 0) {
+
         return;
+
     }
 
     Global_Analysis_Selected += delta;
 
     if (Global_Analysis_Selected < 0) {
+
         Global_Analysis_Selected = Global_Analysis_File_Count - 1;
+
     }
 
     if (Global_Analysis_Selected >= Global_Analysis_File_Count) {
+
         Global_Analysis_Selected = 0;
+
     }
 
     Global_Analysis_List_Scroll = Global_Analysis_Selected - 2;
 
     if (Global_Analysis_List_Scroll < 0) {
+
         Global_Analysis_List_Scroll = 0;
+
     }
 
     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Selected %.180s | Press Enter to open",
@@ -724,22 +803,26 @@ static void ANALYSIS_select_relative(int delta) {
 
 static void ANALYSIS_zoom_at_fraction(double frac, int zoom_in) {
     /*
-
-    Purpose: Zooms the analysis view around a fractional cursor position
-
-    Return: No return
-
+        Purpose: Zooms the analysis view around a fractional cursor position
+        Returns: No value
     */
 
     if (Global_Analysis_IQ_Count == 0 || Global_Analysis_Path[0] == '\0') {
+
         return;
+
     }
 
     if (frac < 0.0) {
+
         frac = 0.0;
+
     }
+
     if (frac > 1.0) {
+
         frac = 1.0;
+
     }
 
     size_t cursor_sample = Global_Analysis_View_Start + (size_t)(frac * (double)Global_Analysis_View_Len);
@@ -747,37 +830,55 @@ static void ANALYSIS_zoom_at_fraction(double frac, int zoom_in) {
     size_t min_len = ANALYSIS_FFT_SIZE * 8;
 
     if (min_len > Global_Analysis_IQ_Count) {
+
         min_len = Global_Analysis_IQ_Count;
+
     }
 
     if (zoom_in) {
+
         Global_Analysis_View_Len /= 2;
 
         if (Global_Analysis_View_Len < min_len) {
+
             Global_Analysis_View_Len = min_len;
+
         }
+
     }
 
     else {
+
         Global_Analysis_View_Len *= 2;
 
         if (Global_Analysis_View_Len > Global_Analysis_IQ_Count) {
+
             Global_Analysis_View_Len = Global_Analysis_IQ_Count;
+
         }
+
     }
 
     size_t anchor = (size_t)(frac * (double)Global_Analysis_View_Len);
 
     if (cursor_sample > anchor) {
+
         Global_Analysis_View_Start = cursor_sample - anchor;
-    } else {
+
+    }
+
+    else {
+
         Global_Analysis_View_Start = 0;
+
     }
 
     if (Global_Analysis_View_Start + Global_Analysis_View_Len > Global_Analysis_IQ_Count) {
+
         Global_Analysis_View_Start = Global_Analysis_IQ_Count > Global_Analysis_View_Len
                                          ? Global_Analysis_IQ_Count - Global_Analysis_View_Len
                                          : 0;
+
     }
 
     Global_Analysis_Dirty = 1;
@@ -785,44 +886,53 @@ static void ANALYSIS_zoom_at_fraction(double frac, int zoom_in) {
 
 static void ANALYSIS_drag_move_view(int dx, int graph_w) {
     /*
-
-    Purpose: Moves the analysis view according to horizontal mouse drag distance
-
-    Return: No return
-
+        Purpose: Moves the analysis view according to horizontal mouse drag distance
+        Returns: No value
     */
 
     if (Global_Analysis_IQ_Count == 0 || Global_Analysis_Path[0] == '\0' || graph_w <= 0 ||
         Global_Analysis_View_Len >= Global_Analysis_IQ_Count) {
+
         return;
+
     }
 
     double samples_per_pixel = (double)Global_Analysis_View_Len / (double)graph_w;
     long delta_samples = (long)((double)(-dx) * samples_per_pixel);
 
     if (delta_samples == 0 && dx != 0) {
+
         delta_samples = (dx > 0) ? -1 : 1;
+
     }
 
     if (delta_samples < 0) {
+
         size_t step = (size_t)(-delta_samples);
 
         Global_Analysis_View_Start = Global_Analysis_View_Start > step ? Global_Analysis_View_Start - step : 0;
+
     }
 
     else if (delta_samples > 0) {
+
         size_t step = (size_t)delta_samples;
         size_t max_start = Global_Analysis_IQ_Count > Global_Analysis_View_Len
                                ? Global_Analysis_IQ_Count - Global_Analysis_View_Len
                                : 0;
 
         if (Global_Analysis_View_Start + step < max_start) {
+
             Global_Analysis_View_Start += step;
+
         }
 
         else {
+
             Global_Analysis_View_Start = max_start;
+
         }
+
     }
 
     Global_Analysis_Dirty = 1;
@@ -830,17 +940,16 @@ static void ANALYSIS_drag_move_view(int dx, int graph_w) {
 
 static void ANALYSIS_get_layout(int win_w, int win_h, SDL_Rect *list_rect, SDL_Rect *spec_rect) {
     /*
-
-    Purpose: Computes analysis workstation rectangles used by input handling
-
-    Return: No return
-
+        Purpose: Computes analysis workstation rectangles used by input handling
+        Returns: No value
     */
 
     int selector_h = (int)((double)win_h * 0.22);
 
     if (selector_h < 130) {
+
         selector_h = 130;
+
     }
 
     int gap = 10;
@@ -851,7 +960,9 @@ static void ANALYSIS_get_layout(int win_w, int win_h, SDL_Rect *list_rect, SDL_R
     int half_w = (work_w - col_gap) / 2;
 
     if (half_w < 60) {
+
         half_w = work_w / 2;
+
     }
 
     SDL_Rect local_list = {MARGIN, MARGIN, half_w, panel_h};
@@ -863,10 +974,15 @@ static void ANALYSIS_get_layout(int win_w, int win_h, SDL_Rect *list_rect, SDL_R
     int mid_row_h = top_row_h;
 
     if (top_row_h < 70) {
+
         top_row_h = 70;
+
     }
+
     if (mid_row_h < 70) {
+
         mid_row_h = 70;
+
     }
 
     int mag_y = work_y + title_h;
@@ -877,14 +993,21 @@ static void ANALYSIS_get_layout(int win_w, int win_h, SDL_Rect *list_rect, SDL_R
     SDL_Rect local_spec = {work_x, spec_title_y + title_h, work_w, win_h - (spec_title_y + title_h) - MARGIN};
 
     if (local_spec.h < 110) {
+
         local_spec.h = 110;
+
     }
 
     if (list_rect) {
+
         *list_rect = local_list;
+
     }
+
     if (spec_rect) {
+
         *spec_rect = local_spec;
+
     }
 }
 
@@ -892,17 +1015,16 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
                                             SDL_Rect *phase_rect, SDL_Rect *inst_rect, SDL_Rect *const_rect,
                                             SDL_Rect *spec_rect) {
     /*
-
-    Purpose: Computes the visible analysis graph rectangles for hover-sync lines
-
-    Return: No return
-
+        Purpose: Computes the visible analysis graph rectangles for hover-sync lines
+        Returns: No value
     */
 
     int selector_h = (int)((double)win_h * 0.22);
 
     if (selector_h < 130) {
+
         selector_h = 130;
+
     }
 
     int gap = 10;
@@ -913,13 +1035,17 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     int work_w = win_w - 2 * MARGIN;
 
     if (work_w < 100) {
+
         return;
+
     }
 
     int half_w = (work_w - col_gap) / 2;
 
     if (half_w < 60) {
+
         half_w = work_w / 2;
+
     }
 
     SDL_Rect list_rect = {MARGIN, MARGIN, half_w, panel_h};
@@ -927,7 +1053,9 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     SDL_Rect local_psd = {MARGIN + half_w + col_gap, MARGIN + title_h, work_w - half_w - col_gap, panel_h - title_h};
 
     if (local_psd.h < 70) {
+
         local_psd.h = 70;
+
     }
 
     int work_y = list_rect.y + list_rect.h + MARGIN;
@@ -938,13 +1066,21 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     int spec_h = work_h - top_row_h - mid_row_h - (gap * 2) - (title_h * 3);
 
     if (top_row_h < 70) {
+
         top_row_h = 70;
+
     }
+
     if (mid_row_h < 70) {
+
         mid_row_h = 70;
+
     }
+
     if (spec_h < 110) {
+
         spec_h = 110;
+
     }
 
     int top_title_y = work_y;
@@ -964,40 +1100,58 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     SDL_Rect local_spec = {work_x, spec_title_y + title_h, work_w, win_h - (spec_title_y + title_h) - MARGIN};
 
     if (local_spec.h < 110) {
+
         local_spec.h = 110;
+
     }
 
     if (psd_rect) {
+
         *psd_rect = local_psd;
+
     }
+
     if (mag_rect) {
+
         *mag_rect = local_mag;
+
     }
+
     if (phase_rect) {
+
         *phase_rect = local_phase;
+
     }
+
     if (inst_rect) {
+
         *inst_rect = local_inst;
+
     }
+
     if (const_rect) {
+
         *const_rect = local_const;
+
     }
+
     if (spec_rect) {
+
         *spec_rect = local_spec;
+
     }
 }
 
 static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
     /*
-
-    Purpose: Draws synchronized hover markers across related analysis views
-
-    Return: No return
-
+        Purpose: Draws synchronized hover markers across related analysis views
+        Returns: No value
     */
 
     if (!renderer || Global_Analysis_Path[0] == '\0') {
+
         return;
+
     }
 
     SDL_Rect psd_rect;
@@ -1021,16 +1175,20 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font
     double time_frac = 0.0;
 
     for (int i = 0; i < 4; i++) {
+
         if (point_in_rect(mouse_x, mouse_y, time_rects[i]) && time_rects[i].w > 0) {
+
             time_frac = (double)(mouse_x - time_rects[i].x) / (double)time_rects[i].w;
             found_time_hover = 1;
             break;
+
         }
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     if (found_time_hover) {
+
         time_frac = ANALYSIS_limit_double(time_frac, 0.0, 1.0);
 
         SDL_SetRenderDrawColor(renderer, 0, 255, 90, 190);
@@ -1039,78 +1197,106 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font
             SDL_Rect r = time_rects[i];
 
             if (r.w <= 0 || r.h <= 0) {
+
                 continue;
+
             }
 
             int line_x = r.x + (int)(time_frac * (double)r.w);
 
             if (line_x < r.x) {
+
                 line_x = r.x;
+
             }
+
             if (line_x > r.x + r.w - 1) {
+
                 line_x = r.x + r.w - 1;
+
             }
 
             SDL_RenderDrawLine(renderer, line_x, r.y, line_x, r.y + r.h);
         }
+
     }
 
     int icon_hover_keeps_frequency_label =
         (Global_Analysis_Signal_Icon_Rect_Valid && point_in_rect(mouse_x, mouse_y, Global_Analysis_Signal_Icon_Rect)) ||
-        (Global_Analysis_Multithread_Rect_Valid &&
-         point_in_rect(mouse_x, mouse_y, Global_Analysis_Multithread_Rect)) ||
+        (Global_Analysis_Multithread_Rect_Valid && point_in_rect(mouse_x, mouse_y, Global_Analysis_Multithread_Rect)) ||
         (Global_Analysis_Signal_Trash_Rect_Valid && point_in_rect(mouse_x, mouse_y, Global_Analysis_Signal_Trash_Rect));
 
     int found_freq_hover = 0;
     double freq_frac = 0.0;
 
     if (point_in_rect(mouse_x, mouse_y, spec_rect) && spec_rect.h > 0) {
+
         freq_frac = (double)(mouse_y - spec_rect.y) / (double)spec_rect.h;
         found_freq_hover = 1;
+
     }
 
     else if (point_in_rect(mouse_x, mouse_y, psd_rect) && psd_rect.w > 0) {
+
         double psd_frac = (double)(mouse_x - psd_rect.x) / (double)psd_rect.w;
         freq_frac = 1.0 - psd_frac;
         found_freq_hover = 1;
+
     }
 
     else if (icon_hover_keeps_frequency_label) {
+
         freq_frac = Global_Analysis_Signal_Icon_Freq_Frac;
         found_freq_hover = 1;
+
     }
 
     if (found_freq_hover) {
+
         freq_frac = ANALYSIS_limit_double(freq_frac, 0.0, 1.0);
 
         SDL_SetRenderDrawColor(renderer, 0, 170, 255, 210);
 
         if (spec_rect.w > 0 && spec_rect.h > 0) {
+
             int line_y = spec_rect.y + (int)(freq_frac * (double)spec_rect.h);
 
             if (line_y < spec_rect.y) {
+
                 line_y = spec_rect.y;
+
             }
+
             if (line_y > spec_rect.y + spec_rect.h - 1) {
+
                 line_y = spec_rect.y + spec_rect.h - 1;
+
             }
 
             SDL_RenderDrawLine(renderer, spec_rect.x, line_y, spec_rect.x + spec_rect.w, line_y);
+
         }
 
         if (psd_rect.w > 0 && psd_rect.h > 0) {
+
             int line_x = psd_rect.x + (int)((1.0 - freq_frac) * (double)psd_rect.w);
 
             if (line_x < psd_rect.x) {
+
                 line_x = psd_rect.x;
+
             }
+
             if (line_x > psd_rect.x + psd_rect.w - 1) {
+
                 line_x = psd_rect.x + psd_rect.w - 1;
+
             }
 
             SDL_RenderDrawLine(renderer, line_x, psd_rect.y, line_x, psd_rect.y + psd_rect.h);
 
             if (font) {
+
                 double hover_freq_hz = Global_Analysis_Center_Hz + ((0.5 - freq_frac) * Global_Analysis_Sample_Rate);
 
                 char freq_label[96];
@@ -1121,14 +1307,18 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font
                 int text_h = 0;
 
                 if (TTF_SizeText(font, freq_label, &text_w, &text_h) != 0) {
+
                     text_w = 0;
                     text_h = 0;
+
                 }
 
                 int label_w = 136;
 
                 if (label_w < text_w + 14) {
+
                     label_w = text_w + 14;
+
                 }
 
                 SDL_Rect settings_rect;
@@ -1138,13 +1328,21 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font
                                      text_h + 6};
 
                 if (label_bg.y < 0) {
+
                     label_bg.y = psd_rect.y + 4;
+
                 }
+
                 if (label_bg.x + label_bg.w > win_w - MARGIN) {
+
                     label_bg.x = win_w - MARGIN - label_bg.w;
+
                 }
+
                 if (label_bg.x < settings_rect.x + settings_rect.w + 12) {
+
                     label_bg.x = settings_rect.x + settings_rect.w + 12;
+
                 }
 
                 Global_Analysis_Signal_Icon_Freq_Frac = freq_frac;
@@ -1154,8 +1352,11 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font
                 draw_text(renderer, font, freq_label,
                           label_bg.x + 7, // 7
                           label_bg.y + 3, (SDL_Color){0, 200, 255, 255});
+
             }
+
         }
+
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
@@ -1163,16 +1364,14 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font
 
 static double ANALYSIS_freq_frac_from_mouse_y(int mouse_y, SDL_Rect spec_rect) {
     /*
-
-    Purpose: Converts a spectrogram mouse Y coordinate into a normalized frequency
-    fraction
-
-    Return: Frequency fraction
-
+        Purpose: Converts a spectrogram mouse Y coordinate into a normalized frequency fraction
+        Returns: Frequency fraction
     */
 
     if (spec_rect.h <= 0) {
+
         return 0.0;
+
     }
 
     double frac = (double)(mouse_y - spec_rect.y) / (double)spec_rect.h;
@@ -1182,11 +1381,8 @@ static double ANALYSIS_freq_frac_from_mouse_y(int mouse_y, SDL_Rect spec_rect) {
 
 static void ANALYSIS_update_filter_from_mouse(int mouse_y, SDL_Rect spec_rect) {
     /*
-
-    Purpose: Updates the analysis frequency filter selector from mouse movement
-
-    Return: No return
-
+        Purpose: Updates the analysis frequency filter selector from mouse movement
+        Returns: No value
     */
 
     Global_Analysis_Filter_Y1 = ANALYSIS_freq_frac_from_mouse_y(mouse_y, spec_rect);
@@ -1194,26 +1390,27 @@ static void ANALYSIS_update_filter_from_mouse(int mouse_y, SDL_Rect spec_rect) {
 
 static void ANALYSIS_apply_filter_selection(void) {
     /*
-
-    Purpose: Applies the analysis frequency filter selector and requests a replot
-
-    Return: No return
-
+        Purpose: Applies the analysis frequency filter selector and requests a replot
+        Returns: No value
     */
 
     double y0 = Global_Analysis_Filter_Y0;
     double y1 = Global_Analysis_Filter_Y1;
 
     if (y1 < y0) {
+
         double tmp = y0;
         y0 = y1;
         y1 = tmp;
+
     }
 
     if (fabs(y1 - y0) < 0.006) {
+
         double mid = (y0 + y1) * 0.5;
         y0 = mid - 0.003;
         y1 = mid + 0.003;
+
     }
 
     Global_Analysis_Filter_Y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
@@ -1237,11 +1434,8 @@ static void ANALYSIS_apply_filter_selection(void) {
 
 static void ANALYSIS_clear_filter(void) {
     /*
-
-    Purpose: Clears the analysis frequency filter selector and requests a replot
-
-    Return: No return
-
+        Purpose: Clears the analysis frequency filter selector and requests a replot
+        Returns: No value
     */
 
     Global_Analysis_Filter_Visible = 0;
@@ -1268,11 +1462,8 @@ static void ANALYSIS_clear_filter(void) {
 
 static double ANALYSIS_frequency_from_spec_frac(double frac) {
     /*
-
-    Purpose: Converts a greyscale spectrogram vertical fraction into RF frequency
-
-    Return: Frequency in Hz
-
+        Purpose: Converts a greyscale spectrogram vertical fraction into RF frequency
+        Returns: Frequency in Hz
     */
 
     frac = ANALYSIS_limit_double(frac, 0.0, 1.0);
@@ -1284,24 +1475,25 @@ static double ANALYSIS_frequency_from_spec_frac(double frac) {
 
 static void ANALYSIS_get_filter_label(char *out, size_t out_size) {
     /*
-
-    Purpose: Builds the visible frequency label for the analysis frequency filter
-
-    Return: No return
-
+        Purpose: Builds the visible frequency label for the analysis frequency filter
+        Returns: No value
     */
 
     if (!out || out_size == 0) {
+
         return;
+
     }
 
     double y0 = Global_Analysis_Filter_Y0;
     double y1 = Global_Analysis_Filter_Y1;
 
     if (y1 < y0) {
+
         double tmp = y0;
         y0 = y1;
         y1 = tmp;
+
     }
 
     double center_y = (y0 + y1) * 0.5;
@@ -1313,16 +1505,15 @@ static void ANALYSIS_get_filter_label(char *out, size_t out_size) {
 
 static void ANALYSIS_set_marker_from_mouse(int mouse_x, SDL_Rect spec_rect) {
     /*
-
-    Purpose: Places the analysis time marker from a greyscale spectrogram click
-
-    Return: No return
-
+        Purpose: Places the analysis time marker from a greyscale spectrogram click
+        Returns: No value
     */
 
     if (Global_Analysis_IQ_Count == 0 || Global_Analysis_Path[0] == '\0' || spec_rect.w <= 0 ||
         Global_Analysis_Sample_Rate <= 0.0) {
+
         return;
+
     }
 
     double frac = (double)(mouse_x - spec_rect.x) / (double)spec_rect.w;
@@ -1332,7 +1523,9 @@ static void ANALYSIS_set_marker_from_mouse(int mouse_x, SDL_Rect spec_rect) {
     size_t marker_sample = Global_Analysis_View_Start + (size_t)(frac * (double)Global_Analysis_View_Len);
 
     if (marker_sample >= Global_Analysis_IQ_Count) {
+
         marker_sample = Global_Analysis_IQ_Count - 1;
+
     }
 
     Global_Analysis_Marker_Active = 1;
@@ -1345,16 +1538,14 @@ static void ANALYSIS_set_marker_from_mouse(int mouse_x, SDL_Rect spec_rect) {
 
 static double ANALYSIS_time_frac_from_mouse_x(int mouse_x, SDL_Rect spec_rect) {
     /*
-
-    Purpose: Converts a spectrogram mouse X coordinate into a normalized time
-    fraction
-
-    Return: Time fraction
-
+        Purpose: Converts a spectrogram mouse X coordinate into a normalized time fraction
+        Returns: Time fraction
     */
 
     if (spec_rect.w <= 0) {
+
         return 0.0;
+
     }
 
     double frac = (double)(mouse_x - spec_rect.x) / (double)spec_rect.w;
@@ -1364,11 +1555,8 @@ static double ANALYSIS_time_frac_from_mouse_x(int mouse_x, SDL_Rect spec_rect) {
 
 static void ANALYSIS_update_column_selection_from_mouse(int mouse_x, SDL_Rect spec_rect) {
     /*
-
-    Purpose: Updates the analysis time-column selector from mouse movement
-
-    Return: No return
-
+        Purpose: Updates the analysis time-column selector from mouse movement
+        Returns: No value
     */
 
     Global_Analysis_Column_X1 = ANALYSIS_time_frac_from_mouse_x(mouse_x, spec_rect);
@@ -1376,33 +1564,36 @@ static void ANALYSIS_update_column_selection_from_mouse(int mouse_x, SDL_Rect sp
 
 static void ANALYSIS_apply_column_selection(void) {
     /*
-
-    Purpose: Applies the analysis time-column selector and requests a replot
-
-    Return: No return
-
+        Purpose: Applies the analysis time-column selector and requests a replot
+        Returns: No value
     */
 
     if (Global_Analysis_IQ_Count == 0 || Global_Analysis_Path[0] == '\0' || Global_Analysis_View_Len == 0) {
+
         Global_Analysis_Column_Selecting = 0;
         Global_Analysis_Column_Visible = 0;
         Global_Analysis_Column_Active = 0;
         return;
+
     }
 
     double x0 = Global_Analysis_Column_X0;
     double x1 = Global_Analysis_Column_X1;
 
     if (x1 < x0) {
+
         double tmp = x0;
         x0 = x1;
         x1 = tmp;
+
     }
 
     if (fabs(x1 - x0) < 0.002) {
+
         double mid = (x0 + x1) * 0.5;
         x0 = mid - 0.001;
         x1 = mid + 0.001;
+
     }
 
     Global_Analysis_Column_X0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
@@ -1428,6 +1619,11 @@ static void ANALYSIS_apply_column_selection(void) {
 }
 
 static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h) {
+    /*
+        Purpose: Computes the crop button rectangle
+        Returns: Computed rectangle
+    */
+
     SDL_Rect list_rect;
     SDL_Rect spec_rect;
 
@@ -1437,15 +1633,24 @@ static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h) {
     SDL_Rect rect = {spec_rect.x + spec_rect.w - 92, spec_rect.y - 30, 88, 24};
 
     if (rect.x < spec_rect.x + 4) {
+
         rect.x = spec_rect.x + 4;
+
     }
 
     return rect;
 }
 
 static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the crop button
+        Returns: No value
+    */
+
     if (!renderer || !font || !Global_Analysis_Mode) {
+
         return;
+
     }
 
     SDL_Rect rect = ANALYSIS_crop_button_rect(win_w, win_h);
@@ -1469,6 +1674,11 @@ static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer, TTF_Font *font, in
 }
 
 static int ANALYSIS_noise_graph_from_point(int x, int y, int win_w, int win_h, SDL_Rect *graph_rect) {
+    /*
+        Purpose: Gets the noise graph from the point
+        Returns: Selected type
+    */
+
     SDL_Rect psd_rect;
     SDL_Rect mag_rect;
     SDL_Rect phase_rect;
@@ -1485,25 +1695,40 @@ static int ANALYSIS_noise_graph_from_point(int x, int y, int win_w, int win_h, S
     (void)spec_rect;
 
     if (point_in_rect(x, y, mag_rect)) {
+
         if (graph_rect) {
+
             *graph_rect = mag_rect;
+
         }
         return ANALYSIS_NOISE_GRAPH_MAG;
+
     }
 
     if (point_in_rect(x, y, inst_rect)) {
+
         if (graph_rect) {
+
             *graph_rect = inst_rect;
+
         }
         return ANALYSIS_NOISE_GRAPH_INST;
+
     }
 
     return ANALYSIS_NOISE_GRAPH_NONE;
 }
 
 static double ANALYSIS_noise_frac_from_mouse_y(int mouse_y, SDL_Rect graph_rect) {
+    /*
+        Purpose: Gets the noise frac from the mouse y
+        Returns: Computed value
+    */
+
     if (graph_rect.h <= 0) {
+
         return 0.0;
+
     }
 
     double frac = (double)(mouse_y - graph_rect.y) / (double)graph_rect.h;
@@ -1512,30 +1737,46 @@ static double ANALYSIS_noise_frac_from_mouse_y(int mouse_y, SDL_Rect graph_rect)
 }
 
 static void ANALYSIS_update_noise_selection_from_mouse(int mouse_y, SDL_Rect graph_rect) {
+    /*
+        Purpose: Updates the noise selection from mouse
+        Returns: No value
+    */
+
     Global_Analysis_Noise_Y1 = ANALYSIS_noise_frac_from_mouse_y(mouse_y, graph_rect);
 }
 
 static void ANALYSIS_apply_noise_selection(void) {
+    /*
+        Purpose: Applies the noise selection
+        Returns: No value
+    */
+
     if (Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE) {
+
         Global_Analysis_Noise_Selecting = 0;
         Global_Analysis_Noise_Visible = 0;
         Global_Analysis_Noise_Active = 0;
         return;
+
     }
 
     double y0 = Global_Analysis_Noise_Y0;
     double y1 = Global_Analysis_Noise_Y1;
 
     if (y1 < y0) {
+
         double tmp = y0;
         y0 = y1;
         y1 = tmp;
+
     }
 
     if (fabs(y1 - y0) < 0.012) {
+
         double mid = (y0 + y1) * 0.5;
         y0 = mid - 0.006;
         y1 = mid + 0.006;
+
     }
 
     Global_Analysis_Noise_Y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
@@ -1552,6 +1793,11 @@ static void ANALYSIS_apply_noise_selection(void) {
 }
 
 static void ANALYSIS_clear_noise_filter(void) {
+    /*
+        Purpose: Clears the noise filter
+        Returns: No value
+    */
+
     Global_Analysis_Noise_Visible = 0;
     Global_Analysis_Noise_Selecting = 0;
     Global_Analysis_Noise_Active = 0;
@@ -1562,13 +1808,20 @@ static void ANALYSIS_clear_noise_filter(void) {
 }
 
 static void ANALYSIS_noise_value_range(double *out_min, double *out_max) {
+    /*
+        Purpose: Gets the noise value range
+        Returns: No value
+    */
+
     double y0 = Global_Analysis_Noise_Y0;
     double y1 = Global_Analysis_Noise_Y1;
 
     if (y1 < y0) {
+
         double tmp = y0;
         y0 = y1;
         y1 = tmp;
+
     }
 
     y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
@@ -1578,37 +1831,55 @@ static void ANALYSIS_noise_value_range(double *out_min, double *out_max) {
     double v1 = 0.0;
 
     if (Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG) {
+
         double h = 1000.0;
         v0 = (h - 12.0 - (y0 * h)) / (h - 24.0);
         v1 = (h - 12.0 - (y1 * h)) / (h - 24.0);
         v0 = ANALYSIS_limit_double(v0, 0.0, 1.0);
         v1 = ANALYSIS_limit_double(v1, 0.0, 1.0);
+
     }
 
     else {
+
         v0 = (0.5 - y0) / 0.42;
         v1 = (0.5 - y1) / 0.42;
         v0 = ANALYSIS_limit_double(v0, -1.0, 1.0);
         v1 = ANALYSIS_limit_double(v1, -1.0, 1.0);
+
     }
 
     if (v1 < v0) {
+
         double tmp = v0;
         v0 = v1;
         v1 = tmp;
+
     }
 
     if (out_min) {
+
         *out_min = v0;
+
     }
+
     if (out_max) {
+
         *out_max = v1;
+
     }
 }
 
 static int ANALYSIS_noise_value_matches(float value) {
+    /*
+        Purpose: Checks whether the noise value matches the requested data
+        Returns: Boolean status
+    */
+
     if (!Global_Analysis_Noise_Active || Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE) {
+
         return 0;
+
     }
 
     double v_min = 0.0;
@@ -1620,14 +1891,23 @@ static int ANALYSIS_noise_value_matches(float value) {
 }
 
 static void ANALYSIS_update_noise_column_mask(int render_w) {
+    /*
+        Purpose: Updates the noise column mask
+        Returns: No value
+    */
+
     memset(Global_Analysis_Noise_Column_Mask, 0, sizeof(Global_Analysis_Noise_Column_Mask));
 
     if (!Global_Analysis_Noise_Active || Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE || render_w <= 0) {
+
         return;
+
     }
 
     if (render_w > ANALYSIS_MAX_RENDER_W) {
+
         render_w = ANALYSIS_MAX_RENDER_W;
+
     }
 
     for (int x = 0; x < render_w; x++) {
@@ -1635,12 +1915,19 @@ static void ANALYSIS_update_noise_column_mask(int render_w) {
                                                                           : Global_Analysis_InstFreq_Line[x];
 
         if (ANALYSIS_noise_value_matches(v)) {
+
             Global_Analysis_Noise_Column_Mask[x] = 1;
+
         }
     }
 }
 
 static void ANALYSIS_apply_noise_filter_to_rendered_lines(int render_w) {
+    /*
+        Purpose: Applies the noise filter to rendered lines
+        Returns: No value
+    */
+
     /*
      * The graph noise selection is a crop-only mask. Do not alter the live
      * magnitude or instantaneous-frequency graph arrays here; only refresh the
@@ -1650,14 +1937,27 @@ static void ANALYSIS_apply_noise_filter_to_rendered_lines(int render_w) {
 }
 
 static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the noise filter overlay
+        Returns: No value
+    */
+
     if (!renderer || !font || !Global_Analysis_Mode) {
+
         return;
+
     }
+
     if (!(Global_Analysis_Noise_Visible || Global_Analysis_Noise_Selecting)) {
+
         return;
+
     }
+
     if (Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_NONE) {
+
         return;
+
     }
 
     SDL_Rect psd_rect;
@@ -1681,9 +1981,11 @@ static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font 
     double y1 = Global_Analysis_Noise_Y1;
 
     if (y1 < y0) {
+
         double tmp = y0;
         y0 = y1;
         y1 = tmp;
+
     }
 
     y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
@@ -1693,22 +1995,35 @@ static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font 
     int select_y1 = graph_rect.y + (int)(y1 * (double)graph_rect.h);
 
     if (select_y1 <= select_y0) {
+
         select_y1 = select_y0 + 1;
+
     }
+
     if (select_y1 - select_y0 < 4) {
+
         int mid = (select_y0 + select_y1) / 2;
         select_y0 = mid - 2;
         select_y1 = mid + 2;
+
     }
 
     if (select_y0 < graph_rect.y) {
+
         select_y0 = graph_rect.y;
+
     }
+
     if (select_y1 > graph_rect.y + graph_rect.h) {
+
         select_y1 = graph_rect.y + graph_rect.h;
+
     }
+
     if (select_y1 <= select_y0) {
+
         select_y1 = select_y0 + 1;
+
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -1728,7 +2043,9 @@ static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font 
     SDL_Rect label_bg = {graph_rect.x + graph_rect.w - 210, graph_rect.y + 6, 204, 22};
 
     if (label_bg.x < graph_rect.x + 6) {
+
         label_bg.x = graph_rect.x + 6;
+
     }
 
     draw_filled_rect(renderer, label_bg, (SDL_Color){0, 0, 0, 190});
@@ -1741,16 +2058,14 @@ static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font 
 int ANALYSIS_export_classification_fields(char *file_name, size_t file_name_size, double *frequency_mhz,
                                           double *bandwidth_khz, double *start_time, double *end_time) {
     /*
-
-    Purpose: Exports the currently loaded analysis selection as classification
-    fields
-
-    Return: Export status
-
+        Purpose: Exports the currently loaded analysis selection as classification fields
+        Returns: Export status
     */
 
     if (!file_name || file_name_size == 0 || !frequency_mhz || !bandwidth_khz || !start_time || !end_time) {
+
         return 0;
+
     }
 
     file_name[0] = '\0';
@@ -1761,22 +2076,29 @@ int ANALYSIS_export_classification_fields(char *file_name, size_t file_name_size
 
     if (Global_Analysis_IQ_Count == 0 || Global_Analysis_View_Len == 0 || Global_Analysis_Path[0] == '\0' ||
         Global_Analysis_Sample_Rate <= 0.0) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
                  "Open a recording before exporting to classification");
         return 0;
+
     }
 
     const char *name = Global_Analysis_Path;
 
     for (const char *p = Global_Analysis_Path; *p; p++) {
+
         if (*p == '/' || *p == '\\') {
+
             name = p + 1;
+
         }
     }
 
     if (Global_Analysis_Loaded_Index >= 0 && Global_Analysis_Loaded_Index < Global_Analysis_File_Count &&
         Global_Analysis_Files[Global_Analysis_Loaded_Index][0] != '\0') {
+
         name = Global_Analysis_Files[Global_Analysis_Loaded_Index];
+
     }
 
     snprintf(file_name, file_name_size, "%s", name);
@@ -1785,13 +2107,16 @@ int ANALYSIS_export_classification_fields(char *file_name, size_t file_name_size
     double bw_hz = Global_Analysis_Sample_Rate;
 
     if (Global_Analysis_Filter_Active || Global_Analysis_Filter_Visible) {
+
         double y0 = Global_Analysis_Filter_Y0;
         double y1 = Global_Analysis_Filter_Y1;
 
         if (y1 < y0) {
+
             double tmp = y0;
             y0 = y1;
             y1 = tmp;
+
         }
 
         y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
@@ -1800,39 +2125,51 @@ int ANALYSIS_export_classification_fields(char *file_name, size_t file_name_size
         double center_y = (y0 + y1) * 0.5;
         center_hz = ANALYSIS_frequency_from_spec_frac(center_y);
         bw_hz = fabs(y1 - y0) * Global_Analysis_Sample_Rate;
+
     }
 
     double x0 = 0.0;
     double x1 = 1.0;
 
     if (Global_Analysis_Column_Active || Global_Analysis_Column_Visible) {
+
         x0 = Global_Analysis_Column_X0;
         x1 = Global_Analysis_Column_X1;
 
         if (x1 < x0) {
+
             double tmp = x0;
             x0 = x1;
             x1 = tmp;
+
         }
 
         x0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
         x1 = ANALYSIS_limit_double(x1, 0.0, 1.0);
+
     }
 
     size_t start_sample = Global_Analysis_View_Start + (size_t)(x0 * (double)Global_Analysis_View_Len);
     size_t end_sample = Global_Analysis_View_Start + (size_t)(x1 * (double)Global_Analysis_View_Len);
 
     if (start_sample > Global_Analysis_IQ_Count) {
+
         start_sample = Global_Analysis_IQ_Count;
+
     }
+
     if (end_sample > Global_Analysis_IQ_Count) {
+
         end_sample = Global_Analysis_IQ_Count;
+
     }
 
     if (end_sample < start_sample) {
+
         size_t tmp = start_sample;
         start_sample = end_sample;
         end_sample = tmp;
+
     }
 
     *frequency_mhz = center_hz / 1e6;
@@ -1846,44 +2183,72 @@ int ANALYSIS_export_classification_fields(char *file_name, size_t file_name_size
 }
 
 static int ANALYSIS_signal_menu_available(void) {
+    /*
+        Purpose: Checks whether the signal menu is available
+        Returns: Boolean status
+    */
+
     return Global_Analysis_File_Count > 0 && Global_Analysis_Selected >= 0 &&
            Global_Analysis_Selected < Global_Analysis_File_Count;
 }
 
 static const char *ANALYSIS_selected_file_name(void) {
+    /*
+        Purpose: Gets the selected file name
+        Returns: Text pointer
+    */
+
     if (!ANALYSIS_signal_menu_available()) {
+
         return "";
+
     }
 
     return Global_Analysis_Files[Global_Analysis_Selected];
 }
 
 static void ANALYSIS_short_text(TTF_Font *font, const char *src, char *dst, size_t dst_size, int max_px) {
+    /*
+        Purpose: Shortens text for display
+        Returns: No value
+    */
+
     if (!dst || dst_size == 0) {
+
         return;
+
     }
+
     if (!src) {
+
         src = "";
+
     }
 
     size_t copy_len = strlen(src);
 
     if (copy_len >= dst_size) {
+
         copy_len = dst_size - 1;
+
     }
 
     memcpy(dst, src, copy_len);
     dst[copy_len] = '\0';
 
     if (!font || max_px <= 0) {
+
         return;
+
     }
 
     int text_w = 0;
     int text_h = 0;
 
     if (TTF_SizeText(font, dst, &text_w, &text_h) != 0 || text_w <= max_px) {
+
         return;
+
     }
 
     size_t len = strlen(dst);
@@ -1893,18 +2258,24 @@ static void ANALYSIS_short_text(TTF_Font *font, const char *src, char *dst, size
         dst[len] = '\0';
 
         if (len >= 3) {
+
             dst[len - 3] = '.';
             dst[len - 2] = '.';
             dst[len - 1] = '.';
             dst[len] = '\0';
+
         }
 
         if (TTF_SizeText(font, dst, &text_w, &text_h) != 0 || text_w <= max_px) {
+
             return;
+
         }
 
         if (len >= 3) {
+
             dst[len - 3] = '\0';
+
         }
     }
 
@@ -1912,15 +2283,25 @@ static void ANALYSIS_short_text(TTF_Font *font, const char *src, char *dst, size
 }
 
 static int ANALYSIS_file_search_matches(const char *name) {
+    /*
+        Purpose: Checks whether the file search matches the requested data
+        Returns: Boolean status
+    */
+
     char hay[512];
     char needle[ANALYSIS_FILE_SEARCH_TEXT_MAX];
     size_t i;
 
     if (!name) {
+
         name = "";
+
     }
+
     if (Global_Analysis_File_Search_Text[0] == '\0') {
+
         return 1;
+
     }
 
     for (i = 0; i + 1 < sizeof(hay) && name[i]; i++) {
@@ -1939,11 +2320,19 @@ static int ANALYSIS_file_search_matches(const char *name) {
 }
 
 static int ANALYSIS_file_search_filtered_count(void) {
+    /*
+        Purpose: Counts filtered file search results
+        Returns: Item count
+    */
+
     int count = 0;
 
     for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
         if (ANALYSIS_file_search_matches(Global_Analysis_Files[i])) {
+
             count++;
+
         }
     }
 
@@ -1951,19 +2340,31 @@ static int ANALYSIS_file_search_filtered_count(void) {
 }
 
 static int ANALYSIS_file_search_filtered_index_at(int filtered_index) {
+    /*
+        Purpose: Gets the file search filtered index at a position
+        Returns: Item index
+    */
+
     int seen = 0;
 
     if (filtered_index < 0) {
+
         return -1;
+
     }
 
     for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
         if (!ANALYSIS_file_search_matches(Global_Analysis_Files[i])) {
+
             continue;
+
         }
 
         if (seen == filtered_index) {
+
             return i;
+
         }
         seen++;
     }
@@ -1972,45 +2373,81 @@ static int ANALYSIS_file_search_filtered_index_at(int filtered_index) {
 }
 
 static SDL_Rect ANALYSIS_file_search_popup_rect(int win_w, int win_h) {
+    /*
+        Purpose: Computes the file search popup rectangle
+        Returns: Computed rectangle
+    */
+
     SDL_Rect r = {(win_w - 1050) / 2, (win_h - 740) / 2, 1050, 740};
 
     if (r.x < MARGIN) {
+
         r.x = MARGIN;
+
     }
+
     if (r.y < MARGIN) {
+
         r.y = MARGIN;
+
     }
+
     if (r.w > win_w - 2 * MARGIN) {
+
         r.w = win_w - 2 * MARGIN;
+
     }
+
     if (r.h > win_h - 2 * MARGIN) {
+
         r.h = win_h - 2 * MARGIN;
+
     }
+
     if (r.w < 320) {
+
         r.w = 320;
+
     }
+
     if (r.h < 260) {
+
         r.h = 260;
+
     }
     return r;
 }
 
 static SDL_Rect ANALYSIS_file_search_input_rect(SDL_Rect popup) {
+    /*
+        Purpose: Computes the file search input rectangle
+        Returns: Computed rectangle
+    */
+
     SDL_Rect close_btn = {popup.x + popup.w - 86, popup.y + 14, 68, 30};
     SDL_Rect search = {close_btn.x - 292, popup.y + 14, 276, 30};
 
     if (search.x < popup.x + 180) {
+
         search.x = popup.x + 180;
         search.w = close_btn.x - search.x - 16;
+
     }
 
     if (search.w < 120) {
+
         search.w = 120;
+
     }
     return search;
 }
 
 static SDL_Rect ANALYSIS_file_search_button_rect(int win_w, int win_h) {
+    /*
+        Purpose: Computes the file search button rectangle
+        Returns: Computed rectangle
+    */
+
     SDL_Rect list_rect;
     SDL_Rect spec_rect;
     (void)spec_rect;
@@ -2020,33 +2457,58 @@ static SDL_Rect ANALYSIS_file_search_button_rect(int win_w, int win_h) {
     SDL_Rect button = {list_rect.x + list_rect.w - 178, list_rect.y + 8, 166, 28};
 
     if (button.x < list_rect.x + 12) {
+
         button.x = list_rect.x + 12;
+
     }
+
     if (button.w > list_rect.w - 24) {
+
         button.w = list_rect.w - 24;
+
     }
     return button;
 }
 
 static void ANALYSIS_file_search_clamp_scroll(void) {
+    /*
+        Purpose: Clamps the file search scroll
+        Returns: No value
+    */
+
     int filtered_count = ANALYSIS_file_search_filtered_count();
     int visible = 14;
     int max_scroll = filtered_count - visible;
 
     if (max_scroll < 0) {
+
         max_scroll = 0;
+
     }
+
     if (Global_Analysis_File_Search_Scroll < 0) {
+
         Global_Analysis_File_Search_Scroll = 0;
+
     }
+
     if (Global_Analysis_File_Search_Scroll > max_scroll) {
+
         Global_Analysis_File_Search_Scroll = max_scroll;
+
     }
 }
 
 static void ANALYSIS_open_file_search_menu(void) {
+    /*
+        Purpose: Opens the file search menu
+        Returns: No value
+    */
+
     if (Global_Analysis_File_Count <= 0) {
+
         ANALYSIS_scan_recordings();
+
     }
 
     Global_Analysis_File_Search_Open = 1;
@@ -2064,20 +2526,35 @@ static void ANALYSIS_open_file_search_menu(void) {
 }
 
 static void ANALYSIS_close_file_search_menu(void) {
+    /*
+        Purpose: Closes the file search menu
+        Returns: No value
+    */
+
     Global_Analysis_File_Search_Open = 0;
     Global_Analysis_File_Search_Active = 0;
     Global_Analysis_File_Search_Hover = -1;
 }
 
 static void ANALYSIS_file_search_select_index(int index, int open_after_select) {
+    /*
+        Purpose: Selects the file search index
+        Returns: No value
+    */
+
     if (index < 0 || index >= Global_Analysis_File_Count) {
+
         return;
+
     }
 
     Global_Analysis_Selected = index;
     Global_Analysis_List_Scroll = Global_Analysis_Selected - 2;
+
     if (Global_Analysis_List_Scroll < 0) {
+
         Global_Analysis_List_Scroll = 0;
+
     }
 
     ANALYSIS_close_file_search_menu();
@@ -2086,30 +2563,49 @@ static void ANALYSIS_file_search_select_index(int index, int open_after_select) 
              Global_Analysis_Files[Global_Analysis_Selected]);
 
     if (open_after_select) {
+
         ANALYSIS_open_selected_recording();
+
     }
 }
 
 static void ANALYSIS_file_search_insert_text(const char *text) {
+    /*
+        Purpose: Inserts the file search text
+        Returns: No value
+    */
+
     if (!text || text[0] == '\0') {
+
         return;
+
     }
 
     int len = (int)strlen(Global_Analysis_File_Search_Text);
     int add = (int)strlen(text);
 
     if (Global_Analysis_File_Search_Cursor < 0) {
+
         Global_Analysis_File_Search_Cursor = 0;
+
     }
+
     if (Global_Analysis_File_Search_Cursor > len) {
+
         Global_Analysis_File_Search_Cursor = len;
+
     }
+
     if (len + add >= ANALYSIS_FILE_SEARCH_TEXT_MAX) {
+
         add = ANALYSIS_FILE_SEARCH_TEXT_MAX - len - 1;
+
     }
 
     if (add <= 0) {
+
         return;
+
     }
 
     memmove(Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor + add,
@@ -2123,13 +2619,23 @@ static void ANALYSIS_file_search_insert_text(const char *text) {
 }
 
 static void ANALYSIS_file_search_backspace(void) {
+    /*
+        Purpose: Removes the previous character from the file search
+        Returns: No value
+    */
+
     int len = (int)strlen(Global_Analysis_File_Search_Text);
 
     if (Global_Analysis_File_Search_Cursor <= 0 || len <= 0) {
+
         return;
+
     }
+
     if (Global_Analysis_File_Search_Cursor > len) {
+
         Global_Analysis_File_Search_Cursor = len;
+
     }
 
     memmove(Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor - 1,
@@ -2141,13 +2647,23 @@ static void ANALYSIS_file_search_backspace(void) {
 }
 
 static void ANALYSIS_file_search_delete(void) {
+    /*
+        Purpose: Deletes the file search
+        Returns: No value
+    */
+
     int len = (int)strlen(Global_Analysis_File_Search_Text);
 
     if (Global_Analysis_File_Search_Cursor < 0) {
+
         Global_Analysis_File_Search_Cursor = 0;
+
     }
+
     if (Global_Analysis_File_Search_Cursor >= len) {
+
         return;
+
     }
 
     memmove(Global_Analysis_File_Search_Text + Global_Analysis_File_Search_Cursor,
@@ -2159,15 +2675,22 @@ static void ANALYSIS_file_search_delete(void) {
 
 static void ANALYSIS_draw_modal_button(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *label,
                                        int hovered) {
+    /*
+        Purpose: Draws the modal button
+        Returns: No value
+    */
+
     SDL_Color fill = hovered ? (SDL_Color){0, 44, 16, 255} : (SDL_Color){0, 8, 3, 255};
     SDL_Color border = hovered ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 150, 60, 255};
     SDL_Color text = hovered ? (SDL_Color){235, 255, 240, 255} : (SDL_Color){0, 255, 90, 255};
 
     if (hovered) {
+
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
         SDL_Rect glow = {rect.x - 4, rect.y - 4, rect.w + 8, rect.h + 8};
         draw_filled_rect(renderer, glow, (SDL_Color){0, 255, 90, 38});
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
     }
 
     draw_filled_rect(renderer, rect, fill);
@@ -2175,17 +2698,27 @@ static void ANALYSIS_draw_modal_button(SDL_Renderer *renderer, TTF_Font *font, S
 
     int tw = 0;
     int th = 0;
+
     if (font && label && TTF_SizeText(font, label, &tw, &th) != 0) {
+
         tw = 0;
         th = 0;
+
     }
 
     draw_text(renderer, font, label, rect.x + (rect.w - tw) / 2, rect.y + (rect.h - th) / 2, text);
 }
 
 static int ANALYSIS_handle_file_search_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles the file search event
+        Returns: Handling status
+    */
+
     if (!event || !Global_Analysis_File_Search_Open) {
+
         return 0;
+
     }
 
     SDL_Rect popup = ANALYSIS_file_search_popup_rect(win_w, win_h);
@@ -2194,137 +2727,200 @@ static int ANALYSIS_handle_file_search_event(SDL_Event *event, int win_w, int wi
     SDL_Rect list = {popup.x + 18, popup.y + 124, popup.w - 36, popup.h - 164};
 
     if (event->type == SDL_TEXTINPUT) {
+
         if (Global_Analysis_File_Search_Active) {
+
             ANALYSIS_file_search_insert_text(event->text.text);
+
         }
         return 1;
+
     }
 
     if (event->type == SDL_KEYDOWN) {
+
         SDL_Keycode key = event->key.keysym.sym;
         int len = (int)strlen(Global_Analysis_File_Search_Text);
 
         if (key == SDLK_ESCAPE) {
+
             ANALYSIS_close_file_search_menu();
             return 1;
+
         }
 
         if (key == SDLK_BACKSPACE) {
+
             ANALYSIS_file_search_backspace();
             return 1;
+
         }
 
         if (key == SDLK_DELETE) {
+
             ANALYSIS_file_search_delete();
             return 1;
+
         }
 
         if (key == SDLK_LEFT) {
+
             if (Global_Analysis_File_Search_Cursor > 0) {
+
                 Global_Analysis_File_Search_Cursor--;
+
             }
             return 1;
+
         }
 
         if (key == SDLK_RIGHT) {
+
             if (Global_Analysis_File_Search_Cursor < len) {
+
                 Global_Analysis_File_Search_Cursor++;
+
             }
             return 1;
+
         }
 
         if (key == SDLK_HOME) {
+
             Global_Analysis_File_Search_Cursor = 0;
             return 1;
+
         }
 
         if (key == SDLK_END) {
+
             Global_Analysis_File_Search_Cursor = len;
             return 1;
+
         }
 
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
             int index = ANALYSIS_file_search_filtered_index_at(Global_Analysis_File_Search_Scroll);
+
             if (index >= 0) {
+
                 ANALYSIS_file_search_select_index(index, 1);
+
             }
             return 1;
+
         }
 
         if (key == SDLK_DOWN) {
+
             Global_Analysis_File_Search_Scroll++;
             ANALYSIS_file_search_clamp_scroll();
             return 1;
+
         }
 
         if (key == SDLK_UP) {
+
             Global_Analysis_File_Search_Scroll--;
             ANALYSIS_file_search_clamp_scroll();
             return 1;
+
         }
 
         return 1;
+
     }
 
     if (event->type == SDL_MOUSEWHEEL) {
+
         int mx = 0;
         int my = 0;
         ANALYSIS_get_adjusted_mouse_state(&mx, &my);
 
         if (point_in_rect(mx, my, list)) {
+
             Global_Analysis_File_Search_Scroll -= event->wheel.y * 3;
             ANALYSIS_file_search_clamp_scroll();
+
         }
 
         return 1;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
         int mx = event->button.x;
         int my = event->button.y;
 
         if (!point_in_rect(mx, my, popup) || point_in_rect(mx, my, close_btn)) {
+
             ANALYSIS_close_file_search_menu();
             return 1;
+
         }
 
         if (point_in_rect(mx, my, search)) {
+
             Global_Analysis_File_Search_Active = 1;
             return 1;
+
         }
 
         Global_Analysis_File_Search_Active = 0;
 
         if (point_in_rect(mx, my, list)) {
+
             int row = (my - list.y - 4) / ANALYSIS_FILE_SEARCH_ROW_H;
             int visible = list.h / ANALYSIS_FILE_SEARCH_ROW_H;
+
             if (visible < 1) {
+
                 visible = 1;
+
             }
+
             if (visible > 14) {
+
                 visible = 14;
+
             }
 
             if (row >= 0 && row < visible) {
+
                 int filtered_index = Global_Analysis_File_Search_Scroll + row;
                 int index = ANALYSIS_file_search_filtered_index_at(filtered_index);
+
                 if (index >= 0) {
+
                     ANALYSIS_file_search_select_index(index, event->button.clicks >= 2);
+
                 }
+
             }
 
             return 1;
+
         }
 
         return 1;
+
     }
 
     return 1;
 }
 
 static void ANALYSIS_draw_file_search_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the file search button
+        Returns: No value
+    */
+
     if (!renderer || !font) {
+
         return;
+
     }
 
     int mx = 0;
@@ -2337,8 +2933,15 @@ static void ANALYSIS_draw_file_search_button(SDL_Renderer *renderer, TTF_Font *f
 }
 
 static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the file search popup
+        Returns: No value
+    */
+
     if (!renderer || !font || !Global_Analysis_File_Search_Open) {
+
         return;
+
     }
 
     SDL_Rect popup = ANALYSIS_file_search_popup_rect(win_w, win_h);
@@ -2372,15 +2975,20 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
                       Global_Analysis_File_Search_Active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 150, 60, 255});
 
     if (Global_Analysis_File_Search_Text[0]) {
+
         draw_text(renderer, font, Global_Analysis_File_Search_Text, search.x + 10, search.y + 8,
                   (SDL_Color){0, 255, 90, 255});
+
     }
 
     else {
+
         draw_text(renderer, font, "Search file", search.x + 10, search.y + 8, (SDL_Color){0, 155, 65, 255});
+
     }
 
     if (Global_Analysis_File_Search_Active && ((SDL_GetTicks64() / 450ULL) % 2ULL) == 0ULL) {
+
         int tw = 0;
         int th = 0;
         char prefix[ANALYSIS_FILE_SEARCH_TEXT_MAX];
@@ -2388,19 +2996,28 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
         int len = (int)strlen(Global_Analysis_File_Search_Text);
 
         if (cursor < 0) {
+
             cursor = 0;
+
         }
+
         if (cursor > len) {
+
             cursor = len;
+
         }
         snprintf(prefix, sizeof(prefix), "%.*s", cursor, Global_Analysis_File_Search_Text);
+
         if (font && TTF_SizeText(font, prefix, &tw, &th) != 0) {
+
             tw = cursor * 8;
+
         }
 
         SDL_SetRenderDrawColor(renderer, 0, 170, 255, 255);
         SDL_RenderDrawLine(renderer, search.x + 10 + tw, search.y + 6, search.x + 10 + tw, search.y + search.h - 6);
         SDL_RenderDrawLine(renderer, search.x + 11 + tw, search.y + 6, search.x + 11 + tw, search.y + search.h - 6);
+
     }
 
     draw_text(renderer, font, "Currently selected", current_rect.x, current_rect.y - 18, (SDL_Color){0, 155, 65, 255});
@@ -2410,8 +3027,11 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
     {
         char short_name[512];
         const char *current = ANALYSIS_selected_file_name();
+
         if (!current || current[0] == '\0') {
+
             current = "(none selected)";
+
         }
 
         ANALYSIS_short_text(font, current, short_name, sizeof(short_name), current_rect.w - 20);
@@ -2424,38 +3044,52 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
     draw_outline_rect(renderer, list, (SDL_Color){0, 150, 60, 255});
 
     if (Global_Analysis_File_Count <= 0) {
+
         char empty_msg[640];
         snprintf(empty_msg, sizeof(empty_msg), "No .complex16 files found in %s/", Global_Analysis_Record_Dir);
         draw_text(renderer, font, empty_msg, list.x + 12, list.y + 14, (SDL_Color){255, 180, 40, 255});
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
         return;
+
     }
 
     if (filtered_count <= 0) {
+
         draw_text(renderer, font, "No files match the search.", list.x + 12, list.y + 14,
                   (SDL_Color){255, 180, 40, 255});
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
         return;
+
     }
 
     int visible = list.h / ANALYSIS_FILE_SEARCH_ROW_H;
+
     if (visible > 14) {
+
         visible = 14;
+
     }
+
     if (visible < 1) {
+
         visible = 1;
+
     }
 
     Global_Analysis_File_Search_Hover = -1;
 
     if (point_in_rect(mx, my, list)) {
+
         int row = (my - list.y - 4) / ANALYSIS_FILE_SEARCH_ROW_H;
         int filtered_index = Global_Analysis_File_Search_Scroll + row;
         int index = ANALYSIS_file_search_filtered_index_at(filtered_index);
 
         if (row >= 0 && row < visible && index >= 0 && index < Global_Analysis_File_Count) {
+
             Global_Analysis_File_Search_Hover = index;
+
         }
+
     }
 
     for (int row = 0; row < visible; row++) {
@@ -2465,7 +3099,9 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
                          ANALYSIS_FILE_SEARCH_ROW_H - 3};
 
         if (index < 0 || index >= Global_Analysis_File_Count) {
+
             break;
+
         }
 
         int hovered = index == Global_Analysis_File_Search_Hover;
@@ -2473,13 +3109,17 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
         char short_name[512];
 
         if (hovered) {
+
             draw_filled_rect(renderer, item, (SDL_Color){0, 44, 16, 255});
             SDL_Rect halo = {item.x - 2, item.y - 2, item.w + 4, item.h + 4};
             draw_outline_rect(renderer, halo, (SDL_Color){0, 255, 90, 255});
+
         }
 
         else if (selected) {
+
             draw_filled_rect(renderer, item, (SDL_Color){15, 85, 45, 245});
+
         }
 
         draw_outline_rect(renderer, item,
@@ -2496,12 +3136,17 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
     }
 
     char count_label[128];
+
     if (Global_Analysis_File_Search_Text[0]) {
+
         snprintf(count_label, sizeof(count_label), "%d of %d files", filtered_count, Global_Analysis_File_Count);
+
     }
 
     else {
+
         snprintf(count_label, sizeof(count_label), "%d files", Global_Analysis_File_Count);
+
     }
 
     draw_text(renderer, font, count_label, popup.x + 18, popup.y + popup.h - 24, (SDL_Color){0, 155, 65, 255});
@@ -2511,8 +3156,15 @@ static void ANALYSIS_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *fo
 
 static int ANALYSIS_draw_wrapped_text(SDL_Renderer *renderer, TTF_Font *font, const char *text, int x, int y,
                                       int max_px, int line_h, SDL_Color color) {
+    /*
+        Purpose: Draws the wrapped text
+        Returns: Success status
+    */
+
     if (!renderer || !font || !text || max_px <= 0 || line_h <= 0) {
+
         return 0;
+
     }
 
     int len = (int)strlen(text);
@@ -2523,8 +3175,11 @@ static int ANALYSIS_draw_wrapped_text(SDL_Renderer *renderer, TTF_Font *font, co
         while (pos < len && text[pos] == ' ') {
             pos++;
         }
+
         if (pos >= len) {
+
             break;
+
         }
 
         int best = 1;
@@ -2534,7 +3189,9 @@ static int ANALYSIS_draw_wrapped_text(SDL_Renderer *renderer, TTF_Font *font, co
             char tmp[1024];
 
             if (n >= (int)sizeof(tmp)) {
+
                 break;
+
             }
 
             memcpy(tmp, text + pos, (size_t)n);
@@ -2544,10 +3201,15 @@ static int ANALYSIS_draw_wrapped_text(SDL_Renderer *renderer, TTF_Font *font, co
             int text_h = 0;
 
             if (TTF_SizeText(font, tmp, &text_w, &text_h) != 0) {
+
                 break;
+
             }
+
             if (text_w > max_px) {
+
                 break;
+
             }
 
             best = n;
@@ -2555,18 +3217,24 @@ static int ANALYSIS_draw_wrapped_text(SDL_Renderer *renderer, TTF_Font *font, co
             char c = text[pos + n - 1];
 
             if (c == ' ' || c == '_' || c == '-' || c == '/') {
+
                 best_break = n;
+
             }
         }
 
         if (pos + best < len && best_break > 8) {
+
             best = best_break;
+
         }
 
         char line[1024];
 
         if (best >= (int)sizeof(line)) {
+
             best = (int)sizeof(line) - 1;
+
         }
 
         memcpy(line, text + pos, (size_t)best);
@@ -2586,63 +3254,112 @@ static void ANALYSIS_draw_centered_button_text(SDL_Renderer *renderer, TTF_Font 
                                                SDL_Color color);
 
 static void ANALYSIS_signal_clamp_file_cursor(void) {
+    /*
+        Purpose: Clamps the signal file cursor
+        Returns: No value
+    */
+
     int len = (int)strlen(Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD]);
 
     if (Global_Analysis_Signal_File_Cursor < 0) {
+
         Global_Analysis_Signal_File_Cursor = 0;
+
     }
 
     if (Global_Analysis_Signal_File_Cursor > len) {
+
         Global_Analysis_Signal_File_Cursor = len;
+
     }
 }
 
 static void ANALYSIS_signal_clear_file_selection(void) {
+    /*
+        Purpose: Clears the signal file selection
+        Returns: No value
+    */
+
     Global_Analysis_Signal_File_Selecting = 0;
     Global_Analysis_Signal_File_Selection_Start = -1;
     Global_Analysis_Signal_File_Selection_End = -1;
 }
 
 static int ANALYSIS_signal_file_has_selection(void) {
+    /*
+        Purpose: Checks whether the signal file has selection
+        Returns: Success status
+    */
+
     return Global_Analysis_Signal_File_Selection_Start >= 0 && Global_Analysis_Signal_File_Selection_End >= 0 &&
            Global_Analysis_Signal_File_Selection_Start != Global_Analysis_Signal_File_Selection_End;
 }
 
 static void ANALYSIS_signal_get_file_selection_range(int *start, int *end) {
+    /*
+        Purpose: Gets the signal file selection range
+        Returns: No value
+    */
+
     int a = Global_Analysis_Signal_File_Selection_Start;
     int b = Global_Analysis_Signal_File_Selection_End;
     int len = (int)strlen(Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD]);
 
     if (a < 0) {
+
         a = 0;
+
     }
+
     if (b < 0) {
+
         b = 0;
+
     }
+
     if (a > len) {
+
         a = len;
+
     }
+
     if (b > len) {
+
         b = len;
+
     }
 
     if (b < a) {
+
         int tmp = a;
         a = b;
         b = tmp;
+
     }
 
     if (start) {
+
         *start = a;
+
     }
+
     if (end) {
+
         *end = b;
+
     }
 }
 
 static int ANALYSIS_signal_delete_file_selection(void) {
+    /*
+        Purpose: Deletes the signal file selection
+        Returns: Success status
+    */
+
     if (!ANALYSIS_signal_file_has_selection()) {
+
         return 0;
+
     }
 
     char *dst = Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD];
@@ -2652,8 +3369,10 @@ static int ANALYSIS_signal_delete_file_selection(void) {
     ANALYSIS_signal_get_file_selection_range(&start, &end);
 
     if (end <= start) {
+
         ANALYSIS_signal_clear_file_selection();
         return 0;
+
     }
 
     size_t len = strlen(dst);
@@ -2668,44 +3387,67 @@ static int ANALYSIS_signal_delete_file_selection(void) {
 }
 
 static int ANALYSIS_signal_text_width_range(TTF_Font *font, const char *text, int start, int end) {
+    /*
+        Purpose: Gets the signal text width range
+        Returns: Text width
+    */
+
     if (!text || end <= start) {
+
         return 0;
+
     }
 
     int len = (int)strlen(text);
 
     if (start < 0) {
+
         start = 0;
+
     }
+
     if (end < start) {
+
         end = start;
+
     }
+
     if (end > len) {
+
         end = len;
+
     }
 
     int count = end - start;
 
     if (count <= 0) {
+
         return 0;
+
     }
 
     char tmp[1024];
 
     if (count >= (int)sizeof(tmp)) {
+
         count = (int)sizeof(tmp) - 1;
+
     }
 
     memcpy(tmp, text + start, (size_t)count);
     tmp[count] = '\0';
 
     if (font) {
+
         int text_w = 0;
         int text_h = 0;
 
         if (TTF_SizeText(font, tmp, &text_w, &text_h) == 0) {
+
             return text_w;
+
         }
+
     }
 
     return count * 8;
@@ -2716,12 +3458,21 @@ static int ANALYSIS_signal_text_width_range(TTF_Font *font, const char *text, in
 static int ANALYSIS_signal_filename_wrap_lines(TTF_Font *font, const char *text, int max_px,
                                                int starts[ANALYSIS_SIGNAL_FILENAME_WRAP_MAX_LINES],
                                                int ends[ANALYSIS_SIGNAL_FILENAME_WRAP_MAX_LINES]) {
+    /*
+        Purpose: Wraps the signal filename lines
+        Returns: Success status
+    */
+
     if (!starts || !ends) {
+
         return 0;
+
     }
 
     if (!text) {
+
         text = "";
+
     }
 
     int len = (int)strlen(text);
@@ -2729,7 +3480,9 @@ static int ANALYSIS_signal_filename_wrap_lines(TTF_Font *font, const char *text,
     int lines = 0;
 
     if (max_px < 8) {
+
         max_px = 8;
+
     }
 
     while (pos < len && lines < ANALYSIS_SIGNAL_FILENAME_WRAP_MAX_LINES) {
@@ -2740,7 +3493,9 @@ static int ANALYSIS_signal_filename_wrap_lines(TTF_Font *font, const char *text,
             char tmp[1024];
 
             if (n >= (int)sizeof(tmp)) {
+
                 break;
+
             }
 
             memcpy(tmp, text + pos, (size_t)n);
@@ -2750,17 +3505,25 @@ static int ANALYSIS_signal_filename_wrap_lines(TTF_Font *font, const char *text,
             int text_h = 0;
 
             if (font) {
+
                 if (TTF_SizeText(font, tmp, &text_w, &text_h) != 0) {
+
                     break;
+
                 }
+
             }
 
             else {
+
                 text_w = n * 8;
+
             }
 
             if (text_w > max_px) {
+
                 break;
+
             }
 
             best = n;
@@ -2768,12 +3531,16 @@ static int ANALYSIS_signal_filename_wrap_lines(TTF_Font *font, const char *text,
             char c = text[pos + n - 1];
 
             if (c == '_' || c == '-' || c == '.' || c == ' ') {
+
                 best_break = n;
+
             }
         }
 
         if (pos + best < len && best_break > 8) {
+
             best = best_break;
+
         }
 
         starts[lines] = pos;
@@ -2783,27 +3550,40 @@ static int ANALYSIS_signal_filename_wrap_lines(TTF_Font *font, const char *text,
     }
 
     if (lines == 0) {
+
         starts[0] = 0;
         ends[0] = 0;
         lines = 1;
+
     }
 
     if (pos < len && lines > 0) {
+
         ends[lines - 1] = len;
+
     }
 
     return lines;
 }
 
 static void ANALYSIS_signal_insert_file_cursor_text(const char *src) {
+    /*
+        Purpose: Inserts the signal file cursor text
+        Returns: No value
+    */
+
     if (!src || src[0] == '\0') {
+
         return;
+
     }
 
     char *dst = Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD];
 
     if (ANALYSIS_signal_file_has_selection()) {
+
         ANALYSIS_signal_delete_file_selection();
+
     }
 
     size_t len = strlen(dst);
@@ -2812,11 +3592,15 @@ static void ANALYSIS_signal_insert_file_cursor_text(const char *src) {
     ANALYSIS_signal_clamp_file_cursor();
 
     if (len >= ANALYSIS_SIGNAL_TEXT_MAX - 1) {
+
         return;
+
     }
 
     if (add > (ANALYSIS_SIGNAL_TEXT_MAX - 1) - len) {
+
         add = (ANALYSIS_SIGNAL_TEXT_MAX - 1) - len;
+
     }
 
     memmove(dst + Global_Analysis_Signal_File_Cursor + (int)add, dst + Global_Analysis_Signal_File_Cursor,
@@ -2829,16 +3613,25 @@ static void ANALYSIS_signal_insert_file_cursor_text(const char *src) {
 }
 
 static void ANALYSIS_signal_backspace_file_cursor_text(void) {
+    /*
+        Purpose: Removes the previous character from the signal file cursor text
+        Returns: No value
+    */
+
     char *dst = Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD];
 
     ANALYSIS_signal_clamp_file_cursor();
 
     if (ANALYSIS_signal_delete_file_selection()) {
+
         return;
+
     }
 
     if (Global_Analysis_Signal_File_Cursor <= 0) {
+
         return;
+
     }
 
     size_t len = strlen(dst);
@@ -2852,18 +3645,27 @@ static void ANALYSIS_signal_backspace_file_cursor_text(void) {
 }
 
 static void ANALYSIS_signal_delete_file_cursor_text(void) {
+    /*
+        Purpose: Deletes the signal file cursor text
+        Returns: No value
+    */
+
     char *dst = Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD];
 
     ANALYSIS_signal_clamp_file_cursor();
 
     if (ANALYSIS_signal_delete_file_selection()) {
+
         return;
+
     }
 
     size_t len = strlen(dst);
 
     if (Global_Analysis_Signal_File_Cursor >= (int)len) {
+
         return;
+
     }
 
     memmove(dst + Global_Analysis_Signal_File_Cursor, dst + Global_Analysis_Signal_File_Cursor + 1,
@@ -2874,6 +3676,11 @@ static void ANALYSIS_signal_delete_file_cursor_text(void) {
 }
 
 static int ANALYSIS_signal_set_file_cursor_from_mouse(TTF_Font *font, SDL_Rect rect, int mouse_x, int mouse_y) {
+    /*
+        Purpose: Sets the signal file cursor from mouse
+        Returns: Success status
+    */
+
     const char *text = Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD];
     int starts[ANALYSIS_SIGNAL_FILENAME_WRAP_MAX_LINES];
     int ends[ANALYSIS_SIGNAL_FILENAME_WRAP_MAX_LINES];
@@ -2885,10 +3692,15 @@ static int ANALYSIS_signal_set_file_cursor_from_mouse(TTF_Font *font, SDL_Rect r
     int line = (mouse_y - text_y) / line_h;
 
     if (line < 0) {
+
         line = 0;
+
     }
+
     if (line >= lines) {
+
         line = lines - 1;
+
     }
 
     int line_start = starts[line];
@@ -2897,9 +3709,11 @@ static int ANALYSIS_signal_set_file_cursor_from_mouse(TTF_Font *font, SDL_Rect r
     int rel_x = mouse_x - text_x;
 
     if (rel_x <= 0) {
+
         Global_Analysis_Signal_File_Cursor = line_start;
         ANALYSIS_signal_clamp_file_cursor();
         return Global_Analysis_Signal_File_Cursor;
+
     }
 
     for (int i = 0; i < line_len; i++) {
@@ -2910,10 +3724,15 @@ static int ANALYSIS_signal_set_file_cursor_from_mouse(TTF_Font *font, SDL_Rect r
         int text_h = 0;
 
         if (i >= (int)sizeof(left) - 1) {
+
             break;
+
         }
+
         if (i + 1 >= (int)sizeof(right)) {
+
             break;
+
         }
 
         memcpy(left, text + line_start, (size_t)i);
@@ -2923,19 +3742,25 @@ static int ANALYSIS_signal_set_file_cursor_from_mouse(TTF_Font *font, SDL_Rect r
         right[i + 1] = '\0';
 
         if (font) {
+
             TTF_SizeText(font, left, &left_w, &text_h);
             TTF_SizeText(font, right, &right_w, &text_h);
+
         }
 
         else {
+
             left_w = i * 8;
             right_w = (i + 1) * 8;
+
         }
 
         if (rel_x < (left_w + right_w) / 2) {
+
             Global_Analysis_Signal_File_Cursor = line_start + i;
             ANALYSIS_signal_clamp_file_cursor();
             return Global_Analysis_Signal_File_Cursor;
+
         }
     }
 
@@ -2946,6 +3771,11 @@ static int ANALYSIS_signal_set_file_cursor_from_mouse(TTF_Font *font, SDL_Rect r
 
 static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect,
                                                      int active) {
+    /*
+        Purpose: Draws the signal filename field text
+        Returns: No value
+    */
+
     const char *src = Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD];
     SDL_Color text_color = src[0] != '\0' || active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){95, 130, 95, 255};
     int starts[ANALYSIS_SIGNAL_FILENAME_WRAP_MAX_LINES];
@@ -2955,21 +3785,28 @@ static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer, TTF
     int lines = 0;
 
     if (max_lines < 1) {
+
         max_lines = 1;
+
     }
 
     if (src[0] == '\0' && !active) {
+
         draw_text(renderer, font, "Click to type", rect.x + 8, rect.y + 8, text_color);
         return;
+
     }
 
     lines = ANALYSIS_signal_filename_wrap_lines(font, src, rect.w - 16, starts, ends);
 
     if (lines > max_lines) {
+
         lines = max_lines;
+
     }
 
     if (active && ANALYSIS_signal_file_has_selection()) {
+
         int sel_start = 0;
         int sel_end = 0;
 
@@ -2982,20 +3819,25 @@ static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer, TTF
             int draw_end = sel_end < line_end ? sel_end : line_end;
 
             if (draw_end <= draw_start) {
+
                 continue;
+
             }
 
             int x0 = rect.x + 8 + ANALYSIS_signal_text_width_range(font, src, line_start, draw_start);
             int x1 = rect.x + 8 + ANALYSIS_signal_text_width_range(font, src, line_start, draw_end);
 
             if (x1 <= x0) {
+
                 x1 = x0 + 2;
+
             }
 
             SDL_Rect selection_rect = {x0, rect.y + 7 + (i * line_h), x1 - x0, line_h};
 
             draw_filled_rect(renderer, selection_rect, (SDL_Color){0, 90, 255, 120});
         }
+
     }
 
     for (int i = 0; i < lines; i++) {
@@ -3003,10 +3845,15 @@ static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer, TTF
         int count = ends[i] - starts[i];
 
         if (count < 0) {
+
             count = 0;
+
         }
+
         if (count >= (int)sizeof(line)) {
+
             count = (int)sizeof(line) - 1;
+
         }
 
         memcpy(line, src + starts[i], (size_t)count);
@@ -3016,6 +3863,7 @@ static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer, TTF
     }
 
     if (active && ((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
+
         ANALYSIS_signal_clamp_file_cursor();
 
         int cursor = Global_Analysis_Signal_File_Cursor;
@@ -3024,40 +3872,59 @@ static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer, TTF
         int cursor_y = rect.y + 8;
 
         for (int i = 0; i < lines; i++) {
+
             if (cursor >= starts[i] && cursor <= ends[i]) {
+
                 cursor_line = i;
                 break;
+
             }
 
             if (i == lines - 1 && cursor > ends[i]) {
+
                 cursor_line = i;
+
             }
         }
 
         if (cursor_line < 0) {
+
             cursor_line = 0;
+
         }
+
         if (cursor_line >= lines) {
+
             cursor_line = lines - 1;
+
         }
 
         if (lines > 0) {
+
             int line_start = starts[cursor_line];
             int line_end = ends[cursor_line];
 
             if (cursor < line_start) {
+
                 cursor = line_start;
+
             }
+
             if (cursor > line_end) {
+
                 cursor = line_end;
+
             }
 
             if (cursor > line_start) {
+
                 char before[1024];
                 int before_len = cursor - line_start;
 
                 if (before_len >= (int)sizeof(before)) {
+
                     before_len = (int)sizeof(before) - 1;
+
                 }
 
                 memcpy(before, src + line_start, (size_t)before_len);
@@ -3067,39 +3934,57 @@ static void ANALYSIS_signal_draw_filename_field_text(SDL_Renderer *renderer, TTF
                 int text_h = 0;
 
                 if (font && TTF_SizeText(font, before, &text_w, &text_h) == 0) {
+
                     cursor_x += text_w;
+
                 }
 
                 else {
+
                     cursor_x += before_len * 8;
+
                 }
+
             }
 
             cursor_y = rect.y + 8 + (cursor_line * line_h);
+
         }
 
         SDL_SetRenderDrawColor(renderer, 0, 170, 255, 255);
         SDL_RenderDrawLine(renderer, cursor_x, cursor_y, cursor_x, cursor_y + line_h - 2);
         SDL_RenderDrawLine(renderer, cursor_x + 1, cursor_y, cursor_x + 1, cursor_y + line_h - 2);
+
     }
 }
 
 static void ANALYSIS_signal_append_text(const char *src) {
+    /*
+        Purpose: Appends the signal text
+        Returns: No value
+    */
+
     if (!src || Global_Analysis_Signal_Active_Field < 0 ||
         Global_Analysis_Signal_Active_Field >= ANALYSIS_SIGNAL_FIELD_COUNT) {
+
         return;
+
     }
 
     if (Global_Analysis_Signal_Active_Field == ANALYSIS_SIGNAL_FILENAME_FIELD) {
+
         ANALYSIS_signal_insert_file_cursor_text(src);
         return;
+
     }
 
     char *dst = Global_Analysis_Signal_Field_Text[Global_Analysis_Signal_Active_Field];
     size_t used = strlen(dst);
 
     if (used >= ANALYSIS_SIGNAL_TEXT_MAX - 1) {
+
         return;
+
     }
 
     strncat(dst, src, ANALYSIS_SIGNAL_TEXT_MAX - used - 1);
@@ -3108,53 +3993,82 @@ static void ANALYSIS_signal_append_text(const char *src) {
 }
 
 static void ANALYSIS_signal_backspace_text(void) {
+    /*
+        Purpose: Removes the previous character from the signal text
+        Returns: No value
+    */
+
     if (Global_Analysis_Signal_Active_Field < 0 || Global_Analysis_Signal_Active_Field >= ANALYSIS_SIGNAL_FIELD_COUNT) {
+
         return;
+
     }
 
     if (Global_Analysis_Signal_Active_Field == ANALYSIS_SIGNAL_FILENAME_FIELD) {
+
         ANALYSIS_signal_backspace_file_cursor_text();
         return;
+
     }
 
     char *dst = Global_Analysis_Signal_Field_Text[Global_Analysis_Signal_Active_Field];
     size_t len = strlen(dst);
 
     if (len > 0) {
+
         dst[len - 1] = '\0';
+
     }
 
     ANALYSIS_signal_refresh_filename_if_auto();
 }
 
 static void ANALYSIS_signal_clear_active_text(void) {
+    /*
+        Purpose: Clears the signal active text
+        Returns: No value
+    */
+
     if (Global_Analysis_Signal_Active_Field < 0 || Global_Analysis_Signal_Active_Field >= ANALYSIS_SIGNAL_FIELD_COUNT) {
+
         return;
+
     }
 
     Global_Analysis_Signal_Field_Text[Global_Analysis_Signal_Active_Field][0] = '\0';
 
     if (Global_Analysis_Signal_Active_Field == ANALYSIS_SIGNAL_FILENAME_FIELD) {
+
         Global_Analysis_Signal_File_Cursor = 0;
         Global_Analysis_Signal_File_Manual_Edit = 1;
         ANALYSIS_signal_clear_file_selection();
         return;
+
     }
 
     ANALYSIS_signal_refresh_filename_if_auto();
 }
 
 static void ANALYSIS_get_signal_icon_rect(int win_w, int win_h, SDL_Rect *out) {
+    /*
+        Purpose: Gets the signal icon rectangle
+        Returns: No value
+    */
+
     (void)win_h;
 
     if (!out) {
+
         return;
+
     }
 
     *out = (SDL_Rect){win_w - 394, 8, 34, 34};
 
     if (out->x < MARGIN) {
+
         out->x = MARGIN;
+
     }
 
     Global_Analysis_Signal_Icon_Rect = *out;
@@ -3162,8 +4076,15 @@ static void ANALYSIS_get_signal_icon_rect(int win_w, int win_h, SDL_Rect *out) {
 }
 
 static void ANALYSIS_get_multithread_rect(int win_w, int win_h, SDL_Rect *out) {
+    /*
+        Purpose: Gets the multithread rectangle
+        Returns: No value
+    */
+
     if (!out) {
+
         return;
+
     }
 
     SDL_Rect icon_rect;
@@ -3172,7 +4093,9 @@ static void ANALYSIS_get_multithread_rect(int win_w, int win_h, SDL_Rect *out) {
     *out = (SDL_Rect){icon_rect.x - icon_rect.w - 8, icon_rect.y, icon_rect.w, icon_rect.h};
 
     if (out->x < MARGIN) {
+
         out->x = icon_rect.x + icon_rect.w + 8;
+
     }
 
     Global_Analysis_Multithread_Rect = *out;
@@ -3180,8 +4103,15 @@ static void ANALYSIS_get_multithread_rect(int win_w, int win_h, SDL_Rect *out) {
 }
 
 static void ANALYSIS_get_signal_trash_rect(int win_w, int win_h, SDL_Rect *out) {
+    /*
+        Purpose: Gets the signal trash rectangle
+        Returns: No value
+    */
+
     if (!out) {
+
         return;
+
     }
 
     SDL_Rect thread_rect;
@@ -3190,7 +4120,9 @@ static void ANALYSIS_get_signal_trash_rect(int win_w, int win_h, SDL_Rect *out) 
     *out = (SDL_Rect){thread_rect.x - thread_rect.w - 8, thread_rect.y, thread_rect.w, thread_rect.h};
 
     if (out->x < MARGIN) {
+
         out->x = thread_rect.x + thread_rect.w + 8;
+
     }
 
     Global_Analysis_Signal_Trash_Rect = *out;
@@ -3200,27 +4132,44 @@ static void ANALYSIS_get_signal_trash_rect(int win_w, int win_h, SDL_Rect *out) 
 static void ANALYSIS_get_signal_menu_rects(int win_w, int win_h, SDL_Rect *panel_rect,
                                            SDL_Rect field_rects[ANALYSIS_SIGNAL_FIELD_COUNT], SDL_Rect *save_rect,
                                            SDL_Rect *close_rect) {
+    /*
+        Purpose: Gets the signal menu rects
+        Returns: No value
+    */
+
     int panel_w = 720;
     int panel_h = 585;
 
     if (panel_w > win_w - 60) {
+
         panel_w = win_w - 60;
+
     }
+
     if (panel_h > win_h - 60) {
+
         panel_h = win_h - 60;
+
     }
 
     if (panel_w < 560) {
+
         panel_w = 560;
+
     }
+
     if (panel_h < 520) {
+
         panel_h = 520;
+
     }
 
     SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
 
     if (panel_rect) {
+
         *panel_rect = panel;
+
     }
 
     int left_x = panel.x + 28;
@@ -3231,6 +4180,7 @@ static void ANALYSIS_get_signal_menu_rects(int win_w, int win_h, SDL_Rect *panel
     int row_gap = 64;
 
     if (field_rects) {
+
         field_rects[0] = (SDL_Rect){left_x, top_y, box_w, box_h};
         field_rects[1] = (SDL_Rect){right_x, top_y, box_w, box_h};
         field_rects[2] = (SDL_Rect){left_x, top_y + row_gap, box_w, box_h};
@@ -3238,36 +4188,57 @@ static void ANALYSIS_get_signal_menu_rects(int win_w, int win_h, SDL_Rect *panel
         field_rects[3] = (SDL_Rect){left_x, top_y + row_gap * 2, box_w - 82, box_h};
         field_rects[4] = (SDL_Rect){right_x, top_y + row_gap * 2, box_w - 82, box_h};
         field_rects[ANALYSIS_SIGNAL_FILENAME_FIELD] = (SDL_Rect){left_x, top_y + row_gap * 3, panel.w - 56, 94};
+
     }
 
     if (save_rect) {
+
         *save_rect = (SDL_Rect){panel.x + panel.w - 252, panel.y + panel.h - 58, 116, 36};
+
     }
 
     if (close_rect) {
+
         *close_rect = (SDL_Rect){panel.x + panel.w - 120, panel.y + panel.h - 58, 92, 36};
+
     }
 }
 
 static void ANALYSIS_get_signal_marker_rects(SDL_Rect field_rects[ANALYSIS_SIGNAL_FIELD_COUNT],
                                              SDL_Rect *start_marker_rect, SDL_Rect *end_marker_rect) {
+    /*
+        Purpose: Gets the signal marker rects
+        Returns: No value
+    */
+
     int marker_w = 74;
     int marker_gap = 8;
 
     if (start_marker_rect) {
+
         SDL_Rect r = field_rects[3];
         *start_marker_rect = (SDL_Rect){r.x + r.w + marker_gap, r.y, marker_w, r.h};
+
     }
 
     if (end_marker_rect) {
+
         SDL_Rect r = field_rects[4];
         *end_marker_rect = (SDL_Rect){r.x + r.w + marker_gap, r.y, marker_w, r.h};
+
     }
 }
 
 static void ANALYSIS_signal_set_time_field_from_marker(int field_index) {
+    /*
+        Purpose: Sets the signal time field from marker
+        Returns: No value
+    */
+
     if (!Global_Analysis_Marker_Active || field_index < 0 || field_index >= ANALYSIS_SIGNAL_FIELD_COUNT) {
+
         return;
+
     }
 
     snprintf(Global_Analysis_Signal_Field_Text[field_index], ANALYSIS_SIGNAL_TEXT_MAX, "%.6f",
@@ -3280,14 +4251,23 @@ static void ANALYSIS_signal_set_time_field_from_marker(int field_index) {
 
 static void ANALYSIS_draw_signal_marker_button(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, int enabled,
                                                int hover) {
+    /*
+        Purpose: Draws the signal marker button
+        Returns: No value
+    */
+
     if (!renderer || !font) {
+
         return;
+
     }
 
     if (enabled && hover) {
+
         SDL_Rect glow = {rect.x - 3, rect.y - 3, rect.w + 6, rect.h + 6};
         draw_filled_rect(renderer, glow, (SDL_Color){0, 255, 90, 38});
         draw_outline_rect(renderer, glow, (SDL_Color){0, 255, 90, 170});
+
     }
 
     draw_filled_rect(renderer, rect,
@@ -3305,14 +4285,23 @@ static void ANALYSIS_draw_signal_marker_button(SDL_Renderer *renderer, TTF_Font 
 }
 
 static void ANALYSIS_signal_menu_prefill(void) {
+    /*
+        Purpose: Prefills the signal menu
+        Returns: No value
+    */
+
     const char *name = ANALYSIS_selected_file_name();
 
     if (!name || name[0] == '\0') {
+
         return;
+
     }
 
     if (strcmp(Global_Analysis_Signal_Menu_File, name) == 0) {
+
         return;
+
     }
 
     snprintf(Global_Analysis_Signal_Menu_File, sizeof(Global_Analysis_Signal_Menu_File), "%s", name);
@@ -3320,6 +4309,7 @@ static void ANALYSIS_signal_menu_prefill(void) {
     memset(Global_Analysis_Signal_Field_Text, 0, sizeof(Global_Analysis_Signal_Field_Text));
 
     if (Global_Analysis_Path[0] != '\0' && Global_Analysis_Sample_Rate > 0.0) {
+
         double center_hz = Global_Analysis_Center_Hz;
         double bw_hz = Global_Analysis_Sample_Rate;
         double sample_rate_hz = Global_Analysis_Sample_Rate;
@@ -3328,28 +4318,35 @@ static void ANALYSIS_signal_menu_prefill(void) {
             Global_Analysis_IQ_Count > 0 ? (double)Global_Analysis_IQ_Count / Global_Analysis_Sample_Rate : 0.0;
 
         if (Global_Analysis_Filter_Active || Global_Analysis_Filter_Visible) {
+
             double y0 = Global_Analysis_Filter_Y0;
             double y1 = Global_Analysis_Filter_Y1;
 
             if (y1 < y0) {
+
                 double tmp = y0;
                 y0 = y1;
                 y1 = tmp;
+
             }
 
             double center_y = (y0 + y1) * 0.5;
             center_hz = ANALYSIS_frequency_from_spec_frac(center_y);
             bw_hz = fabs(y1 - y0) * Global_Analysis_Sample_Rate;
+
         }
 
         if (Global_Analysis_Column_Active || Global_Analysis_Column_Visible) {
+
             double x0 = Global_Analysis_Column_X0;
             double x1 = Global_Analysis_Column_X1;
 
             if (x1 < x0) {
+
                 double tmp = x0;
                 x0 = x1;
                 x1 = tmp;
+
             }
 
             x0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
@@ -3359,6 +4356,7 @@ static void ANALYSIS_signal_menu_prefill(void) {
                         Global_Analysis_Sample_Rate;
             end_sec = (double)(Global_Analysis_View_Start + (size_t)(x1 * (double)Global_Analysis_View_Len)) /
                       Global_Analysis_Sample_Rate;
+
         }
 
         snprintf(Global_Analysis_Signal_Field_Text[0], ANALYSIS_SIGNAL_TEXT_MAX, "%.6f", center_hz / 1e6);
@@ -3373,13 +4371,21 @@ static void ANALYSIS_signal_menu_prefill(void) {
         Global_Analysis_Signal_File_Cursor =
             (int)strlen(Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD]);
         ANALYSIS_signal_clear_file_selection();
+
     }
 }
 
 static void ANALYSIS_draw_thick_line(SDL_Renderer *renderer, int x0, int y0, int x1, int y1, int thickness,
                                      SDL_Color color) {
+    /*
+        Purpose: Draws the thick line
+        Returns: No value
+    */
+
     if (!renderer || thickness <= 0) {
+
         return;
+
     }
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
@@ -3388,22 +4394,33 @@ static void ANALYSIS_draw_thick_line(SDL_Renderer *renderer, int x0, int y0, int
     int dy = y1 - y0;
 
     if (abs(dx) >= abs(dy)) {
+
         for (int off = -(thickness / 2); off <= thickness / 2; off++) {
             SDL_RenderDrawLine(renderer, x0, y0 + off, x1, y1 + off);
         }
+
     }
 
     else {
+
         for (int off = -(thickness / 2); off <= thickness / 2; off++) {
             SDL_RenderDrawLine(renderer, x0 + off, y0, x1 + off, y1);
         }
+
     }
 }
 
 static void ANALYSIS_draw_circle_outline(SDL_Renderer *renderer, int cx, int cy, int radius, int thickness,
                                          SDL_Color color) {
+    /*
+        Purpose: Draws the circle outline
+        Returns: No value
+    */
+
     if (!renderer || radius <= 0 || thickness <= 0) {
+
         return;
+
     }
 
     int segments = 48;
@@ -3412,7 +4429,9 @@ static void ANALYSIS_draw_circle_outline(SDL_Renderer *renderer, int cx, int cy,
         double r = (double)(radius - t);
 
         if (r <= 0.0) {
+
             break;
+
         }
 
         for (int i = 0; i < segments; i++) {
@@ -3430,10 +4449,17 @@ static void ANALYSIS_draw_circle_outline(SDL_Renderer *renderer, int cx, int cy,
 
 static void ANALYSIS_draw_signal_gear_shape(SDL_Renderer *renderer, SDL_Rect icon_rect, SDL_Color gear,
                                             SDL_Color cutout) {
+    /*
+        Purpose: Draws the signal gear shape
+        Returns: No value
+    */
+
     (void)cutout;
 
     if (!renderer) {
+
         return;
+
     }
 
     int cx = icon_rect.x + icon_rect.w / 2;
@@ -3470,8 +4496,15 @@ static void ANALYSIS_draw_signal_gear_shape(SDL_Renderer *renderer, SDL_Rect ico
 }
 
 static void ANALYSIS_draw_signal_settings_icon(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the signal settings icon
+        Returns: No value
+    */
+
     if (!renderer || !font || !ANALYSIS_signal_menu_available()) {
+
         return;
+
     }
 
     SDL_Rect icon_rect;
@@ -3490,9 +4523,11 @@ static void ANALYSIS_draw_signal_settings_icon(SDL_Renderer *renderer, TTF_Font 
         hover || Global_Analysis_Signal_Menu_Open ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 185, 70, 255};
 
     if (hover || Global_Analysis_Signal_Menu_Open) {
+
         SDL_Rect glow = {icon_rect.x - 3, icon_rect.y - 3, icon_rect.w + 6, icon_rect.h + 6};
         draw_filled_rect(renderer, glow, (SDL_Color){0, 255, 90, 35});
         draw_outline_rect(renderer, glow, (SDL_Color){0, 255, 90, 150});
+
     }
 
     draw_filled_rect(renderer, icon_rect, bg);
@@ -3501,8 +4536,15 @@ static void ANALYSIS_draw_signal_settings_icon(SDL_Renderer *renderer, TTF_Font 
 }
 
 static void ANALYSIS_draw_signal_trash_shape(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
+    /*
+        Purpose: Draws the signal trash shape
+        Returns: No value
+    */
+
     if (!renderer) {
+
         return;
+
     }
 
     int x = rect.x;
@@ -3530,8 +4572,15 @@ static void ANALYSIS_draw_signal_trash_shape(SDL_Renderer *renderer, SDL_Rect re
 }
 
 static void ANALYSIS_draw_signal_trash_icon(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the signal trash icon
+        Returns: No value
+    */
+
     if (!renderer || !font || !ANALYSIS_signal_menu_available()) {
+
         return;
+
     }
 
     SDL_Rect trash_rect;
@@ -3551,9 +4600,11 @@ static void ANALYSIS_draw_signal_trash_icon(SDL_Renderer *renderer, TTF_Font *fo
         hover || Global_Analysis_Delete_Confirm_Open ? (SDL_Color){255, 70, 70, 255} : (SDL_Color){150, 150, 150, 255};
 
     if (hover || Global_Analysis_Delete_Confirm_Open) {
+
         SDL_Rect glow = {trash_rect.x - 3, trash_rect.y - 3, trash_rect.w + 6, trash_rect.h + 6};
         draw_filled_rect(renderer, glow, (SDL_Color){255, 40, 40, 35});
         draw_outline_rect(renderer, glow, (SDL_Color){255, 60, 60, 150});
+
     }
 
     draw_filled_rect(renderer, trash_rect, bg);
@@ -3562,8 +4613,15 @@ static void ANALYSIS_draw_signal_trash_icon(SDL_Renderer *renderer, TTF_Font *fo
 }
 
 static void ANALYSIS_draw_multithread_icon(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the multithread icon
+        Returns: No value
+    */
+
     if (!renderer || !font || !ANALYSIS_signal_menu_available()) {
+
         return;
+
     }
 
     SDL_Rect rect;
@@ -3576,21 +4634,18 @@ static void ANALYSIS_draw_multithread_icon(SDL_Renderer *renderer, TTF_Font *fon
     int hover = point_in_rect(mouse_x, mouse_y, rect);
     int active = Global_Analysis_Multithread_Enabled;
 
-    SDL_Color state_color =
-        active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){255, 70, 70, 255};
+    SDL_Color state_color = active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){255, 70, 70, 255};
     SDL_Color bg = active ? (SDL_Color){0, 34, 12, 235} : (SDL_Color){38, 0, 0, 235};
-    SDL_Color border = hover || Global_Analysis_Multithread_Prompt_Open
-                           ? state_color
-                           : (SDL_Color){120, 120, 120, 230};
+    SDL_Color border = hover || Global_Analysis_Multithread_Prompt_Open ? state_color : (SDL_Color){120, 120, 120, 230};
 
     if (hover || Global_Analysis_Multithread_Prompt_Open) {
+
         SDL_Rect glow = {rect.x - 3, rect.y - 3, rect.w + 6, rect.h + 6};
-        SDL_Color glow_color =
-            active ? (SDL_Color){0, 255, 90, 38} : (SDL_Color){255, 50, 50, 38};
-        SDL_Color glow_border =
-            active ? (SDL_Color){0, 255, 90, 160} : (SDL_Color){255, 70, 70, 160};
+        SDL_Color glow_color = active ? (SDL_Color){0, 255, 90, 38} : (SDL_Color){255, 50, 50, 38};
+        SDL_Color glow_border = active ? (SDL_Color){0, 255, 90, 160} : (SDL_Color){255, 70, 70, 160};
         draw_filled_rect(renderer, glow, glow_color);
         draw_outline_rect(renderer, glow, glow_border);
+
     }
 
     draw_filled_rect(renderer, rect, bg);
@@ -3598,40 +4653,71 @@ static void ANALYSIS_draw_multithread_icon(SDL_Renderer *renderer, TTF_Font *fon
     ANALYSIS_draw_centered_button_text(renderer, font, rect, "T", state_color);
 }
 
-static void ANALYSIS_get_multithread_prompt_rects(int win_w, int win_h, SDL_Rect *panel_rect,
-                                                  SDL_Rect *action_rect, SDL_Rect *close_rect) {
+static void ANALYSIS_get_multithread_prompt_rects(int win_w, int win_h, SDL_Rect *panel_rect, SDL_Rect *action_rect,
+                                                  SDL_Rect *close_rect) {
+    /*
+        Purpose: Gets the multithread prompt rects
+        Returns: No value
+    */
+
     int panel_w = 570;
     int panel_h = 230;
 
     if (panel_w > win_w - 60) {
+
         panel_w = win_w - 60;
+
     }
+
     if (panel_h > win_h - 60) {
+
         panel_h = win_h - 60;
+
     }
+
     if (panel_w < 470) {
+
         panel_w = 470;
+
     }
+
     if (panel_h < 210) {
+
         panel_h = 210;
+
     }
 
     SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
 
     if (panel_rect) {
+
         *panel_rect = panel;
+
     }
+
     if (action_rect) {
+
         *action_rect = (SDL_Rect){panel.x + panel.w - 246, panel.y + panel.h - 58, 104, 36};
+
     }
+
     if (close_rect) {
+
         *close_rect = (SDL_Rect){panel.x + panel.w - 126, panel.y + panel.h - 58, 98, 36};
+
     }
 }
 
 static void ANALYSIS_draw_multithread_prompt(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the multithread prompt
+        Returns: No value
+    */
+
     if (!renderer || !font || !Global_Analysis_Multithread_Prompt_Open) {
+
         return;
+
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -3651,8 +4737,7 @@ static void ANALYSIS_draw_multithread_prompt(SDL_Renderer *renderer, TTF_Font *f
     draw_filled_rect(renderer, title_bar, (SDL_Color){0, 24, 8, 245});
     draw_outline_rect(renderer, title_bar, (SDL_Color){0, 160, 60, 230});
 
-    draw_text(renderer, font, "Multithread IQ Loading", panel.x + 24, panel.y + 18,
-              (SDL_Color){0, 255, 90, 255});
+    draw_text(renderer, font, "Multithread IQ Loading", panel.x + 24, panel.y + 18, (SDL_Color){0, 255, 90, 255});
     draw_text(renderer, font, "Uses 10 threads to load IQ data.", panel.x + 24, panel.y + 78,
               (SDL_Color){220, 220, 220, 255});
     draw_text(renderer, font, "Faster on SSDs; not recommended for hard drives.", panel.x + 24, panel.y + 108,
@@ -3672,29 +4757,33 @@ static void ANALYSIS_draw_multithread_prompt(SDL_Renderer *renderer, TTF_Font *f
     SDL_Color action_color =
         Global_Analysis_Multithread_Enabled ? (SDL_Color){255, 70, 70, 255} : (SDL_Color){0, 255, 90, 255};
 
-    draw_filled_rect(renderer, action_rect,
-                     action_hover ? (SDL_Color){24, 44, 24, 255} : (SDL_Color){8, 18, 10, 255});
+    draw_filled_rect(renderer, action_rect, action_hover ? (SDL_Color){24, 44, 24, 255} : (SDL_Color){8, 18, 10, 255});
     draw_outline_rect(renderer, action_rect, action_hover ? action_color : (SDL_Color){120, 120, 120, 255});
     ANALYSIS_draw_centered_button_text(renderer, font, action_rect,
                                        Global_Analysis_Multithread_Enabled ? "Disable" : "Enable", action_color);
 
-    draw_filled_rect(renderer, close_rect,
-                     close_hover ? (SDL_Color){34, 34, 34, 255} : (SDL_Color){12, 12, 12, 255});
+    draw_filled_rect(renderer, close_rect, close_hover ? (SDL_Color){34, 34, 34, 255} : (SDL_Color){12, 12, 12, 255});
     draw_outline_rect(renderer, close_rect,
                       close_hover ? (SDL_Color){230, 230, 230, 255} : (SDL_Color){130, 130, 130, 255});
-    ANALYSIS_draw_centered_button_text(renderer, font, close_rect, "Close",
-                                       (SDL_Color){200, 200, 200, 255});
+    ANALYSIS_draw_centered_button_text(renderer, font, close_rect, "Close", (SDL_Color){200, 200, 200, 255});
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
 static void ANALYSIS_set_multithread_enabled(int enabled) {
+    /*
+        Purpose: Sets the multithread enabled
+        Returns: No value
+    */
+
     Global_Analysis_Multithread_Enabled = enabled ? 1 : 0;
     Global_Analysis_Multithread_Prompt_Open = 0;
 
     if (Global_Analysis_Path[0] != '\0' && Global_Analysis_IQ_Count > 0) {
+
         Global_Analysis_Loading = 1;
         Global_Analysis_Dirty = 1;
+
     }
 
     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "10-thread IQ loading %s",
@@ -3702,78 +4791,128 @@ static void ANALYSIS_set_multithread_enabled(int enabled) {
 }
 
 static void ANALYSIS_handle_multithread_prompt_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles the multithread prompt event
+        Returns: No value
+    */
+
     if (!event || !Global_Analysis_Multithread_Prompt_Open) {
+
         return;
+
     }
 
     if (event->type == SDL_KEYDOWN) {
+
         SDL_Keycode key = event->key.keysym.sym;
 
         if (key == SDLK_ESCAPE) {
+
             Global_Analysis_Multithread_Prompt_Open = 0;
             return;
+
         }
 
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
             ANALYSIS_set_multithread_enabled(!Global_Analysis_Multithread_Enabled);
             return;
+
         }
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
         SDL_Rect panel;
         SDL_Rect action_rect;
         SDL_Rect close_rect;
         ANALYSIS_get_multithread_prompt_rects(win_w, win_h, &panel, &action_rect, &close_rect);
 
         if (point_in_rect(event->button.x, event->button.y, action_rect)) {
+
             ANALYSIS_set_multithread_enabled(!Global_Analysis_Multithread_Enabled);
             return;
+
         }
 
         if (point_in_rect(event->button.x, event->button.y, close_rect)) {
+
             Global_Analysis_Multithread_Prompt_Open = 0;
             return;
+
         }
 
         (void)panel;
+
     }
 }
 
 static void ANALYSIS_get_delete_confirm_rects(int win_w, int win_h, SDL_Rect *panel_rect, SDL_Rect *yes_rect,
                                               SDL_Rect *no_rect) {
+    /*
+        Purpose: Gets the delete confirm rects
+        Returns: No value
+    */
+
     int panel_w = 640;
     int panel_h = 300;
 
     if (panel_w > win_w - 60) {
+
         panel_w = win_w - 60;
+
     }
+
     if (panel_h > win_h - 60) {
+
         panel_h = win_h - 60;
+
     }
+
     if (panel_w < 520) {
+
         panel_w = 520;
+
     }
+
     if (panel_h < 260) {
+
         panel_h = 260;
+
     }
 
     SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
 
     if (panel_rect) {
+
         *panel_rect = panel;
+
     }
+
     if (yes_rect) {
+
         *yes_rect = (SDL_Rect){panel.x + panel.w - 236, panel.y + panel.h - 58, 92, 36};
+
     }
+
     if (no_rect) {
+
         *no_rect = (SDL_Rect){panel.x + panel.w - 124, panel.y + panel.h - 58, 92, 36};
+
     }
 }
 
 static void ANALYSIS_draw_delete_confirm_menu(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the delete confirm menu
+        Returns: No value
+    */
+
     if (!renderer || !font || !Global_Analysis_Delete_Confirm_Open) {
+
         return;
+
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
@@ -3810,9 +4949,11 @@ static void ANALYSIS_draw_delete_confirm_menu(SDL_Renderer *renderer, TTF_Font *
     int no_hover = point_in_rect(mouse_x, mouse_y, no_rect);
 
     if (yes_hover) {
+
         SDL_Rect glow = {yes_rect.x - 3, yes_rect.y - 3, yes_rect.w + 6, yes_rect.h + 6};
         draw_filled_rect(renderer, glow, (SDL_Color){255, 40, 40, 40});
         draw_outline_rect(renderer, glow, (SDL_Color){255, 70, 70, 180});
+
     }
 
     draw_filled_rect(renderer, yes_rect, yes_hover ? (SDL_Color){78, 0, 0, 255} : (SDL_Color){44, 0, 0, 255});
@@ -3820,9 +4961,11 @@ static void ANALYSIS_draw_delete_confirm_menu(SDL_Renderer *renderer, TTF_Font *
     ANALYSIS_draw_centered_button_text(renderer, font, yes_rect, "Yes", (SDL_Color){255, 70, 70, 255});
 
     if (no_hover) {
+
         SDL_Rect glow = {no_rect.x - 3, no_rect.y - 3, no_rect.w + 6, no_rect.h + 6};
         draw_filled_rect(renderer, glow, (SDL_Color){220, 220, 220, 34});
         draw_outline_rect(renderer, glow, (SDL_Color){230, 230, 230, 170});
+
     }
 
     draw_filled_rect(renderer, no_rect, no_hover ? (SDL_Color){34, 34, 34, 255} : (SDL_Color){12, 12, 12, 255});
@@ -3833,10 +4976,17 @@ static void ANALYSIS_draw_delete_confirm_menu(SDL_Renderer *renderer, TTF_Font *
 }
 
 static void ANALYSIS_open_delete_confirm(void) {
+    /*
+        Purpose: Opens the delete confirm
+        Returns: No value
+    */
+
     const char *name = ANALYSIS_selected_file_name();
 
     if (!name || name[0] == '\0') {
+
         return;
+
     }
 
     snprintf(Global_Analysis_Delete_Confirm_File, sizeof(Global_Analysis_Delete_Confirm_File), "%s", name);
@@ -3849,8 +4999,15 @@ static void ANALYSIS_open_delete_confirm(void) {
 }
 
 static int ANALYSIS_delete_confirmed_file(void) {
+    /*
+        Purpose: Deletes the confirmed file
+        Returns: Success status
+    */
+
     if (!Global_Analysis_Delete_Confirm_Open || Global_Analysis_Delete_Confirm_Path[0] == '\0') {
+
         return 0;
+
     }
 
     char deleted_name[512];
@@ -3860,11 +5017,13 @@ static int ANALYSIS_delete_confirmed_file(void) {
     snprintf(deleted_path, sizeof(deleted_path), "%s", Global_Analysis_Delete_Confirm_Path);
 
     if (remove(deleted_path) != 0) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to delete %.160s", deleted_name);
         Global_Analysis_Delete_Confirm_Open = 0;
         Global_Analysis_Delete_Confirm_File[0] = '\0';
         Global_Analysis_Delete_Confirm_Path[0] = '\0';
         return 0;
+
     }
 
     Global_Analysis_Delete_Confirm_Open = 0;
@@ -3872,13 +5031,17 @@ static int ANALYSIS_delete_confirmed_file(void) {
     Global_Analysis_Delete_Confirm_Path[0] = '\0';
 
     if (strcmp(Global_Analysis_Path, deleted_path) == 0) {
+
         ANALYSIS_clear_loaded_file();
+
     }
 
     ANALYSIS_scan_recordings();
 
     if (Global_Analysis_File_Count > 0 && Global_Analysis_Selected >= Global_Analysis_File_Count) {
+
         Global_Analysis_Selected = Global_Analysis_File_Count - 1;
+
     }
 
     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Deleted %.160s", deleted_name);
@@ -3887,27 +5050,41 @@ static int ANALYSIS_delete_confirmed_file(void) {
 }
 
 static void ANALYSIS_handle_delete_confirm_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles the delete confirm event
+        Returns: No value
+    */
+
     if (!event || !Global_Analysis_Delete_Confirm_Open) {
+
         return;
+
     }
 
     if (event->type == SDL_KEYDOWN) {
+
         SDL_Keycode key = event->key.keysym.sym;
 
         if (key == SDLK_ESCAPE) {
+
             Global_Analysis_Delete_Confirm_Open = 0;
             Global_Analysis_Delete_Confirm_File[0] = '\0';
             Global_Analysis_Delete_Confirm_Path[0] = '\0';
             return;
+
         }
 
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
             ANALYSIS_delete_confirmed_file();
             return;
+
         }
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
         SDL_Rect panel;
         SDL_Rect yes_rect;
         SDL_Rect no_rect;
@@ -3915,25 +5092,37 @@ static void ANALYSIS_handle_delete_confirm_event(SDL_Event *event, int win_w, in
         ANALYSIS_get_delete_confirm_rects(win_w, win_h, &panel, &yes_rect, &no_rect);
 
         if (point_in_rect(event->button.x, event->button.y, yes_rect)) {
+
             ANALYSIS_delete_confirmed_file();
             return;
+
         }
 
         if (point_in_rect(event->button.x, event->button.y, no_rect)) {
+
             Global_Analysis_Delete_Confirm_Open = 0;
             Global_Analysis_Delete_Confirm_File[0] = '\0';
             Global_Analysis_Delete_Confirm_Path[0] = '\0';
             return;
+
         }
 
         (void)panel;
         return;
+
     }
 }
 
 static void ANALYSIS_draw_signal_menu(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the signal menu
+        Returns: No value
+    */
+
     if (!renderer || !font || !Global_Analysis_Signal_Menu_Open) {
+
         return;
+
     }
 
     Global_Analysis_Signal_Last_Font = font;
@@ -3982,33 +5171,45 @@ static void ANALYSIS_draw_signal_menu(SDL_Renderer *renderer, TTF_Font *font, in
         draw_outline_rect(renderer, r, active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 105, 42, 230});
 
         if (i == ANALYSIS_SIGNAL_FILENAME_FIELD) {
+
             ANALYSIS_signal_draw_filename_field_text(renderer, font, r, active);
+
         }
 
         else {
+
             char visible_text[ANALYSIS_SIGNAL_TEXT_MAX + 4];
 
             if (Global_Analysis_Signal_Field_Text[i][0] != '\0') {
+
                 ANALYSIS_short_text(font, Global_Analysis_Signal_Field_Text[i], visible_text, sizeof(visible_text),
                                     r.w - 18);
+
             }
 
             else {
+
                 snprintf(visible_text, sizeof(visible_text), "%s", active ? "_" : "Click to type");
+
             }
 
             if (active && Global_Analysis_Signal_Field_Text[i][0] != '\0') {
+
                 size_t len = strlen(visible_text);
 
                 if (len + 1 < sizeof(visible_text)) {
+
                     visible_text[len] = '_';
                     visible_text[len + 1] = '\0';
+
                 }
+
             }
 
             draw_text(renderer, font, visible_text, r.x + 8, r.y + 10,
                       Global_Analysis_Signal_Field_Text[i][0] != '\0' || active ? (SDL_Color){0, 255, 90, 255}
                                                                                 : (SDL_Color){95, 130, 95, 255});
+
         }
     }
 
@@ -4032,9 +5233,11 @@ static void ANALYSIS_draw_signal_menu(SDL_Renderer *renderer, TTF_Font *font, in
     int close_hover = point_in_rect(mouse_x, mouse_y, close_rect);
 
     if (save_hover) {
+
         SDL_Rect glow = {save_rect.x - 3, save_rect.y - 3, save_rect.w + 6, save_rect.h + 6};
         draw_filled_rect(renderer, glow, (SDL_Color){0, 255, 90, 40});
         draw_outline_rect(renderer, glow, (SDL_Color){0, 255, 90, 180});
+
     }
 
     draw_filled_rect(renderer, save_rect, save_hover ? (SDL_Color){0, 78, 28, 255} : (SDL_Color){0, 48, 18, 255});
@@ -4042,9 +5245,11 @@ static void ANALYSIS_draw_signal_menu(SDL_Renderer *renderer, TTF_Font *font, in
     ANALYSIS_draw_centered_button_text(renderer, font, save_rect, "Save New", (SDL_Color){0, 255, 90, 255});
 
     if (close_hover) {
+
         SDL_Rect glow = {close_rect.x - 3, close_rect.y - 3, close_rect.w + 6, close_rect.h + 6};
         draw_filled_rect(renderer, glow, (SDL_Color){220, 220, 220, 34});
         draw_outline_rect(renderer, glow, (SDL_Color){230, 230, 230, 170});
+
     }
 
     draw_filled_rect(renderer, close_rect, close_hover ? (SDL_Color){34, 34, 34, 255} : (SDL_Color){12, 12, 12, 255});
@@ -4057,23 +5262,34 @@ static void ANALYSIS_draw_signal_menu(SDL_Renderer *renderer, TTF_Font *font, in
 
 static int ANALYSIS_signal_parse_double_field(int index, const char *label, double min_value, double max_value,
                                               double *out) {
+    /*
+        Purpose: Parses the signal double field
+        Returns: Field index
+    */
+
     if (!out || index < 0 || index >= ANALYSIS_SIGNAL_FIELD_COUNT) {
+
         return 0;
+
     }
 
     const char *text = Global_Analysis_Signal_Field_Text[index];
 
     if (!text || text[0] == '\0') {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s is empty", label);
         return 0;
+
     }
 
     char *end = NULL;
     double value = strtod(text, &end);
 
     if (end == text) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s must be numeric", label);
         return 0;
+
     }
 
     while (*end == ' ' || *end == '\t') {
@@ -4081,13 +5297,17 @@ static int ANALYSIS_signal_parse_double_field(int index, const char *label, doub
     }
 
     if (*end != '\0') {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s has invalid characters", label);
         return 0;
+
     }
 
     if (!isfinite(value) || value < min_value || value > max_value) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s is out of range", label);
         return 0;
+
     }
 
     *out = value;
@@ -4095,15 +5315,24 @@ static int ANALYSIS_signal_parse_double_field(int index, const char *label, doub
 }
 
 static void ANALYSIS_signal_make_base_name(const char *src, char *out, size_t out_size) {
+    /*
+        Purpose: Builds the signal base name
+        Returns: No value
+    */
+
     if (!out || out_size == 0) {
+
         return;
+
     }
 
     const char *name = src ? src : "signal";
     const char *slash = strrchr(name, '/');
 
     if (slash) {
+
         name = slash + 1;
+
     }
 
     snprintf(out, out_size, "%s", name[0] ? name : "signal");
@@ -4113,41 +5342,60 @@ static void ANALYSIS_signal_make_base_name(const char *src, char *out, size_t ou
     size_t suffix_len = strlen(suffix);
 
     if (len >= suffix_len && strcmp(out + len - suffix_len, suffix) == 0) {
+
         out[len - suffix_len] = '\0';
+
     }
 
     for (size_t i = 0; out[i] != '\0'; i++) {
+
         if (out[i] == '/' || out[i] == '\\' || out[i] == ':' || out[i] == '*' || out[i] == '?' || out[i] == '"' ||
             out[i] == '<' || out[i] == '>' || out[i] == '|') {
+
             out[i] = '_';
+
         }
     }
 }
 
 static void ANALYSIS_signal_sanitize_output_filename(const char *src, char *out, size_t out_size) {
+    /*
+        Purpose: Sanitizes the signal output filename
+        Returns: No value
+    */
+
     if (!out || out_size == 0) {
+
         return;
+
     }
 
     const char *name = src ? src : "signal";
     const char *slash = strrchr(name, '/');
 
     if (slash) {
+
         name = slash + 1;
+
     }
 
     const char *backslash = strrchr(name, '\\');
 
     if (backslash) {
+
         name = backslash + 1;
+
     }
 
     snprintf(out, out_size, "%s", name[0] ? name : "signal");
 
     for (size_t i = 0; out[i] != '\0'; i++) {
+
         if (out[i] == '/' || out[i] == '\\' || out[i] == ':' || out[i] == '*' || out[i] == '?' || out[i] == '"' ||
             out[i] == '<' || out[i] == '>' || out[i] == '|') {
+
             out[i] = '_';
+
         }
     }
 
@@ -4156,26 +5404,42 @@ static void ANALYSIS_signal_sanitize_output_filename(const char *src, char *out,
     size_t suffix_len = strlen(suffix);
 
     if (len < suffix_len || strcmp(out + len - suffix_len, suffix) != 0) {
+
         snprintf(out + len, out_size > len ? out_size - len : 0, "%s", suffix);
+
     }
 }
 
 static void ANALYSIS_signal_copy_component(const char *src, char *dst, size_t dst_size, size_t max_chars) {
+    /*
+        Purpose: Copies the signal component
+        Returns: No value
+    */
+
     if (!dst || dst_size == 0) {
+
         return;
+
     }
 
     if (!src || src[0] == '\0') {
+
         src = "0";
+
     }
 
     size_t len = strlen(src);
 
     if (len > max_chars) {
+
         len = max_chars;
+
     }
+
     if (len >= dst_size) {
+
         len = dst_size - 1;
+
     }
 
     memcpy(dst, src, len);
@@ -4183,8 +5447,15 @@ static void ANALYSIS_signal_copy_component(const char *src, char *dst, size_t ds
 }
 
 static void ANALYSIS_signal_build_live_filename(char *out, size_t out_size) {
+    /*
+        Purpose: Builds the signal live filename
+        Returns: No value
+    */
+
     if (!out || out_size == 0) {
+
         return;
+
     }
 
     char base[192];
@@ -4214,8 +5485,15 @@ static void ANALYSIS_signal_build_live_filename(char *out, size_t out_size) {
 }
 
 static void ANALYSIS_signal_refresh_filename_if_auto(void) {
+    /*
+        Purpose: Refreshes the automatic signal filename
+        Returns: No value
+    */
+
     if (Global_Analysis_Signal_File_Manual_Edit) {
+
         return;
+
     }
 
     ANALYSIS_signal_build_live_filename(Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD],
@@ -4226,16 +5504,25 @@ static void ANALYSIS_signal_refresh_filename_if_auto(void) {
 
 static void ANALYSIS_draw_centered_button_text(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *text,
                                                SDL_Color color) {
+    /*
+        Purpose: Draws the centered button text
+        Returns: No value
+    */
+
     if (!renderer || !font || !text) {
+
         return;
+
     }
 
     int text_w = 0;
     int text_h = 0;
 
     if (TTF_SizeText(font, text, &text_w, &text_h) != 0) {
+
         text_w = 0;
         text_h = 0;
+
     }
 
     draw_text(renderer, font, text, rect.x + (rect.w - text_w) / 2, rect.y + (rect.h - text_h) / 2, color);
@@ -4243,21 +5530,32 @@ static void ANALYSIS_draw_centered_button_text(SDL_Renderer *renderer, TTF_Font 
 
 static int ANALYSIS_signal_copy_crop(const char *src_path, const char *dst_path, size_t start_sample,
                                      size_t end_sample) {
+    /*
+        Purpose: Copies the signal crop
+        Returns: Success status
+    */
+
     if (!src_path || !dst_path || end_sample <= start_sample) {
+
         return 0;
+
     }
 
     FILE *src = fopen(src_path, "rb");
 
     if (!src) {
+
         return 0;
+
     }
 
     FILE *dst = fopen(dst_path, "wb");
 
     if (!dst) {
+
         fclose(src);
         return 0;
+
     }
 
     size_t bytes_per_iq = sizeof(int16_t) * 2;
@@ -4265,10 +5563,12 @@ static int ANALYSIS_signal_copy_crop(const char *src_path, const char *dst_path,
     size_t bytes_left = (end_sample - start_sample) * bytes_per_iq;
 
     if (fseek(src, (long)offset_bytes, SEEK_SET) != 0) {
+
         fclose(src);
         fclose(dst);
         remove(dst_path);
         return 0;
+
     }
 
     uint8_t buffer[65536];
@@ -4278,14 +5578,18 @@ static int ANALYSIS_signal_copy_crop(const char *src_path, const char *dst_path,
         size_t got = fread(buffer, 1, want, src);
 
         if (got == 0) {
+
             break;
+
         }
 
         if (fwrite(buffer, 1, got, dst) != got) {
+
             fclose(src);
             fclose(dst);
             remove(dst_path);
             return 0;
+
         }
 
         bytes_left -= got;
@@ -4297,16 +5601,25 @@ static int ANALYSIS_signal_copy_crop(const char *src_path, const char *dst_path,
     fclose(dst);
 
     if (!ok) {
+
         remove(dst_path);
+
     }
 
     return ok;
 }
 
 static int ANALYSIS_signal_apply_crop_settings(void) {
+    /*
+        Purpose: Applies the signal crop settings
+        Returns: Success status
+    */
+
     if (Global_Analysis_Path[0] == '\0' || Global_Analysis_IQ_Count == 0) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Open a recording before saving a new file");
         return 0;
+
     }
 
     double center_mhz = 0.0;
@@ -4323,12 +5636,16 @@ static int ANALYSIS_signal_apply_crop_settings(void) {
         !ANALYSIS_signal_parse_double_field(4, "End time", 0.0, 1000000000.0, &end_sec) ||
         !ANALYSIS_signal_parse_double_field(ANALYSIS_SIGNAL_DECIMATION_FIELD, "Decimation", 1.0, 1000000000.0,
                                             &decimation)) {
+
         return 0;
+
     }
 
     if (end_sec <= start_sec) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "End time must be after start time");
         return 0;
+
     }
 
     (void)decimation;
@@ -4338,17 +5655,23 @@ static int ANALYSIS_signal_apply_crop_settings(void) {
     size_t end_sample = (size_t)llround(end_sec * sample_rate_hz);
 
     if (start_sample >= Global_Analysis_IQ_Count) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Start time is beyond the file length");
         return 0;
+
     }
 
     if (end_sample > Global_Analysis_IQ_Count) {
+
         end_sample = Global_Analysis_IQ_Count;
+
     }
 
     if (end_sample <= start_sample) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Selected time range is empty");
         return 0;
+
     }
 
     char candidate[1024];
@@ -4356,7 +5679,9 @@ static int ANALYSIS_signal_apply_crop_settings(void) {
     char base_no_suffix[512];
 
     if (Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD][0] == '\0') {
+
         ANALYSIS_signal_refresh_filename_if_auto();
+
     }
 
     ANALYSIS_signal_sanitize_output_filename(Global_Analysis_Signal_Field_Text[ANALYSIS_SIGNAL_FILENAME_FIELD],
@@ -4370,7 +5695,9 @@ static int ANALYSIS_signal_apply_crop_settings(void) {
         FILE *test = fopen(candidate, "rb");
 
         if (!test) {
+
             break;
+
         }
 
         fclose(test);
@@ -4380,23 +5707,33 @@ static int ANALYSIS_signal_apply_crop_settings(void) {
     }
 
     if (!ANALYSIS_signal_copy_crop(Global_Analysis_Path, candidate, start_sample, end_sample)) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to create new complex16 file");
         return 0;
+
     }
 
     if (ANALYSIS_scan_recordings()) {
+
         for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
             if (strcmp(Global_Analysis_Files[i], created_name) == 0) {
+
                 Global_Analysis_Selected = i;
                 Global_Analysis_List_Scroll = i - 2;
+
                 if (Global_Analysis_List_Scroll < 0) {
+
                     Global_Analysis_List_Scroll = 0;
+
                 }
                 break;
+
             }
         }
 
         ANALYSIS_open_selected_recording();
+
     }
 
     Global_Analysis_Filter_Visible = 0;
@@ -4426,73 +5763,106 @@ static int ANALYSIS_signal_apply_crop_settings(void) {
 }
 
 static int ANALYSIS_get_current_time_range(size_t *start_sample, size_t *end_sample) {
+    /*
+        Purpose: Gets the current time range
+        Returns: Success status
+    */
+
     if (!start_sample || !end_sample) {
+
         return 0;
+
     }
 
     if (Global_Analysis_IQ_Count == 0 || Global_Analysis_View_Len == 0 || Global_Analysis_Sample_Rate <= 0.0) {
+
         return 0;
+
     }
 
     double x0 = 0.0;
     double x1 = 1.0;
 
     if (Global_Analysis_Column_Active || Global_Analysis_Column_Visible) {
+
         x0 = Global_Analysis_Column_X0;
         x1 = Global_Analysis_Column_X1;
 
         if (x1 < x0) {
+
             double tmp = x0;
             x0 = x1;
             x1 = tmp;
+
         }
 
         x0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
         x1 = ANALYSIS_limit_double(x1, 0.0, 1.0);
+
     }
 
     *start_sample = Global_Analysis_View_Start + (size_t)(x0 * (double)Global_Analysis_View_Len);
     *end_sample = Global_Analysis_View_Start + (size_t)(x1 * (double)Global_Analysis_View_Len);
 
     if (*start_sample > Global_Analysis_IQ_Count) {
+
         *start_sample = Global_Analysis_IQ_Count;
+
     }
+
     if (*end_sample > Global_Analysis_IQ_Count) {
+
         *end_sample = Global_Analysis_IQ_Count;
+
     }
 
     if (*end_sample < *start_sample) {
+
         size_t tmp = *start_sample;
         *start_sample = *end_sample;
         *end_sample = tmp;
+
     }
 
     if (*end_sample <= *start_sample) {
+
         return 0;
+
     }
 
     return 1;
 }
 
 static int ANALYSIS_get_current_filter_bins(int *filter_bin_low, int *filter_bin_high) {
+    /*
+        Purpose: Gets the current filter bins
+        Returns: Success status
+    */
+
     if (!filter_bin_low || !filter_bin_high) {
+
         return 0;
+
     }
 
     *filter_bin_low = 0;
     *filter_bin_high = ANALYSIS_FFT_SIZE - 1;
 
     if (!Global_Analysis_Filter_Active) {
+
         return 0;
+
     }
 
     double y0 = Global_Analysis_Filter_Y0;
     double y1 = Global_Analysis_Filter_Y1;
 
     if (y1 < y0) {
+
         double tmp = y0;
         y0 = y1;
         y1 = tmp;
+
     }
 
     int bin_a = (int)((1.0 - y0) * (double)(ANALYSIS_FFT_SIZE - 1));
@@ -4502,34 +5872,56 @@ static int ANALYSIS_get_current_filter_bins(int *filter_bin_low, int *filter_bin
     *filter_bin_high = bin_a > bin_b ? bin_a : bin_b;
 
     if (*filter_bin_low < 0) {
+
         *filter_bin_low = 0;
+
     }
+
     if (*filter_bin_high >= ANALYSIS_FFT_SIZE) {
+
         *filter_bin_high = ANALYSIS_FFT_SIZE - 1;
+
     }
+
     if (*filter_bin_high <= *filter_bin_low) {
+
         *filter_bin_high = *filter_bin_low + 1;
+
     }
+
     if (*filter_bin_high >= ANALYSIS_FFT_SIZE) {
+
         *filter_bin_high = ANALYSIS_FFT_SIZE - 1;
+
     }
 
     return 1;
 }
 
 static int ANALYSIS_noise_sample_is_muted(size_t sample_index) {
+    /*
+        Purpose: Checks whether the noise sample is muted
+        Returns: Success status
+    */
+
     if (!Global_Analysis_Noise_Active || Global_Analysis_Render_W <= 0 || Global_Analysis_View_Len == 0) {
+
         return 0;
+
     }
 
     if (sample_index < Global_Analysis_View_Start) {
+
         return 0;
+
     }
 
     size_t rel = sample_index - Global_Analysis_View_Start;
 
     if (rel > Global_Analysis_View_Len) {
+
         return 0;
+
     }
 
     int x = Global_Analysis_Render_W > 1
@@ -4537,48 +5929,77 @@ static int ANALYSIS_noise_sample_is_muted(size_t sample_index) {
                 : 0;
 
     if (x < 0) {
+
         x = 0;
+
     }
+
     if (x >= Global_Analysis_Render_W) {
+
         x = Global_Analysis_Render_W - 1;
+
     }
+
     if (x >= ANALYSIS_MAX_RENDER_W) {
+
         x = ANALYSIS_MAX_RENDER_W - 1;
+
     }
 
     return Global_Analysis_Noise_Column_Mask[x] != 0;
 }
 
 static void ANALYSIS_zero_noise_samples(int16_t *iq, size_t count, size_t absolute_start_sample) {
+    /*
+        Purpose: Zeros the noise samples
+        Returns: No value
+    */
+
     if (!iq || count == 0 || !Global_Analysis_Noise_Active) {
+
         return;
+
     }
 
     for (size_t i = 0; i < count; i++) {
+
         if (ANALYSIS_noise_sample_is_muted(absolute_start_sample + i)) {
+
             iq[i * 2] = 0;
             iq[i * 2 + 1] = 0;
+
         }
     }
 }
 
 static int ANALYSIS_copy_crop_with_optional_noise(const char *src_path, const char *dst_path, size_t start_sample,
                                                   size_t end_sample) {
+    /*
+        Purpose: Copies the crop with optional noise
+        Returns: Success status
+    */
+
     if (!src_path || !dst_path || end_sample <= start_sample) {
+
         return 0;
+
     }
 
     FILE *src = fopen(src_path, "rb");
 
     if (!src) {
+
         return 0;
+
     }
 
     FILE *dst = fopen(dst_path, "wb");
 
     if (!dst) {
+
         fclose(src);
         return 0;
+
     }
 
     size_t bytes_per_iq = sizeof(int16_t) * 2;
@@ -4587,10 +6008,12 @@ static int ANALYSIS_copy_crop_with_optional_noise(const char *src_path, const ch
     size_t absolute_sample = start_sample;
 
     if (fseek(src, (long)offset_bytes, SEEK_SET) != 0) {
+
         fclose(src);
         fclose(dst);
         remove(dst_path);
         return 0;
+
     }
 
     int16_t buffer[32768];
@@ -4602,16 +6025,20 @@ static int ANALYSIS_copy_crop_with_optional_noise(const char *src_path, const ch
         size_t got_iq = got_shorts / 2;
 
         if (got_iq == 0) {
+
             break;
+
         }
 
         ANALYSIS_zero_noise_samples(buffer, got_iq, absolute_sample);
 
         if (fwrite(buffer, sizeof(int16_t), got_iq * 2, dst) != got_iq * 2) {
+
             fclose(src);
             fclose(dst);
             remove(dst_path);
             return 0;
+
         }
 
         samples_left -= got_iq;
@@ -4624,7 +6051,9 @@ static int ANALYSIS_copy_crop_with_optional_noise(const char *src_path, const ch
     fclose(dst);
 
     if (!ok) {
+
         remove(dst_path);
+
     }
 
     return ok;
@@ -4632,21 +6061,32 @@ static int ANALYSIS_copy_crop_with_optional_noise(const char *src_path, const ch
 
 static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const char *dst_path, size_t start_sample,
                                                      size_t end_sample, int filter_bin_low, int filter_bin_high) {
+    /*
+        Purpose: Processes crop frequency and noise filtering
+        Returns: Success status
+    */
+
     if (!src_path || !dst_path || end_sample <= start_sample) {
+
         return 0;
+
     }
 
     FILE *src = fopen(src_path, "rb");
 
     if (!src) {
+
         return 0;
+
     }
 
     FILE *dst = fopen(dst_path, "wb");
 
     if (!dst) {
+
         fclose(src);
         return 0;
+
     }
 
     fftw_complex *freq_in = fftw_malloc(sizeof(fftw_complex) * ANALYSIS_FFT_SIZE);
@@ -4655,31 +6095,47 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
     int16_t *iq = malloc(sizeof(int16_t) * ANALYSIS_FFT_SIZE * 2);
 
     if (!freq_in || !freq_out || !time_out || !iq) {
+
         if (freq_in) {
+
             fftw_free(freq_in);
+
         }
+
         if (freq_out) {
+
             fftw_free(freq_out);
+
         }
+
         if (time_out) {
+
             fftw_free(time_out);
+
         }
         free(iq);
         fclose(src);
         fclose(dst);
         remove(dst_path);
         return 0;
+
     }
 
     fftw_plan forward = fftw_plan_dft_1d(ANALYSIS_FFT_SIZE, freq_in, freq_out, FFTW_FORWARD, FFTW_ESTIMATE);
     fftw_plan inverse = fftw_plan_dft_1d(ANALYSIS_FFT_SIZE, freq_in, time_out, FFTW_BACKWARD, FFTW_ESTIMATE);
 
     if (!forward || !inverse) {
+
         if (forward) {
+
             fftw_destroy_plan(forward);
+
         }
+
         if (inverse) {
+
             fftw_destroy_plan(inverse);
+
         }
         fftw_free(freq_in);
         fftw_free(freq_out);
@@ -4689,9 +6145,11 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
         fclose(dst);
         remove(dst_path);
         return 0;
+
     }
 
     if (fseek(src, (long)(start_sample * 2 * sizeof(int16_t)), SEEK_SET) != 0) {
+
         fftw_destroy_plan(forward);
         fftw_destroy_plan(inverse);
         fftw_free(freq_in);
@@ -4702,6 +6160,7 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
         fclose(dst);
         remove(dst_path);
         return 0;
+
     }
 
     size_t samples_left = end_sample - start_sample;
@@ -4714,19 +6173,26 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
         size_t got_iq = got_shorts / 2;
 
         if (got_iq == 0) {
+
             ok = 0;
             break;
+
         }
 
         for (int i = 0; i < ANALYSIS_FFT_SIZE; i++) {
+
             if ((size_t)i < got_iq) {
+
                 freq_in[i][0] = (double)iq[i * 2] / 32768.0;
                 freq_in[i][1] = (double)iq[i * 2 + 1] / 32768.0;
+
             }
 
             else {
+
                 freq_in[i][0] = 0.0;
                 freq_in[i][1] = 0.0;
+
             }
         }
 
@@ -4743,7 +6209,9 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
             int centered_y = y - filter_center_bin + (ANALYSIS_FFT_SIZE / 2);
 
             if (centered_y < 0 || centered_y >= ANALYSIS_FFT_SIZE) {
+
                 continue;
+
             }
 
             int dst_shifted = (centered_y + ANALYSIS_FFT_SIZE / 2) % ANALYSIS_FFT_SIZE;
@@ -4759,21 +6227,34 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
             double im = time_out[i][1] / (double)ANALYSIS_FFT_SIZE;
 
             if (ANALYSIS_noise_sample_is_muted(absolute_sample + i)) {
+
                 re = 0.0;
                 im = 0.0;
+
             }
 
             if (re > 0.999969) {
+
                 re = 0.999969;
+
             }
+
             if (re < -1.0) {
+
                 re = -1.0;
+
             }
+
             if (im > 0.999969) {
+
                 im = 0.999969;
+
             }
+
             if (im < -1.0) {
+
                 im = -1.0;
+
             }
 
             iq[i * 2] = (int16_t)lrint(re * 32767.0);
@@ -4781,8 +6262,10 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
         }
 
         if (fwrite(iq, sizeof(int16_t), got_iq * 2, dst) != got_iq * 2) {
+
             ok = 0;
             break;
+
         }
 
         samples_left -= got_iq;
@@ -4799,15 +6282,24 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
     fclose(dst);
 
     if (!ok) {
+
         remove(dst_path);
+
     }
 
     return ok;
 }
 
 static void ANALYSIS_build_crop_filename(char *out, size_t out_size, size_t start_sample, size_t end_sample) {
+    /*
+        Purpose: Builds the crop filename
+        Returns: No value
+    */
+
     if (!out || out_size == 0) {
+
         return;
+
     }
 
     char base[192];
@@ -4815,18 +6307,22 @@ static void ANALYSIS_build_crop_filename(char *out, size_t out_size, size_t star
     double bw_hz = Global_Analysis_Sample_Rate;
 
     if (Global_Analysis_Filter_Active || Global_Analysis_Filter_Visible) {
+
         double y0 = Global_Analysis_Filter_Y0;
         double y1 = Global_Analysis_Filter_Y1;
 
         if (y1 < y0) {
+
             double tmp = y0;
             y0 = y1;
             y1 = tmp;
+
         }
 
         double center_y = (y0 + y1) * 0.5;
         center_hz = ANALYSIS_frequency_from_spec_frac(center_y);
         bw_hz = fabs(y1 - y0) * Global_Analysis_Sample_Rate;
+
     }
 
     ANALYSIS_signal_make_base_name(ANALYSIS_selected_file_name(), base, sizeof(base));
@@ -4845,29 +6341,45 @@ static void ANALYSIS_build_crop_filename(char *out, size_t out_size, size_t star
 }
 
 static int ANALYSIS_crop_current_selection(uint32_t *pixels, int tex_w, int tex_h, SDL_Texture *texture) {
+    /*
+        Purpose: Crops the current analysis selection
+        Returns: Success status
+    */
+
     if (Global_Analysis_Path[0] == '\0' || Global_Analysis_IQ_Count == 0 || Global_Analysis_Sample_Rate <= 0.0) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Open a recording before cropping");
         return 0;
+
     }
 
     if (Global_Analysis_Dirty || Global_Analysis_Render_W <= 0) {
+
         ANALYSIS_render_workstation_data(pixels, tex_w, tex_h);
+
         if (texture && pixels && tex_w > 0 && tex_h > 0) {
+
             SDL_UpdateTexture(texture, NULL, pixels, tex_w * sizeof(uint32_t));
+
         }
         Global_Analysis_Dirty = 0;
+
     }
 
     if (Global_Analysis_Noise_Active) {
+
         ANALYSIS_update_noise_column_mask(Global_Analysis_Render_W);
+
     }
 
     size_t start_sample = 0;
     size_t end_sample = 0;
 
     if (!ANALYSIS_get_current_time_range(&start_sample, &end_sample)) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Selected crop range is empty");
         return 0;
+
     }
 
     char created_name[512];
@@ -4882,7 +6394,9 @@ static int ANALYSIS_crop_current_selection(uint32_t *pixels, int tex_w, int tex_
         FILE *test = fopen(candidate, "rb");
 
         if (!test) {
+
             break;
+
         }
 
         fclose(test);
@@ -4896,32 +6410,46 @@ static int ANALYSIS_crop_current_selection(uint32_t *pixels, int tex_w, int tex_
     int ok = 0;
 
     if (use_frequency_filter) {
+
         ok = ANALYSIS_process_crop_frequency_and_noise(Global_Analysis_Path, candidate, start_sample, end_sample,
                                                        filter_bin_low, filter_bin_high);
+
     }
 
     else {
+
         ok = ANALYSIS_copy_crop_with_optional_noise(Global_Analysis_Path, candidate, start_sample, end_sample);
+
     }
 
     if (!ok) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to create cropped complex16 file");
         return 0;
+
     }
 
     if (ANALYSIS_scan_recordings()) {
+
         for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
             if (strcmp(Global_Analysis_Files[i], created_name) == 0) {
+
                 Global_Analysis_Selected = i;
                 Global_Analysis_List_Scroll = i - 2;
+
                 if (Global_Analysis_List_Scroll < 0) {
+
                     Global_Analysis_List_Scroll = 0;
+
                 }
                 break;
+
             }
         }
 
         ANALYSIS_open_selected_recording();
+
     }
 
     Global_Analysis_Filter_Visible = 0;
@@ -4942,23 +6470,36 @@ static int ANALYSIS_crop_current_selection(uint32_t *pixels, int tex_w, int tex_
 }
 
 static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles the signal menu event
+        Returns: Handling status
+    */
+
     if (!event || (!ANALYSIS_signal_menu_available() && !Global_Analysis_Delete_Confirm_Open &&
                    !Global_Analysis_Multithread_Prompt_Open)) {
+
         return 0;
+
     }
 
     if (Global_Analysis_Multithread_Prompt_Open) {
+
         ANALYSIS_handle_multithread_prompt_event(event, win_w, win_h);
         return 1;
+
     }
 
     if (Global_Analysis_Delete_Confirm_Open) {
+
         ANALYSIS_handle_delete_confirm_event(event, win_w, win_h);
         return 1;
+
     }
 
     if (!Global_Analysis_Signal_Menu_Open) {
+
         if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
             SDL_Rect icon_rect;
             SDL_Rect thread_rect;
             SDL_Rect trash_rect;
@@ -4968,21 +6509,28 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
             ANALYSIS_get_signal_trash_rect(win_w, win_h, &trash_rect);
 
             if (point_in_rect(event->button.x, event->button.y, trash_rect)) {
+
                 ANALYSIS_open_delete_confirm();
                 return 1;
+
             }
 
             if (point_in_rect(event->button.x, event->button.y, thread_rect)) {
+
                 Global_Analysis_Multithread_Prompt_Open = 1;
                 Global_Analysis_Signal_Menu_Open = 0;
                 Global_Analysis_Signal_Active_Field = ANALYSIS_SIGNAL_FIELD_NONE;
                 ANALYSIS_signal_clear_file_selection();
                 return 1;
+
             }
 
             if (point_in_rect(event->button.x, event->button.y, icon_rect)) {
+
                 if (Global_Analysis_Loaded_Index != Global_Analysis_Selected || Global_Analysis_Path[0] == '\0') {
+
                     ANALYSIS_open_selected_recording();
+
                 }
 
                 ANALYSIS_signal_menu_prefill();
@@ -4993,119 +6541,171 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
                 Global_Analysis_Column_Selecting = 0;
                 snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Signal metadata menu opened");
                 return 1;
+
             }
+
         }
 
         return 0;
+
     }
 
     if (event->type == SDL_TEXTINPUT) {
+
         ANALYSIS_signal_append_text(event->text.text);
         return 1;
+
     }
 
     if (event->type == SDL_KEYDOWN) {
+
         SDL_Keycode key = event->key.keysym.sym;
 
         if (key == SDLK_ESCAPE) {
+
             Global_Analysis_Signal_Menu_Open = 0;
             Global_Analysis_Signal_Active_Field = ANALYSIS_SIGNAL_FIELD_NONE;
             ANALYSIS_signal_clear_file_selection();
             snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Signal metadata menu closed");
             return 1;
+
         }
 
         if (key == SDLK_TAB) {
+
             if (Global_Analysis_Signal_Active_Field < 0) {
+
                 Global_Analysis_Signal_Active_Field = 0;
+
             }
 
             else if (SDL_GetModState() & KMOD_SHIFT) {
+
                 Global_Analysis_Signal_Active_Field--;
+
                 if (Global_Analysis_Signal_Active_Field < 0) {
+
                     Global_Analysis_Signal_Active_Field = ANALYSIS_SIGNAL_FIELD_COUNT - 1;
+
                 }
+
             }
 
             else {
+
                 Global_Analysis_Signal_Active_Field++;
+
                 if (Global_Analysis_Signal_Active_Field >= ANALYSIS_SIGNAL_FIELD_COUNT) {
+
                     Global_Analysis_Signal_Active_Field = 0;
+
                 }
+
             }
 
             return 1;
+
         }
 
         if (Global_Analysis_Signal_Active_Field == ANALYSIS_SIGNAL_FILENAME_FIELD &&
             (key == SDLK_LEFT || key == SDLK_RIGHT)) {
+
             int old_cursor = Global_Analysis_Signal_File_Cursor;
             int shift_down = (SDL_GetModState() & KMOD_SHIFT) != 0;
 
             if (shift_down && !ANALYSIS_signal_file_has_selection()) {
+
                 Global_Analysis_Signal_File_Selection_Start = old_cursor;
+
             }
 
             if (key == SDLK_LEFT) {
+
                 Global_Analysis_Signal_File_Cursor--;
+
             }
 
             else {
+
                 Global_Analysis_Signal_File_Cursor++;
+
             }
 
             ANALYSIS_signal_clamp_file_cursor();
 
             if (shift_down) {
+
                 if (Global_Analysis_Signal_File_Selection_Start < 0) {
+
                     Global_Analysis_Signal_File_Selection_Start = old_cursor;
+
                 }
 
                 Global_Analysis_Signal_File_Selection_End = Global_Analysis_Signal_File_Cursor;
 
                 if (Global_Analysis_Signal_File_Selection_Start == Global_Analysis_Signal_File_Selection_End) {
+
                     ANALYSIS_signal_clear_file_selection();
+
                 }
+
             }
 
             else {
+
                 ANALYSIS_signal_clear_file_selection();
+
             }
 
             return 1;
+
         }
 
         if (key == SDLK_BACKSPACE) {
+
             ANALYSIS_signal_backspace_text();
             return 1;
+
         }
 
         if (key == SDLK_DELETE) {
+
             if (Global_Analysis_Signal_Active_Field == ANALYSIS_SIGNAL_FILENAME_FIELD) {
+
                 ANALYSIS_signal_delete_file_cursor_text();
+
             }
 
             else {
+
                 ANALYSIS_signal_clear_active_text();
+
             }
 
             return 1;
+
         }
 
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
             if (ANALYSIS_signal_apply_crop_settings()) {
+
                 Global_Analysis_Signal_Menu_Open = 0;
                 Global_Analysis_Signal_Active_Field = ANALYSIS_SIGNAL_FIELD_NONE;
                 ANALYSIS_signal_clear_file_selection();
+
             }
 
             return 1;
+
         }
 
         return 1;
+
     }
 
     if (event->type == SDL_MOUSEMOTION && Global_Analysis_Signal_File_Selecting) {
+
         SDL_Rect panel;
         SDL_Rect field_rects[ANALYSIS_SIGNAL_FIELD_COUNT];
         SDL_Rect save_rect;
@@ -5123,23 +6723,31 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
         Global_Analysis_Signal_File_Selection_End = cursor;
 
         if (Global_Analysis_Signal_File_Selection_Start == Global_Analysis_Signal_File_Selection_End) {
+
             Global_Analysis_Signal_File_Selection_End = Global_Analysis_Signal_File_Selection_Start;
+
         }
 
         return 1;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
+
         Global_Analysis_Signal_File_Selecting = 0;
 
         if (!ANALYSIS_signal_file_has_selection()) {
+
             ANALYSIS_signal_clear_file_selection();
+
         }
 
         return 1;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
         SDL_Rect panel;
         SDL_Rect field_rects[ANALYSIS_SIGNAL_FIELD_COUNT];
         SDL_Rect save_rect;
@@ -5153,64 +6761,86 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
         ANALYSIS_get_signal_marker_rects(field_rects, &start_marker_rect, &end_marker_rect);
 
         if (Global_Analysis_Marker_Active && point_in_rect(event->button.x, event->button.y, start_marker_rect)) {
+
             ANALYSIS_signal_set_time_field_from_marker(3);
             return 1;
+
         }
 
         if (Global_Analysis_Marker_Active && point_in_rect(event->button.x, event->button.y, end_marker_rect)) {
+
             ANALYSIS_signal_set_time_field_from_marker(4);
             return 1;
+
         }
 
         for (int i = 0; i < ANALYSIS_SIGNAL_FIELD_COUNT; i++) {
+
             if (point_in_rect(event->button.x, event->button.y, field_rects[i])) {
+
                 Global_Analysis_Signal_Active_Field = i;
 
                 if (i == ANALYSIS_SIGNAL_FILENAME_FIELD) {
+
                     int cursor = ANALYSIS_signal_set_file_cursor_from_mouse(
                         Global_Analysis_Signal_Last_Font, field_rects[i], event->button.x, event->button.y);
 
                     Global_Analysis_Signal_File_Selecting = 1;
                     Global_Analysis_Signal_File_Selection_Start = cursor;
                     Global_Analysis_Signal_File_Selection_End = cursor;
+
                 }
 
                 else {
+
                     ANALYSIS_signal_clear_file_selection();
+
                 }
 
                 return 1;
+
             }
         }
 
         if (point_in_rect(event->button.x, event->button.y, save_rect)) {
+
             if (ANALYSIS_signal_apply_crop_settings()) {
+
                 Global_Analysis_Signal_Menu_Open = 0;
                 Global_Analysis_Signal_Active_Field = ANALYSIS_SIGNAL_FIELD_NONE;
                 ANALYSIS_signal_clear_file_selection();
+
             }
 
             return 1;
+
         }
 
         if (point_in_rect(event->button.x, event->button.y, close_rect)) {
+
             Global_Analysis_Signal_Menu_Open = 0;
             Global_Analysis_Signal_Active_Field = ANALYSIS_SIGNAL_FIELD_NONE;
             ANALYSIS_signal_clear_file_selection();
             snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Signal metadata menu closed");
             return 1;
+
         }
 
         if (!point_in_rect(event->button.x, event->button.y, panel)) {
+
             return 1;
+
         }
 
         return 1;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONUP || event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEWHEEL ||
         event->type == SDL_KEYUP) {
+
         return 1;
+
     }
 
     return 1;
@@ -5219,15 +6849,14 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
 void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, SDL_Texture *texture, int tex_w,
                                         int tex_h, int win_w, int win_h) {
     /*
-
-    Purpose: Draws analysis-only filter frequency and time marker overlays
-
-    Return: No return
-
+        Purpose: Draws analysis-only filter frequency and time marker overlays
+        Returns: No value
     */
 
     if (!renderer || !font || !Global_Analysis_Mode) {
+
         return;
+
     }
 
     SDL_Rect list_rect;
@@ -5245,7 +6874,9 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
     SDL_Rect workspace_bg = {win_w - 150, 8, 130, 24};
 
     if (workspace_bg.x < MARGIN) {
+
         workspace_bg.x = MARGIN;
+
     }
 
     draw_filled_rect(renderer, workspace_bg, (SDL_Color){0, 0, 0, 210});
@@ -5256,10 +6887,13 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
         (Global_Analysis_Filter_Active || Global_Analysis_Filter_Selecting) && Global_Analysis_Path[0] != '\0';
 
     if (!filter_overlay_visible && texture && tex_w > 0 && tex_h > 0 && spec_rect.w > 0 && spec_rect.h > 0) {
+
         int clear_h = 42;
 
         if (clear_h > spec_rect.h) {
+
             clear_h = spec_rect.h;
+
         }
 
         SDL_Rect src_clear = {0, 0, tex_w, (clear_h * tex_h) / spec_rect.h};
@@ -5267,29 +6901,40 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
         SDL_Rect dst_clear = {spec_rect.x, spec_rect.y, spec_rect.w, clear_h};
 
         if (src_clear.h < 1) {
+
             src_clear.h = 1;
+
         }
+
         if (src_clear.h > tex_h) {
+
             src_clear.h = tex_h;
+
         }
 
         SDL_RenderCopy(renderer, texture, &src_clear, &dst_clear);
+
     }
 
     if (Global_Analysis_Path[0] != '\0') {
+
         double display_freq_hz = Global_Analysis_Center_Hz;
 
         if (Global_Analysis_Filter_Active || Global_Analysis_Filter_Selecting) {
+
             double y0 = Global_Analysis_Filter_Y0;
             double y1 = Global_Analysis_Filter_Y1;
 
             if (y1 < y0) {
+
                 double tmp = y0;
                 y0 = y1;
                 y1 = tmp;
+
             }
 
             display_freq_hz = ANALYSIS_frequency_from_spec_frac((y0 + y1) * 0.5);
+
         }
 
         double time_start =
@@ -5307,23 +6952,29 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
         SDL_Rect status_bg = {spec_rect.x + 500, spec_rect.y - 30, 500, 24};
 
         if (status_bg.w < 220) {
+
             status_bg.x = spec_rect.x + 4;
             status_bg.w = spec_rect.x - 8;
+
         }
 
         draw_filled_rect(renderer, status_bg, (SDL_Color){0, 0, 0, 210});
         draw_outline_rect(renderer, status_bg, (SDL_Color){90, 90, 90, 220});
         draw_text(renderer, font, status_label, status_bg.x + 7, status_bg.y + 5, (SDL_Color){230, 230, 230, 255});
+
     }
 
     if ((Global_Analysis_Filter_Active || Global_Analysis_Filter_Selecting) && Global_Analysis_Path[0] != '\0') {
+
         double y0 = Global_Analysis_Filter_Y0;
         double y1 = Global_Analysis_Filter_Y1;
 
         if (y1 < y0) {
+
             double tmp = y0;
             y0 = y1;
             y1 = tmp;
+
         }
 
         y0 = ANALYSIS_limit_double(y0, 0.0, 1.0);
@@ -5333,16 +6984,23 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
         int select_y1 = spec_rect.y + (int)(y1 * (double)spec_rect.h);
 
         if (select_y1 < select_y0) {
+
             int tmp = select_y0;
             select_y0 = select_y1;
             select_y1 = tmp;
+
         }
 
         if (select_y0 < spec_rect.y) {
+
             select_y0 = spec_rect.y;
+
         }
+
         if (select_y1 > spec_rect.y + spec_rect.h) {
+
             select_y1 = spec_rect.y + spec_rect.h;
+
         }
 
         /*
@@ -5352,22 +7010,31 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
          */
 
         if (select_y1 <= select_y0) {
+
             select_y1 = select_y0 + 1;
+
         }
+
         if (select_y1 - select_y0 < 4) {
+
             int mid = (select_y0 + select_y1) / 2;
             select_y0 = mid - 2;
             select_y1 = mid + 2;
 
             if (select_y0 < spec_rect.y) {
+
                 select_y0 = spec_rect.y;
                 select_y1 = spec_rect.y + 4;
+
             }
 
             if (select_y1 > spec_rect.y + spec_rect.h) {
+
                 select_y1 = spec_rect.y + spec_rect.h;
                 select_y0 = select_y1 - 4;
+
             }
+
         }
 
         SDL_Rect filter_rect = {spec_rect.x, select_y0, spec_rect.w, select_y1 - select_y0};
@@ -5388,16 +7055,20 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
         draw_filled_rect(renderer, label_bg, (SDL_Color){0, 0, 0, 210});
         draw_outline_rect(renderer, label_bg, (SDL_Color){0, 220, 80, 220});
         draw_text(renderer, font, filter_label, label_bg.x + 7, label_bg.y + 5, (SDL_Color){0, 255, 90, 255});
+
     }
 
     if (Global_Analysis_Column_Visible && Global_Analysis_Path[0] != '\0') {
+
         double x0 = Global_Analysis_Column_X0;
         double x1 = Global_Analysis_Column_X1;
 
         if (x1 < x0) {
+
             double tmp = x0;
             x0 = x1;
             x1 = tmp;
+
         }
 
         x0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
@@ -5407,19 +7078,29 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
         int select_x1 = spec_rect.x + (int)(x1 * (double)spec_rect.w);
 
         if (select_x1 < select_x0) {
+
             int tmp = select_x0;
             select_x0 = select_x1;
             select_x1 = tmp;
+
         }
 
         if (select_x0 < spec_rect.x) {
+
             select_x0 = spec_rect.x;
+
         }
+
         if (select_x1 > spec_rect.x + spec_rect.w) {
+
             select_x1 = spec_rect.x + spec_rect.w;
+
         }
+
         if (select_x1 <= select_x0) {
+
             select_x1 = select_x0 + 1;
+
         }
 
         SDL_Rect column_rect = {select_x0, spec_rect.y, select_x1 - select_x0, spec_rect.h};
@@ -5447,27 +7128,36 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
                               24};
 
         if (column_bg.x < spec_rect.x) {
+
             column_bg.x = spec_rect.x + 4;
+
         }
 
         draw_filled_rect(renderer, column_bg, (SDL_Color){0, 0, 0, 210});
         draw_outline_rect(renderer, column_bg, (SDL_Color){255, 255, 0, 220});
         draw_text(renderer, font, column_label, column_bg.x + 7, column_bg.y + 5, (SDL_Color){255, 255, 0, 255});
+
     }
 
     if (Global_Analysis_Marker_Active && Global_Analysis_Path[0] != '\0' && Global_Analysis_View_Len > 0 &&
         Global_Analysis_Marker_Sample >= Global_Analysis_View_Start &&
         Global_Analysis_Marker_Sample <= Global_Analysis_View_Start + Global_Analysis_View_Len) {
+
         double marker_frac =
             (double)(Global_Analysis_Marker_Sample - Global_Analysis_View_Start) / (double)Global_Analysis_View_Len;
 
         int marker_x = spec_rect.x + (int)(marker_frac * (double)spec_rect.w);
 
         if (marker_x < spec_rect.x) {
+
             marker_x = spec_rect.x;
+
         }
+
         if (marker_x > spec_rect.x + spec_rect.w - 1) {
+
             marker_x = spec_rect.x + spec_rect.w - 1;
+
         }
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 0, 230);
@@ -5480,16 +7170,21 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
         SDL_Rect marker_bg = {marker_x + 6, spec_rect.y + 6, 150, 24};
 
         if (marker_bg.x + marker_bg.w > spec_rect.x + spec_rect.w - 4) {
+
             marker_bg.x = spec_rect.x + spec_rect.w - marker_bg.w - 4;
+
         }
 
         if (marker_bg.x < spec_rect.x + 4) {
+
             marker_bg.x = spec_rect.x + 4;
+
         }
 
         draw_filled_rect(renderer, marker_bg, (SDL_Color){0, 0, 0, 210});
         draw_outline_rect(renderer, marker_bg, (SDL_Color){255, 255, 0, 220});
         draw_text(renderer, font, marker_label, marker_bg.x + 7, marker_bg.y + 5, (SDL_Color){255, 255, 0, 255});
+
     }
 
     ANALYSIS_draw_hover_sync_line(renderer, font, win_w, win_h);
@@ -5512,11 +7207,8 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
 
 static double ANALYSIS_wrap_phase(double value) {
     /*
-
-    Purpose: Wraps phase into the -pi to pi range
-
-    Return: Wrapped phase
-
+        Purpose: Wraps phase into the -pi to pi range
+        Returns: Wrapped phase
     */
 
     while (value > M_PI) {
@@ -5531,18 +7223,20 @@ static double ANALYSIS_wrap_phase(double value) {
 
 static uint32_t ANALYSIS_gray(double v) {
     /*
-
-    Purpose: Maps a normalized value to a grayscale pixel color
-
-    Return: RGB color
-
+        Purpose: Maps a normalized value to a grayscale pixel color
+        Returns: RGB color
     */
 
     if (v < 0.0) {
+
         v = 0.0;
+
     }
+
     if (v > 1.0) {
+
         v = 1.0;
+
     }
 
     uint8_t c = (uint8_t)(v * 255.0);
@@ -5552,13 +7246,8 @@ static uint32_t ANALYSIS_gray(double v) {
 
 static int ANALYSIS_is_center_display_bin(int bin) {
     /*
-
-    Purpose: Identifies the FFT DC/midpoint bins that create the persistent
-             horizontal center stripe in the greyscale spectrogram. This is
-             display-only and does not classify files as cropped/original.
-
-    Return: Non-zero if this bin should be hidden from the greyscale image
-
+        Purpose: Identifies the FFT DC/midpoint bins that create the persistent horizontal center stripe in the
+       greyscale spectrogram Returns: Non-zero if this bin should be hidden from the greyscale image
     */
 
     int center = ANALYSIS_FFT_SIZE / 2;
@@ -5569,22 +7258,20 @@ static int ANALYSIS_is_center_display_bin(int bin) {
 
 static double ANALYSIS_spectrogram_display_db(const double *db_img, int x, int bin) {
     /*
-
-    Purpose: Returns a greyscale-spectrogram-only display value. The FFT DC
-             midpoint stripe is replaced by neighboring bins so it cannot draw
-             a fake center line. This does not modify db_img, IQ samples, crop
-             output, PSD, magnitude, phase, or instantaneous-frequency graphs.
-
-    Return: Display dB value for one spectrogram pixel
-
+        Purpose: Returns a greyscale-spectrogram-only display value
+        Returns: Display dB value for one spectrogram pixel
     */
 
     if (!db_img) {
+
         return -300.0;
+
     }
 
     if (!ANALYSIS_is_center_display_bin(bin)) {
+
         return db_img[(size_t)x * ANALYSIS_FFT_SIZE + bin];
+
     }
 
     int center = ANALYSIS_FFT_SIZE / 2;
@@ -5595,18 +7282,27 @@ static double ANALYSIS_spectrogram_display_db(const double *db_img, int x, int b
     int high_bin = center + ref_gap;
 
     if (low_bin < 0) {
+
         low_bin = 0;
+
     }
+
     if (high_bin >= ANALYSIS_FFT_SIZE) {
+
         high_bin = ANALYSIS_FFT_SIZE - 1;
+
     }
 
     if (low_bin >= center - guard_bins && center - guard_bins > 0) {
+
         low_bin = center - guard_bins - 1;
+
     }
 
     if (high_bin <= center + guard_bins && center + guard_bins + 1 < ANALYSIS_FFT_SIZE) {
+
         high_bin = center + guard_bins + 1;
+
     }
 
     double low = db_img[(size_t)x * ANALYSIS_FFT_SIZE + low_bin];
@@ -5616,10 +7312,15 @@ static double ANALYSIS_spectrogram_display_db(const double *db_img, int x, int b
     double t = denom > 0.0 ? (double)(bin - low_bin) / denom : 0.5;
 
     if (t < 0.0) {
+
         t = 0.0;
+
     }
+
     if (t > 1.0) {
+
         t = 1.0;
+
     }
 
     return low + ((high - low) * t);
@@ -5636,10 +7337,17 @@ typedef struct Type_Analysis_Load_Task {
 } Type_Analysis_Load_Task;
 
 static void *ANALYSIS_load_iq_blocks_worker(void *opaque) {
+    /*
+        Purpose: Loads an IQ block in a worker thread
+        Returns: Thread result
+    */
+
     Type_Analysis_Load_Task *task = (Type_Analysis_Load_Task *)opaque;
 
     if (!task || task->fd < 0 || !task->blocks || !task->starts || task->i16_per_block == 0) {
+
         return NULL;
+
     }
 
     size_t bytes_per_block = task->i16_per_block * sizeof(int16_t);
@@ -5656,16 +7364,22 @@ static void *ANALYSIS_load_iq_blocks_worker(void *opaque) {
                 pread(task->fd, ((unsigned char *)dst) + total, bytes_per_block - total, offset + (off_t)total);
 
             if (got > 0) {
+
                 total += (size_t)got;
                 continue;
+
             }
 
             if (got == 0) {
+
                 break;
+
             }
 
             if (errno == EINTR) {
+
                 continue;
+
             }
 
             task->read_error = errno ? errno : EIO;
@@ -5677,24 +7391,38 @@ static void *ANALYSIS_load_iq_blocks_worker(void *opaque) {
 }
 
 static int ANALYSIS_load_iq_blocks_multithreaded(FILE *fp, int16_t *blocks, const size_t *starts, int render_w,
-                                                  size_t i16_per_block) {
+                                                 size_t i16_per_block) {
+    /*
+        Purpose: Loads the IQ blocks multithreaded
+        Returns: Success status
+    */
+
     if (!fp || !blocks || !starts || render_w <= 0 || i16_per_block == 0) {
+
         return 0;
+
     }
 
     int fd = fileno(fp);
 
     if (fd < 0) {
+
         return 0;
+
     }
 
     int thread_count = ANALYSIS_MULTITHREAD_COUNT;
 
     if (thread_count > render_w) {
+
         thread_count = render_w;
+
     }
+
     if (thread_count < 1) {
+
         thread_count = 1;
+
     }
 
     pthread_t threads[ANALYSIS_MULTITHREAD_COUNT];
@@ -5715,21 +7443,33 @@ static int ANALYSIS_load_iq_blocks_multithreaded(FILE *fp, int16_t *blocks, cons
         tasks[i].read_error = 0;
 
         if (pthread_create(&threads[i], NULL, ANALYSIS_load_iq_blocks_worker, &tasks[i]) == 0) {
+
             created[i] = 1;
-        } else {
+
+        }
+
+        else {
+
             ANALYSIS_load_iq_blocks_worker(&tasks[i]);
+
         }
     }
 
     for (int i = 0; i < thread_count; i++) {
+
         if (created[i]) {
+
             pthread_join(threads[i], NULL);
+
         }
     }
 
     for (int i = 0; i < thread_count; i++) {
+
         if (tasks[i].read_error != 0) {
+
             return 0;
+
         }
     }
 
@@ -5738,12 +7478,8 @@ static int ANALYSIS_load_iq_blocks_multithreaded(FILE *fp, int16_t *blocks, cons
 
 void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
     /*
-
-    Purpose: Renders magnitude, phase, and spectrogram analysis data from the
-    loaded recording
-
-    Return: No return
-
+        Purpose: Renders magnitude, phase, and spectrogram analysis data from the loaded recording
+        Returns: No value
     */
 
     clear_waterfall(pixels, tex_w, tex_h);
@@ -5758,20 +7494,27 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
     Global_Analysis_Const_Count = 0;
 
     if (Global_Analysis_IQ_Count < ANALYSIS_FFT_SIZE || Global_Analysis_Path[0] == '\0' || tex_w <= 0 || tex_h <= 0) {
+
         return;
+
     }
 
     int render_w = tex_w;
+
     if (render_w > ANALYSIS_MAX_RENDER_W) {
+
         render_w = ANALYSIS_MAX_RENDER_W;
+
     }
     Global_Analysis_Render_W = render_w;
 
     FILE *fp = fopen(Global_Analysis_Path, "rb");
 
     if (!fp) {
+
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to reopen selected recording");
         return;
+
     }
 
     double window[ANALYSIS_FFT_SIZE];
@@ -5790,27 +7533,37 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
     int multithread_loaded = 0;
 
     if (!db_img || !in || !out || !block) {
+
         free(db_img);
         free(block);
+
         if (in) {
+
             fftw_free(in);
+
         }
+
         if (out) {
+
             fftw_free(out);
+
         }
         fclose(fp);
         return;
+
     }
 
     fftw_plan plan = fftw_plan_dft_1d(ANALYSIS_FFT_SIZE, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
 
     if (!plan) {
+
         free(db_img);
         free(block);
         fftw_free(in);
         fftw_free(out);
         fclose(fp);
         return;
+
     }
 
     double max_db = -300.0;
@@ -5835,13 +7588,16 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
     int time_col_high = render_w - 1;
 
     if (time_filter_active) {
+
         double x0 = Global_Analysis_Column_X0;
         double x1 = Global_Analysis_Column_X1;
 
         if (x1 < x0) {
+
             double tmp = x0;
             x0 = x1;
             x1 = tmp;
+
         }
 
         x0 = ANALYSIS_limit_double(x0, 0.0, 1.0);
@@ -5851,27 +7607,42 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         time_col_high = (int)(x1 * (double)(render_w - 1));
 
         if (time_col_low < 0) {
+
             time_col_low = 0;
+
         }
+
         if (time_col_high >= render_w) {
+
             time_col_high = render_w - 1;
+
         }
+
         if (time_col_high <= time_col_low) {
+
             time_col_high = time_col_low + 1;
+
         }
+
         if (time_col_high >= render_w) {
+
             time_col_high = render_w - 1;
+
         }
+
     }
 
     if (filter_active) {
+
         double y0 = Global_Analysis_Filter_Y0;
         double y1 = Global_Analysis_Filter_Y1;
 
         if (y1 < y0) {
+
             double tmp = y0;
             y0 = y1;
             y1 = tmp;
+
         }
 
         int bin_a = (int)((1.0 - y0) * (double)(ANALYSIS_FFT_SIZE - 1));
@@ -5881,13 +7652,21 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         filter_bin_high = bin_a > bin_b ? bin_a : bin_b;
 
         if (filter_bin_low < 0) {
+
             filter_bin_low = 0;
+
         }
+
         if (filter_bin_high >= ANALYSIS_FFT_SIZE) {
+
             filter_bin_high = ANALYSIS_FFT_SIZE - 1;
+
         }
+
         if (filter_bin_high <= filter_bin_low) {
+
             filter_bin_high = filter_bin_low + 1;
+
         }
 
         filter_mag = calloc((size_t)render_w, sizeof(double));
@@ -5897,23 +7676,29 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         filter_td_inst_freq = calloc((size_t)render_w, sizeof(double));
 
         if (!filter_mag || !filter_re || !filter_im || !filter_td_phase || !filter_td_inst_freq) {
+
             filter_active = 0;
+
         }
+
     }
 
-    if (Global_Analysis_Multithread_Enabled &&
-        (size_t)render_w <= SIZE_MAX / i16_per_block / sizeof(int16_t)) {
+    if (Global_Analysis_Multithread_Enabled && (size_t)render_w <= SIZE_MAX / i16_per_block / sizeof(int16_t)) {
+
         thread_starts = malloc(sizeof(size_t) * (size_t)render_w);
         thread_blocks = malloc(sizeof(int16_t) * (size_t)render_w * i16_per_block);
 
         if (thread_starts && thread_blocks) {
+
             for (int x = 0; x < render_w; x++) {
                 double frac = (render_w > 1) ? (double)x / (double)(render_w - 1) : 0.0;
                 size_t start = Global_Analysis_View_Start + (size_t)(frac * (double)Global_Analysis_View_Len);
 
                 if (start + ANALYSIS_FFT_SIZE >= Global_Analysis_IQ_Count) {
+
                     start =
                         Global_Analysis_IQ_Count > ANALYSIS_FFT_SIZE ? Global_Analysis_IQ_Count - ANALYSIS_FFT_SIZE : 0;
+
                 }
 
                 thread_starts[x] = start;
@@ -5921,41 +7706,56 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
 
             multithread_loaded =
                 ANALYSIS_load_iq_blocks_multithreaded(fp, thread_blocks, thread_starts, render_w, i16_per_block);
+
         }
 
         if (!multithread_loaded) {
+
             free(thread_blocks);
             free(thread_starts);
             thread_blocks = NULL;
             thread_starts = NULL;
             snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
                      "10-thread IQ loading failed; used single-thread loading");
+
         }
+
     }
 
     for (int x = 0; x < render_w; x++) {
         int16_t *current_block = block;
 
         if (multithread_loaded) {
+
             current_block = thread_blocks + ((size_t)x * i16_per_block);
-        } else {
+
+        }
+
+        else {
+
             double frac = (render_w > 1) ? (double)x / (double)(render_w - 1) : 0.0;
             size_t start = Global_Analysis_View_Start + (size_t)(frac * (double)Global_Analysis_View_Len);
 
             if (start + ANALYSIS_FFT_SIZE >= Global_Analysis_IQ_Count) {
-                start =
-                    Global_Analysis_IQ_Count > ANALYSIS_FFT_SIZE ? Global_Analysis_IQ_Count - ANALYSIS_FFT_SIZE : 0;
+
+                start = Global_Analysis_IQ_Count > ANALYSIS_FFT_SIZE ? Global_Analysis_IQ_Count - ANALYSIS_FFT_SIZE : 0;
+
             }
 
             if (fseek(fp, (long)(start * 2 * sizeof(int16_t)), SEEK_SET) != 0) {
+
                 continue;
+
             }
 
             size_t got = fread(block, sizeof(int16_t), i16_per_block, fp);
 
             if (got < i16_per_block) {
+
                 memset(block + got, 0, sizeof(int16_t) * (i16_per_block - got));
+
             }
+
         }
 
         double sum_mag = 0.0;
@@ -5973,6 +7773,7 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         double avg_mag = sum_mag / (double)ANALYSIS_FFT_SIZE;
 
         if (filter_active && Global_Analysis_Sample_Rate > 0.0) {
+
             double bin_center = ((double)filter_bin_low + (double)filter_bin_high) * 0.5;
             double center_offset_hz = (bin_center - ((double)ANALYSIS_FFT_SIZE * 0.5)) *
                                       (Global_Analysis_Sample_Rate / (double)ANALYSIS_FFT_SIZE);
@@ -5981,10 +7782,15 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             double cutoff_hz = filter_width_hz * 0.5;
 
             if (cutoff_hz < bin_width_hz) {
+
                 cutoff_hz = bin_width_hz;
+
             }
+
             if (cutoff_hz > Global_Analysis_Sample_Rate * 0.45) {
+
                 cutoff_hz = Global_Analysis_Sample_Rate * 0.45;
+
             }
 
             double alpha = (2.0 * M_PI * cutoff_hz) / (Global_Analysis_Sample_Rate + (2.0 * M_PI * cutoff_hz));
@@ -6002,13 +7808,21 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             int inst_sample_count = (int)samples_per_column;
 
             if (inst_sample_count < 8) {
+
                 inst_sample_count = 8;
+
             }
+
             if (inst_sample_count > 512) {
+
                 inst_sample_count = 512;
+
             }
+
             if (inst_sample_count > ANALYSIS_FFT_SIZE) {
+
                 inst_sample_count = ANALYSIS_FFT_SIZE;
+
             }
 
             for (int k = 0; k < inst_sample_count; k++) {
@@ -6021,25 +7835,31 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
                 double mix_q = I * s + Q * c;
 
                 if (k == 0) {
+
                     lp_i = mix_i;
                     lp_q = mix_q;
+
                 }
 
                 else {
+
                     lp_i += alpha * (mix_i - lp_i);
                     lp_q += alpha * (mix_q - lp_q);
+
                 }
 
                 phase_sum_i += lp_i;
                 phase_sum_q += lp_q;
 
                 if (k > 0) {
+
                     double prod_i = lp_i * prev_i + lp_q * prev_q;
                     double prod_q = lp_q * prev_i - lp_i * prev_q;
                     double dphase = ANALYSIS_wrap_phase(atan2(prod_q, prod_i));
 
                     inst_freq_sum += dphase * Global_Analysis_Sample_Rate / (2.0 * M_PI);
                     inst_freq_count++;
+
                 }
 
                 prev_i = lp_i;
@@ -6049,8 +7869,11 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             filter_td_phase[x] = atan2(phase_sum_q, phase_sum_i);
 
             if (inst_freq_count > 0) {
+
                 filter_td_inst_freq[x] = inst_freq_sum / (double)inst_freq_count;
+
             }
+
         }
 
         Global_Analysis_Mag_Line[x] = (float)avg_mag;
@@ -6066,7 +7889,9 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         Global_Analysis_InstFreq_Line[x] = 0.0f;
 
         if ((!time_filter_active || (x >= time_col_low && x <= time_col_high)) && avg_mag > max_mag) {
+
             max_mag = avg_mag;
+
         }
 
         fftw_execute(plan);
@@ -6081,10 +7906,12 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             db_img[(size_t)x * ANALYSIS_FFT_SIZE + y] = val;
 
             if (filter_active && y >= filter_bin_low && y <= filter_bin_high) {
+
                 double weight = mag;
                 filter_mag[x] += weight;
                 filter_re[x] += I;
                 filter_im[x] += Q;
+
             }
         }
 
@@ -6092,7 +7919,9 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             double display_val = ANALYSIS_spectrogram_display_db(db_img, x, y);
 
             if (display_val > max_db) {
+
                 max_db = display_val;
+
             }
         }
     }
@@ -6104,19 +7933,25 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             double display_val = ANALYSIS_spectrogram_display_db(db_img, x, y);
 
             if (display_val > max_db) {
+
                 max_db = display_val;
+
             }
         }
     }
 
     if (filter_active) {
+
         max_mag = 1e-12;
         max_phase_abs = 1e-12;
         max_inst_freq_abs = 1e-12;
 
         int bin_count = filter_bin_high - filter_bin_low + 1;
+
         if (bin_count < 1) {
+
             bin_count = 1;
+
         }
 
         for (int x = 0; x < render_w; x++) {
@@ -6127,21 +7962,27 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             Global_Analysis_InstFreq_Line[x] = 0.0f;
 
             if ((!time_filter_active || (x >= time_col_low && x <= time_col_high)) && avg_mag > max_mag) {
+
                 max_mag = avg_mag;
+
             }
         }
 
         double phase_gate = max_mag * 0.15;
 
         if (phase_gate < 1e-9) {
+
             phase_gate = 1e-9;
+
         }
 
         for (int x = 0; x < render_w; x++) {
             double avg_mag = Global_Analysis_Mag_Line[x];
 
             if (avg_mag >= phase_gate && (!time_filter_active || (x >= time_col_low && x <= time_col_high))) {
+
                 valid_phase[x] = 1;
+
             }
         }
 
@@ -6163,8 +8004,11 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             while (seg_start < render_w && !valid_phase[seg_start]) {
                 seg_start++;
             }
+
             if (seg_start >= render_w) {
+
                 break;
+
             }
 
             int seg_end = seg_start;
@@ -6187,6 +8031,7 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             int n = seg_end - seg_start + 1;
 
             if (n >= 2) {
+
                 double sum_x = 0.0;
                 double sum_y = 0.0;
                 double sum_xx = 0.0;
@@ -6207,18 +8052,23 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
                 double intercept = sum_y / (double)n;
 
                 if (fabs(denom) > 1e-12) {
+
                     slope = (((double)n * sum_xy) - (sum_x * sum_y)) / denom;
                     intercept = (sum_y - slope * sum_x) / (double)n;
+
                 }
 
                 for (int x = seg_start; x <= seg_end; x++) {
                     double dx = (double)(x - seg_start);
                     filter_td_phase[x] -= intercept + slope * dx;
                 }
+
             }
 
             else {
+
                 filter_td_phase[seg_start] = 0.0;
+
             }
 
             seg_start = seg_end + 1;
@@ -6228,14 +8078,19 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         int inst_freq_mean_count = 0;
 
         for (int x = 0; x < render_w; x++) {
+
             if (valid_phase[x]) {
+
                 inst_freq_mean += filter_td_inst_freq[x];
                 inst_freq_mean_count++;
+
             }
         }
 
         if (inst_freq_mean_count > 0) {
+
             inst_freq_mean /= (double)inst_freq_mean_count;
+
         }
 
         for (int x = 0; x < render_w; x++) {
@@ -6243,30 +8098,43 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             double inst_freq_hz = 0.0;
 
             if (valid_phase[x]) {
+
                 phase = filter_td_phase[x];
                 inst_freq_hz = filter_td_inst_freq[x] - inst_freq_mean;
 
                 if (fabs(phase) > max_phase_abs) {
+
                     max_phase_abs = fabs(phase);
+
                 }
+
                 if (fabs(inst_freq_hz) > max_inst_freq_abs) {
+
                     max_inst_freq_abs = fabs(inst_freq_hz);
+
                 }
+
             }
 
             Global_Analysis_Phase_Line[x] = (float)phase;
             Global_Analysis_InstFreq_Line[x] = (float)inst_freq_hz;
         }
+
     }
 
     if (time_filter_active) {
+
         for (int x = 0; x < render_w; x++) {
+
             if (x < time_col_low || x > time_col_high) {
+
                 Global_Analysis_Mag_Line[x] = 0.0f;
                 Global_Analysis_Phase_Line[x] = 0.0f;
                 Global_Analysis_InstFreq_Line[x] = 0.0f;
+
             }
         }
+
     }
 
     /*
@@ -6290,23 +8158,33 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
                                : ANALYSIS_FFT_SIZE / 2;
 
         if (bin < 0) {
+
             bin = 0;
+
         }
+
         if (bin >= ANALYSIS_FFT_SIZE) {
+
             bin = ANALYSIS_FFT_SIZE - 1;
+
         }
 
         if (filter_active && (bin < filter_bin_low || bin > filter_bin_high)) {
+
             Global_Analysis_PSD_Line[x] = 0.0f;
             continue;
+
         }
 
         double sum_db = 0.0;
         int count_db = 0;
 
         for (int t = 0; t < render_w; t++) {
+
             if (time_filter_active && (t < time_col_low || t > time_col_high)) {
+
                 continue;
+
             }
 
             sum_db += db_img[(size_t)t * ANALYSIS_FFT_SIZE + bin];
@@ -6314,8 +8192,10 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         }
 
         if (count_db <= 0) {
+
             Global_Analysis_PSD_Line[x] = 0.0f;
             continue;
+
         }
 
         double avg_db = sum_db / (double)count_db;
@@ -6324,32 +8204,47 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         psd_valid[x] = 1;
 
         if (avg_db < psd_min_db) {
+
             psd_min_db = avg_db;
+
         }
+
         if (avg_db > psd_max_db) {
+
             psd_max_db = avg_db;
+
         }
     }
 
     double psd_range_db = psd_max_db - psd_min_db;
 
     if (psd_range_db < 1e-9) {
+
         psd_range_db = 1.0;
+
     }
 
     for (int x = 0; x < render_w; x++) {
+
         if (!psd_valid[x]) {
+
             Global_Analysis_PSD_Line[x] = 0.0f;
             continue;
+
         }
 
         Global_Analysis_PSD_Line[x] = (float)((Global_Analysis_PSD_Line[x] - psd_min_db) / psd_range_db);
 
         if (Global_Analysis_PSD_Line[x] < 0.0f) {
+
             Global_Analysis_PSD_Line[x] = 0.0f;
+
         }
+
         if (Global_Analysis_PSD_Line[x] > 1.0f) {
+
             Global_Analysis_PSD_Line[x] = 1.0f;
+
         }
     }
 
@@ -6359,22 +8254,39 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         Global_Analysis_InstFreq_Line[x] = (float)(Global_Analysis_InstFreq_Line[x] / max_inst_freq_abs);
 
         if (Global_Analysis_Mag_Line[x] < 0.0f) {
+
             Global_Analysis_Mag_Line[x] = 0.0f;
+
         }
+
         if (Global_Analysis_Mag_Line[x] > 1.0f) {
+
             Global_Analysis_Mag_Line[x] = 1.0f;
+
         }
+
         if (Global_Analysis_Phase_Line[x] < -1.0f) {
+
             Global_Analysis_Phase_Line[x] = -1.0f;
+
         }
+
         if (Global_Analysis_Phase_Line[x] > 1.0f) {
+
             Global_Analysis_Phase_Line[x] = 1.0f;
+
         }
+
         if (Global_Analysis_InstFreq_Line[x] < -1.0f) {
+
             Global_Analysis_InstFreq_Line[x] = -1.0f;
+
         }
+
         if (Global_Analysis_InstFreq_Line[x] > 1.0f) {
+
             Global_Analysis_InstFreq_Line[x] = 1.0f;
+
         }
     }
 
@@ -6384,8 +8296,11 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
 
     for (int x = 0; x < tex_w; x++) {
         int src_x = x;
+
         if (src_x >= render_w) {
+
             src_x = render_w - 1;
+
         }
 
         for (int py = 0; py < tex_h; py++) {
@@ -6394,11 +8309,15 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             double norm = (val - min_db) / 70.0;
 
             if (filter_active && (bin < filter_bin_low || bin > filter_bin_high)) {
+
                 norm *= 0.30;
+
             }
 
             if (time_filter_active && (src_x < time_col_low || src_x > time_col_high)) {
+
                 norm *= 0.30;
+
             }
 
             pixels[(size_t)py * tex_w + x] = ANALYSIS_gray(norm);
@@ -6406,9 +8325,13 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
     }
 
     if (filter_active && render_w > 0) {
+
         int const_count = render_w;
+
         if (const_count > ANALYSIS_MAX_CONST_POINTS) {
+
             const_count = ANALYSIS_MAX_CONST_POINTS;
+
         }
 
         Global_Analysis_Const_Count = const_count;
@@ -6416,12 +8339,18 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
         double max_abs = 1e-12;
 
         for (int x = 0; x < render_w; x++) {
+
             if (time_filter_active && (x < time_col_low || x > time_col_high)) {
+
                 continue;
+
             }
             double a = sqrt(filter_re[x] * filter_re[x] + filter_im[x] * filter_im[x]);
+
             if (a > max_abs) {
+
                 max_abs = a;
+
             }
         }
 
@@ -6429,55 +8358,78 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             int x = 0;
 
             if (time_filter_active) {
+
                 x = const_count > 1 ? time_col_low + (int)(((double)p / (double)(const_count - 1)) *
                                                            (double)(time_col_high - time_col_low))
                                     : time_col_low;
+
             }
 
             else {
+
                 x = const_count > 1 ? (int)(((double)p / (double)(const_count - 1)) * (double)(render_w - 1)) : 0;
+
             }
 
             Global_Analysis_Const_I[p] = (float)(filter_re[x] / max_abs);
             Global_Analysis_Const_Q[p] = (float)(filter_im[x] / max_abs);
         }
+
     }
 
     else if (Global_Analysis_IQ_Count > 0 && Global_Analysis_View_Len > 0) {
+
         int const_count = ANALYSIS_MAX_CONST_POINTS;
 
         size_t const_view_start = Global_Analysis_View_Start;
         size_t const_view_len = Global_Analysis_View_Len;
 
         if (time_filter_active) {
+
             size_t time_start = Global_Analysis_View_Start + (size_t)((double)time_col_low / (double)(render_w - 1) *
                                                                       (double)Global_Analysis_View_Len);
             size_t time_end = Global_Analysis_View_Start + (size_t)((double)time_col_high / (double)(render_w - 1) *
                                                                     (double)Global_Analysis_View_Len);
 
             if (time_start >= Global_Analysis_IQ_Count) {
+
                 time_start = Global_Analysis_IQ_Count - 1;
+
             }
+
             if (time_end >= Global_Analysis_IQ_Count) {
+
                 time_end = Global_Analysis_IQ_Count - 1;
+
             }
+
             if (time_end <= time_start) {
+
                 time_end = time_start + 1;
+
             }
+
             if (time_end > Global_Analysis_IQ_Count) {
+
                 time_end = Global_Analysis_IQ_Count;
+
             }
 
             const_view_start = time_start;
             const_view_len = time_end - time_start;
+
         }
 
         if ((size_t)const_count > const_view_len) {
+
             const_count = (int)const_view_len;
+
         }
 
         if (const_count < 0) {
+
             const_count = 0;
+
         }
 
         Global_Analysis_Const_Count = const_count;
@@ -6486,26 +8438,35 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
             size_t sample_index = const_view_start;
 
             if (const_count > 1) {
+
                 sample_index += (size_t)(((double)p / (double)(const_count - 1)) * (double)(const_view_len - 1));
+
             }
 
             if (sample_index >= Global_Analysis_IQ_Count) {
+
                 sample_index = Global_Analysis_IQ_Count - 1;
+
             }
 
             int16_t iq_pair[2] = {0, 0};
 
             if (fseek(fp, (long)(sample_index * 2 * sizeof(int16_t)), SEEK_SET) == 0 &&
                 fread(iq_pair, sizeof(int16_t), 2, fp) == 2) {
+
                 Global_Analysis_Const_I[p] = (float)((double)iq_pair[0] / 32768.0);
                 Global_Analysis_Const_Q[p] = (float)((double)iq_pair[1] / 32768.0);
+
             }
 
             else {
+
                 Global_Analysis_Const_I[p] = 0.0f;
                 Global_Analysis_Const_Q[p] = 0.0f;
+
             }
         }
+
     }
 
     fftw_destroy_plan(plan);
@@ -6526,11 +8487,8 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
 void ANALYSIS_enter_mode(const char *record_dir, uint64_t fallback_center_hz, uint32_t fallback_rec_out_rate_hz,
                          uint32_t fallback_sample_rate_hz) {
     /*
-
-    Purpose: Enters analysis mode and prepares the file list
-
-    Return: No return
-
+        Purpose: Enters analysis mode and prepares the file list
+        Returns: No value
     */
 
     ANALYSIS_set_context(record_dir, fallback_center_hz, fallback_rec_out_rate_hz, fallback_sample_rate_hz);
@@ -6539,6 +8497,7 @@ void ANALYSIS_enter_mode(const char *record_dir, uint64_t fallback_center_hz, ui
     Global_Analysis_Multithread_Prompt_Open = 0;
 
     if (Global_Analysis_Workspaces_Initialized) {
+
         Global_Analysis_Dragging = 0;
         Global_Analysis_Filter_Selecting = 0;
         Global_Analysis_Column_Selecting = 0;
@@ -6548,6 +8507,7 @@ void ANALYSIS_enter_mode(const char *record_dir, uint64_t fallback_center_hz, ui
 
         set_status("Analysis workstation", (SDL_Color){220, 220, 220, 255});
         return;
+
     }
 
     Global_Analysis_Active_Workspace = 0;
@@ -6557,12 +8517,16 @@ void ANALYSIS_enter_mode(const char *record_dir, uint64_t fallback_center_hz, ui
         ANALYSIS_clear_loaded_file();
 
         if (ANALYSIS_scan_recordings()) {
+
             snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
                      "Found %d recording(s). Select one and press Enter.", Global_Analysis_File_Count);
+
         }
 
         else {
+
             Global_Analysis_Dirty = 1;
+
         }
 
         ANALYSIS_save_workspace_state(i);
@@ -6577,116 +8541,174 @@ void ANALYSIS_enter_mode(const char *record_dir, uint64_t fallback_center_hz, ui
 }
 
 int ANALYSIS_is_text_entry_active(void) {
+    /*
+        Purpose: Checks whether the text entry is active
+        Returns: Boolean status
+    */
+
     return (Global_Analysis_Signal_Menu_Open && Global_Analysis_Signal_Active_Field != ANALYSIS_SIGNAL_FIELD_NONE) ||
            (Global_Analysis_File_Search_Open && Global_Analysis_File_Search_Active);
 }
 
 int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixels, int tex_w, int tex_h,
                           SDL_Texture *waterfall_texture, uint64_t *next_waterfall_ms, Type_Active_Fields *active) {
+    /*
+        Purpose: Handles the event
+        Returns: Handling status
+    */
+
     if (!event || !Global_Analysis_Mode) {
+
         return ANALYSIS_EVENT_IGNORED;
+
     }
 
     if (ANALYSIS_handle_file_search_event(event, win_w, win_h)) {
+
         if (active) {
+
             *active = FIELD_NONE;
+
         }
         return ANALYSIS_EVENT_HANDLED;
+
     }
 
     if (ANALYSIS_handle_signal_menu_event(event, win_w, win_h)) {
+
         if (active) {
+
             *active = FIELD_NONE;
+
         }
         return ANALYSIS_EVENT_HANDLED;
+
     }
 
     if (event->type == SDL_KEYDOWN) {
+
         SDL_Keycode key = event->key.keysym.sym;
 
         if (active && *active == FIELD_NONE && (SDL_GetModState() & KMOD_CTRL)) {
+
             if (key == SDLK_RIGHT) {
+
                 ANALYSIS_switch_workspace(1);
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_LEFT) {
+
                 ANALYSIS_switch_workspace(-1);
                 return ANALYSIS_EVENT_HANDLED;
+
             }
+
         }
 
         if (active && *active == FIELD_NONE) {
+
             if (key == SDLK_LCTRL || key == SDLK_RCTRL) {
+
                 Global_Analysis_Filter_Visible = 1;
                 snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
                          "Ctrl+drag on greyscale spectrogram to select a frequency band");
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_n) {
+
                 Global_Analysis_Noise_Key_Down = 1;
                 snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
                          "N+drag on Magnitude or Instantaneous Frequency to mark noise");
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_ESCAPE) {
+
                 ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
+
                 if (next_waterfall_ms) {
+
                     *next_waterfall_ms = SDL_GetTicks64();
+
                 }
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_q) {
+
                 return ANALYSIS_EVENT_QUIT;
+
             }
 
             else if (key == SDLK_BACKSPACE || key == SDLK_DELETE) {
+
                 ANALYSIS_clear_filter();
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_r) {
+
                 ANALYSIS_clear_loaded_file();
 
                 if (ANALYSIS_scan_recordings()) {
+
                     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
                              "Found %d recording(s). Select one and press Enter.", Global_Analysis_File_Count);
+
                 }
 
                 else {
+
                     Global_Analysis_Dirty = 1;
+
                 }
 
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
+
                 ANALYSIS_open_selected_recording();
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_UP) {
+
                 ANALYSIS_select_relative(-1);
                 return ANALYSIS_EVENT_HANDLED;
+
             }
 
             else if (key == SDLK_DOWN) {
+
                 ANALYSIS_select_relative(1);
                 return ANALYSIS_EVENT_HANDLED;
+
             }
+
         }
 
         return ANALYSIS_EVENT_IGNORED;
+
     }
 
     if (event->type == SDL_KEYUP) {
+
         SDL_Keycode key = event->key.keysym.sym;
 
         if (key == SDLK_LCTRL || key == SDLK_RCTRL) {
+
             if (Global_Analysis_Filter_Selecting) {
+
                 int my = 0;
                 ANALYSIS_get_adjusted_mouse_state(NULL, &my);
 
@@ -6698,19 +8720,25 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
                 ANALYSIS_update_filter_from_mouse(my, spec_rect);
                 ANALYSIS_apply_filter_selection();
                 Global_Analysis_Filter_Selecting = 0;
+
             }
 
             if (!Global_Analysis_Filter_Active) {
+
                 Global_Analysis_Filter_Visible = 0;
+
             }
 
             return ANALYSIS_EVENT_HANDLED;
+
         }
 
         if (key == SDLK_n) {
+
             Global_Analysis_Noise_Key_Down = 0;
 
             if (Global_Analysis_Noise_Selecting) {
+
                 int mx = 0;
                 int my = 0;
                 ANALYSIS_get_adjusted_mouse_state(&mx, &my);
@@ -6718,6 +8746,7 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
                 SDL_Rect graph_rect;
 
                 if (ANALYSIS_noise_graph_from_point(mx, my, win_w, win_h, &graph_rect) == ANALYSIS_NOISE_GRAPH_NONE) {
+
                     SDL_Rect psd_rect;
                     SDL_Rect mag_rect;
                     SDL_Rect phase_rect;
@@ -6732,24 +8761,31 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
                     (void)const_rect;
                     (void)spec_rect;
                     graph_rect = Global_Analysis_Noise_Graph == ANALYSIS_NOISE_GRAPH_MAG ? mag_rect : inst_rect;
+
                 }
 
                 ANALYSIS_update_noise_selection_from_mouse(my, graph_rect);
                 ANALYSIS_apply_noise_selection();
+
             }
 
             if (!Global_Analysis_Noise_Active) {
+
                 Global_Analysis_Noise_Visible = 0;
                 Global_Analysis_Noise_Graph = ANALYSIS_NOISE_GRAPH_NONE;
+
             }
 
             return ANALYSIS_EVENT_HANDLED;
+
         }
 
         return ANALYSIS_EVENT_IGNORED;
+
     }
 
     if (event->type == SDL_MOUSEWHEEL) {
+
         int mx = 0;
         int my = 0;
         ANALYSIS_get_adjusted_mouse_state(&mx, &my);
@@ -6760,35 +8796,51 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
         ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
 
         if (point_in_rect(mx, my, list_rect)) {
+
             int row_h = 22;
             int visible = (list_rect.h - 82) / row_h;
+
             if (visible < 1) {
+
                 visible = 1;
+
             }
 
             Global_Analysis_List_Scroll -= event->wheel.y * 3;
 
             if (Global_Analysis_List_Scroll < 0) {
+
                 Global_Analysis_List_Scroll = 0;
+
             }
 
             if (Global_Analysis_List_Scroll + visible > Global_Analysis_File_Count) {
+
                 Global_Analysis_List_Scroll = Global_Analysis_File_Count - visible;
+
                 if (Global_Analysis_List_Scroll < 0) {
+
                     Global_Analysis_List_Scroll = 0;
+
                 }
+
             }
+
         }
 
         else {
+
             double frac = (double)(mx - spec_rect.x) / (double)spec_rect.w;
             ANALYSIS_zoom_at_fraction(frac, event->wheel.y > 0);
+
         }
 
         return ANALYSIS_EVENT_HANDLED;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
+
         int x = event->button.x;
         int y = event->button.y;
 
@@ -6799,18 +8851,24 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
         (void)list_rect;
 
         if (Global_Analysis_Path[0] != '\0' && point_in_rect(x, y, spec_rect)) {
+
             ANALYSIS_set_marker_from_mouse(x, spec_rect);
+
         }
 
         return ANALYSIS_EVENT_HANDLED;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
         int x = event->button.x;
         int y = event->button.y;
 
         if (active) {
+
             *active = FIELD_NONE;
+
         }
 
         SDL_Rect list_rect;
@@ -6822,33 +8880,49 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
         SDL_Rect crop_button = ANALYSIS_crop_button_rect(win_w, win_h);
 
         if (point_in_rect(x, y, search_button)) {
+
             ANALYSIS_open_file_search_menu();
             return ANALYSIS_EVENT_HANDLED;
+
         }
 
         if (point_in_rect(x, y, crop_button)) {
+
             ANALYSIS_crop_current_selection(pixels, tex_w, tex_h, waterfall_texture);
             return ANALYSIS_EVENT_HANDLED;
+
         }
 
         if (point_in_rect(x, y, list_rect)) {
+
             int row_h = 22;
             int list_y = list_rect.y + 70;
             int visible = (list_rect.h - 82) / row_h;
+
             if (visible < 1) {
+
                 visible = 1;
+
             }
 
             int first = Global_Analysis_List_Scroll;
+
             if (first < 0) {
+
                 first = 0;
+
             }
 
             if (first + visible > Global_Analysis_File_Count) {
+
                 first = Global_Analysis_File_Count - visible;
+
                 if (first < 0) {
+
                     first = 0;
+
                 }
+
             }
 
             Global_Analysis_List_Scroll = first;
@@ -6856,23 +8930,34 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
             int idx = first + ((y - list_y) / row_h);
 
             if (y >= list_y && idx >= 0 && idx < Global_Analysis_File_Count) {
+
                 Global_Analysis_Selected = idx;
 
                 if (event->button.clicks >= 2) {
+
                     ANALYSIS_open_selected_recording();
-                } else {
+
+                }
+
+                else {
+
                     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
                              "Selected %.180s | Press Enter to open", Global_Analysis_Files[Global_Analysis_Selected]);
+
                 }
+
             }
+
         }
 
         else if (Global_Analysis_Path[0] != '\0' &&
                  (Global_Analysis_Noise_Key_Down || SDL_GetKeyboardState(NULL)[SDL_SCANCODE_N])) {
+
             SDL_Rect graph_rect;
             int noise_graph = ANALYSIS_noise_graph_from_point(x, y, win_w, win_h, &graph_rect);
 
             if (noise_graph != ANALYSIS_NOISE_GRAPH_NONE) {
+
                 Global_Analysis_Noise_Visible = 1;
                 Global_Analysis_Noise_Selecting = 1;
                 Global_Analysis_Noise_Active = 0;
@@ -6883,38 +8968,49 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
                 Global_Analysis_Noise_Y0 = ANALYSIS_noise_frac_from_mouse_y(y, graph_rect);
                 Global_Analysis_Noise_Y1 = Global_Analysis_Noise_Y0;
                 return ANALYSIS_EVENT_HANDLED;
+
             }
+
         }
 
         else if (Global_Analysis_Path[0] != '\0' && point_in_rect(x, y, spec_rect) &&
                  (SDL_GetModState() & KMOD_SHIFT)) {
+
             Global_Analysis_Column_Visible = 1;
             Global_Analysis_Column_Selecting = 1;
             Global_Analysis_Dragging = 0;
             Global_Analysis_Filter_Selecting = 0;
             Global_Analysis_Column_X0 = ANALYSIS_time_frac_from_mouse_x(x, spec_rect);
             Global_Analysis_Column_X1 = Global_Analysis_Column_X0;
+
         }
 
         else if (Global_Analysis_Path[0] != '\0' && point_in_rect(x, y, spec_rect) && (SDL_GetModState() & KMOD_CTRL)) {
+
             Global_Analysis_Filter_Visible = 1;
             Global_Analysis_Filter_Selecting = 1;
             Global_Analysis_Dragging = 0;
             Global_Analysis_Column_Selecting = 0;
             Global_Analysis_Filter_Y0 = ANALYSIS_freq_frac_from_mouse_y(y, spec_rect);
             Global_Analysis_Filter_Y1 = Global_Analysis_Filter_Y0;
+
         }
 
         else if (Global_Analysis_Path[0] != '\0' && y > list_rect.y + list_rect.h + MARGIN) {
+
             Global_Analysis_Dragging = 1;
             Global_Analysis_Drag_Last_X = x;
+
         }
 
         return ANALYSIS_EVENT_HANDLED;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
+
         if (Global_Analysis_Noise_Selecting) {
+
             SDL_Rect psd_rect;
             SDL_Rect mag_rect;
             SDL_Rect phase_rect;
@@ -6934,9 +9030,11 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
 
             ANALYSIS_update_noise_selection_from_mouse(event->button.y, graph_rect);
             ANALYSIS_apply_noise_selection();
+
         }
 
         else if (Global_Analysis_Column_Selecting) {
+
             SDL_Rect list_rect;
             SDL_Rect spec_rect;
 
@@ -6944,9 +9042,11 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
             (void)list_rect;
             ANALYSIS_update_column_selection_from_mouse(event->button.x, spec_rect);
             ANALYSIS_apply_column_selection();
+
         }
 
         else if (Global_Analysis_Filter_Selecting) {
+
             SDL_Rect list_rect;
             SDL_Rect spec_rect;
 
@@ -6954,6 +9054,7 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
             (void)list_rect;
             ANALYSIS_update_filter_from_mouse(event->button.y, spec_rect);
             ANALYSIS_apply_filter_selection();
+
         }
 
         Global_Analysis_Column_Selecting = 0;
@@ -6962,10 +9063,13 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
         Global_Analysis_Dragging = 0;
 
         return ANALYSIS_EVENT_HANDLED;
+
     }
 
     if (event->type == SDL_MOUSEMOTION) {
+
         if (Global_Analysis_Noise_Selecting) {
+
             SDL_Rect psd_rect;
             SDL_Rect mag_rect;
             SDL_Rect phase_rect;
@@ -6985,9 +9089,11 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
 
             ANALYSIS_update_noise_selection_from_mouse(event->motion.y, graph_rect);
             return ANALYSIS_EVENT_HANDLED;
+
         }
 
         if (Global_Analysis_Column_Selecting) {
+
             SDL_Rect list_rect;
             SDL_Rect spec_rect;
 
@@ -6995,9 +9101,11 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
             (void)list_rect;
             ANALYSIS_update_column_selection_from_mouse(event->motion.x, spec_rect);
             return ANALYSIS_EVENT_HANDLED;
+
         }
 
         if (Global_Analysis_Filter_Selecting) {
+
             SDL_Rect list_rect;
             SDL_Rect spec_rect;
 
@@ -7005,14 +9113,18 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
             (void)list_rect;
             ANALYSIS_update_filter_from_mouse(event->motion.y, spec_rect);
             return ANALYSIS_EVENT_HANDLED;
+
         }
 
         if (Global_Analysis_Dragging) {
+
             int dx = event->motion.x - Global_Analysis_Drag_Last_X;
             Global_Analysis_Drag_Last_X = event->motion.x;
             ANALYSIS_drag_move_view(dx, win_w - 2 * MARGIN);
             return ANALYSIS_EVENT_HANDLED;
+
         }
+
     }
 
     return ANALYSIS_EVENT_IGNORED;

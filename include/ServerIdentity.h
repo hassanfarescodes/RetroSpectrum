@@ -38,8 +38,8 @@ int SERVER_IDENTITY_sign_local(const unsigned char *message, size_t message_size
 int SERVER_IDENTITY_verify_trusted(const unsigned char *message, size_t message_size,
                                    const unsigned char signature[SERVER_IDENTITY_SIGNATURE_BYTES]);
 
-int SERVER_IDENTITY_preview_public_file(const char *path, Type_Server_Public_Identity *identity,
-                                        char *message, size_t message_size);
+int SERVER_IDENTITY_preview_public_file(const char *path, Type_Server_Public_Identity *identity, char *message,
+                                        size_t message_size);
 int SERVER_IDENTITY_import_public_file(const char *path, char *message, size_t message_size);
 
 int SERVER_IDENTITY_has_conflict(void);

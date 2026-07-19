@@ -21,8 +21,15 @@
 #define SEC_MAX_COMPLEX16_BYTES ((uintmax_t)2u * 1024u * 1024u * 1024u)
 
 bool sec_sprintf(char *dst, size_t dst_size, const char *fmt, ...) {
+    /*
+        Purpose: Formats text into a bounded buffer
+        Returns: Success status
+    */
+
     if (dst == NULL || dst_size == 0 || fmt == NULL) {
+
         return false;
+
     }
 
     va_list args;
@@ -33,50 +40,79 @@ bool sec_sprintf(char *dst, size_t dst_size, const char *fmt, ...) {
     va_end(args);
 
     if (written < 0 || (size_t)written >= dst_size) {
+
         dst[dst_size - 1] = '\0';
         return false;
+
     }
 
     return true;
 }
 
 bool sec_strcpy(char *dst, size_t dst_size, const char *src) {
+    /*
+        Purpose: Copies text into a bounded buffer
+        Returns: Success status
+    */
+
     if (dst == NULL || dst_size == 0 || src == NULL) {
+
         return false;
+
     }
 
     int written = snprintf(dst, dst_size, "%s", src);
 
     if (written < 0 || (size_t)written >= dst_size) {
+
         dst[dst_size - 1] = '\0';
         return false;
+
     }
 
     return true;
 }
 
 bool sec_strcat(char *dst, size_t dst_size, const char *suffix) {
+    /*
+        Purpose: Appends text to a bounded buffer
+        Returns: Success status
+    */
+
     if (dst == NULL || dst_size == 0 || suffix == NULL) {
+
         return false;
+
     }
 
     size_t len = strnlen(dst, dst_size);
 
     if (len >= dst_size) {
+
         dst[dst_size - 1] = '\0';
         return false;
+
     }
 
     return sec_sprintf(dst + len, dst_size - len, "%s", suffix);
 }
 
 bool sec_memcpy(void *dst, size_t dst_size, const void *src, size_t copy_size) {
+    /*
+        Purpose: Copies memory with bounds validation
+        Returns: Success status
+    */
+
     if (dst == NULL || src == NULL) {
+
         return false;
+
     }
 
     if (copy_size > dst_size) {
+
         return false;
+
     }
 
     memcpy(dst, src, copy_size);
@@ -84,12 +120,21 @@ bool sec_memcpy(void *dst, size_t dst_size, const void *src, size_t copy_size) {
 }
 
 bool sec_memmove(void *dst, size_t dst_size, const void *src, size_t move_size) {
+    /*
+        Purpose: Moves memory with bounds validation
+        Returns: Success status
+    */
+
     if (dst == NULL || src == NULL) {
+
         return false;
+
     }
 
     if (move_size > dst_size) {
+
         return false;
+
     }
 
     memmove(dst, src, move_size);
@@ -98,14 +143,23 @@ bool sec_memmove(void *dst, size_t dst_size, const void *src, size_t move_size) 
 }
 
 bool sec_str_memcpy(char *dst, size_t dst_size, const char *src, size_t src_len) {
+    /*
+        Purpose: Copies a bounded string from memory
+        Returns: Success status
+    */
+
     if (dst == NULL || dst_size == 0 || src == NULL) {
+
         return false;
+
     }
 
     if (src_len >= dst_size) {
+
         memcpy(dst, src, dst_size - 1);
         dst[dst_size - 1] = '\0';
         return false;
+
     }
 
     memcpy(dst, src, src_len);
@@ -114,8 +168,15 @@ bool sec_str_memcpy(char *dst, size_t dst_size, const char *src, size_t src_len)
 }
 
 bool sec_memzero(void *dst, size_t dst_size) {
+    /*
+        Purpose: Clears a memory region
+        Returns: Success status
+    */
+
     if (dst == NULL) {
+
         return false;
+
     }
 
     memset(dst, 0, dst_size);
@@ -123,24 +184,45 @@ bool sec_memzero(void *dst, size_t dst_size) {
 }
 
 bool sec_mul_bound(size_t a, size_t b) {
+    /*
+        Purpose: Checks whether a size multiplication fits
+        Returns: Success status
+    */
+
     return !(a != 0 && b > SIZE_MAX / a);
 }
 
 void *sec_calloc_array(size_t count, size_t elem_size, size_t max_count) {
+    /*
+        Purpose: Allocates a checked zeroed array
+        Returns: Result pointer
+    */
+
     if (elem_size == 0 || count == 0 || count > max_count) {
+
         return NULL;
+
     }
 
     if (!sec_mul_bound(count, elem_size)) {
+
         return NULL;
+
     }
 
     return calloc(count, elem_size);
 }
 
 bool sec_str_to_int(const char *s, int *out) {
+    /*
+        Purpose: Converts the string to the int
+        Returns: Success status
+    */
+
     if (s == NULL || out == NULL) {
+
         return false;
+
     }
 
     char *end = NULL;
@@ -149,11 +231,15 @@ bool sec_str_to_int(const char *s, int *out) {
     long value = strtol(s, &end, 10);
 
     if (errno != 0 || end == s || *end != '\0') {
+
         return false;
+
     }
 
     if (value < INT_MIN || value > INT_MAX) {
+
         return false;
+
     }
 
     *out = (int)value;
@@ -162,8 +248,15 @@ bool sec_str_to_int(const char *s, int *out) {
 }
 
 bool sec_str_to_double(const char *s, double *out) {
+    /*
+        Purpose: Converts the string to the double
+        Returns: Success status
+    */
+
     if (s == NULL || out == NULL) {
+
         return false;
+
     }
 
     char *end = NULL;
@@ -172,11 +265,15 @@ bool sec_str_to_double(const char *s, double *out) {
     double value = strtod(s, &end);
 
     if (errno != 0 || end == s || *end != '\0') {
+
         return false;
+
     }
 
     if (!isfinite(value)) {
+
         return false;
+
     }
 
     *out = value;
@@ -185,8 +282,15 @@ bool sec_str_to_double(const char *s, double *out) {
 }
 
 bool sec_popen_read(const char *exe_path, char *const argv[], char *out, size_t out_size) {
+    /*
+        Purpose: Executes a program and captures its output
+        Returns: Success status
+    */
+
     if (exe_path == NULL || argv == NULL || argv[0] == NULL || out == NULL || out_size == 0) {
+
         return false;
+
     }
 
     out[0] = '\0';
@@ -194,22 +298,29 @@ bool sec_popen_read(const char *exe_path, char *const argv[], char *out, size_t 
     int pipefd[2];
 
     if (pipe(pipefd) != 0) {
+
         return false;
+
     }
 
     pid_t pid = fork();
 
     if (pid < 0) {
+
         close(pipefd[0]);
         close(pipefd[1]);
         return false;
+
     }
 
     if (pid == 0) {
+
         close(pipefd[0]);
 
         if (dup2(pipefd[1], STDOUT_FILENO) < 0) {
+
             _exit(127);
+
         }
 
         close(pipefd[1]);
@@ -217,6 +328,7 @@ bool sec_popen_read(const char *exe_path, char *const argv[], char *out, size_t 
         execv(exe_path, argv);
 
         _exit(127);
+
     }
 
     close(pipefd[1]);
@@ -230,35 +342,47 @@ bool sec_popen_read(const char *exe_path, char *const argv[], char *out, size_t 
         ssize_t n = read(pipefd[0], buf, sizeof(buf));
 
         if (n < 0) {
+
             if (errno == EINTR) {
+
                 continue;
+
             }
 
             close(pipefd[0]);
             waitpid(pid, NULL, 0);
             return false;
+
         }
 
         if (n == 0) {
+
             break;
+
         }
 
         size_t remaining = out_size - 1 - used;
 
         if ((size_t)n <= remaining) {
+
             memcpy(out + used, buf, (size_t)n);
             used += (size_t)n;
             out[used] = '\0';
+
         }
 
         else {
+
             if (remaining > 0) {
+
                 memcpy(out + used, buf, remaining);
                 used += remaining;
                 out[used] = '\0';
+
             }
 
             truncated = true;
+
         }
     }
 
@@ -267,92 +391,132 @@ bool sec_popen_read(const char *exe_path, char *const argv[], char *out, size_t 
     int status = 0;
 
     if (waitpid(pid, &status, 0) < 0) {
+
         return false;
+
     }
 
     if (truncated) {
+
         return false;
+
     }
 
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+
         return false;
+
     }
 
     return true;
 }
 
 static bool sec_has_extension(const char *s, const char *ext) {
+    /*
+        Purpose: Checks whether the extension is present
+        Returns: Success status
+    */
+
     if (s == NULL || ext == NULL) {
+
         return false;
+
     }
 
     size_t s_len = strlen(s);
     size_t ext_len = strlen(ext);
 
     if (s_len < ext_len) {
+
         return false;
+
     }
 
     return strcmp(s + s_len - ext_len, ext) == 0;
 }
 
 bool sec_fopen_complex16(const char *path, FILE **out_fp, size_t *out_iq_count) {
+    /*
+        Purpose: Opens and validates a complex16 IQ file
+        Returns: Success status
+    */
+
     if (path == NULL || out_fp == NULL || out_iq_count == NULL) {
+
         return false;
+
     }
 
     *out_fp = NULL;
     *out_iq_count = 0;
 
     if (!sec_has_extension(path, ".complex16")) {
+
         return false;
+
     }
 
     FILE *fp = fopen(path, "rb");
 
     if (fp == NULL) {
+
         return false;
+
     }
 
     struct stat st;
 
     if (fstat(fileno(fp), &st) != 0) {
+
         fclose(fp);
         return false;
+
     }
 
     if (!S_ISREG(st.st_mode)) {
+
         fclose(fp);
         return false;
+
     }
 
     if (st.st_size <= 0) {
+
         fclose(fp);
         return false;
+
     }
 
     if ((uintmax_t)st.st_size > SEC_MAX_COMPLEX16_BYTES) {
+
         fclose(fp);
         return false;
+
     }
 
     if ((uintmax_t)st.st_size > (uintmax_t)SIZE_MAX) {
+
         fclose(fp);
         return false;
+
     }
 
     size_t file_size = (size_t)st.st_size;
 
     if (file_size % SEC_COMPLEX16_BYTES_PER_IQ != 0) {
+
         fclose(fp);
         return false;
+
     }
 
     size_t iq_count = file_size / SEC_COMPLEX16_BYTES_PER_IQ;
 
     if (iq_count == 0) {
+
         fclose(fp);
         return false;
+
     }
 
     *out_fp = fp;
@@ -362,18 +526,29 @@ bool sec_fopen_complex16(const char *path, FILE **out_fp, size_t *out_iq_count) 
 }
 
 bool sec_str_to_int_bound(const char *s, int min_value, int max_value, int *out) {
+    /*
+        Purpose: Converts the string to the int bound
+        Returns: Success status
+    */
+
     if (s == NULL || out == NULL || min_value > max_value) {
+
         return false;
+
     }
 
     int value = 0;
 
     if (!sec_str_to_int(s, &value)) {
+
         return false;
+
     }
 
     if (value < min_value || value > max_value) {
+
         return false;
+
     }
 
     *out = value;
@@ -381,22 +556,35 @@ bool sec_str_to_int_bound(const char *s, int min_value, int max_value, int *out)
 }
 
 bool sec_str_to_double_bound(const char *s, double min_value, double max_value, double *out) {
+    /*
+        Purpose: Converts the string to the double bound
+        Returns: Success status
+    */
+
     if (s == NULL || out == NULL) {
+
         return false;
+
     }
 
     if (!isfinite(min_value) || !isfinite(max_value) || min_value > max_value) {
+
         return false;
+
     }
 
     double value = 0.0;
 
     if (!sec_str_to_double(s, &value)) {
+
         return false;
+
     }
 
     if (value < min_value || value > max_value) {
+
         return false;
+
     }
 
     *out = value;
