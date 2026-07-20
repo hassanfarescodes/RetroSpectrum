@@ -85,6 +85,7 @@ static pthread_t Global_Server_Identity_Thread;
 static pthread_mutex_t Global_Server_Identity_Lock = PTHREAD_MUTEX_INITIALIZER;
 static int Global_Server_Identity_Thread_Started = 0;
 static int Global_Server_Identity_Running = 0;
+static int Global_Server_Identity_Server_Mode = 1;
 static int Global_Server_Identity_Socket = -1;
 static int Global_Server_Identity_Conflict = 0;
 static char Global_Server_Identity_Id[SERVER_IDENTITY_ID_BUFFER] = "";
@@ -1570,7 +1571,7 @@ static void server_identity_handle_packet(const unsigned char *packet, size_t pa
 
     }
 
-    if (packet[9] == SERVER_IDENTITY_PACKET_TYPE_QUERY) {
+    if (packet[9] == SERVER_IDENTITY_PACKET_TYPE_QUERY && Global_Server_Identity_Server_Mode) {
 
         server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_ANNOUNCE);
 
@@ -1601,7 +1602,8 @@ static void *server_identity_thread_main(void *unused) {
         ssize_t received;
         time_t now = time(NULL);
 
-        if (now - last_announce >= SERVER_IDENTITY_ANNOUNCE_INTERVAL) {
+        if (Global_Server_Identity_Server_Mode &&
+            now - last_announce >= SERVER_IDENTITY_ANNOUNCE_INTERVAL) {
 
             server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_ANNOUNCE);
             last_announce = now;
@@ -1684,6 +1686,20 @@ static int server_identity_open_socket(void) {
     return 1;
 }
 
+void SERVER_IDENTITY_set_server_mode(int server_mode) {
+    /*
+        Purpose: Selects whether this process advertises and answers as a server
+        Returns: No value
+    */
+
+    if (Global_Server_Identity_Thread_Started) {
+
+        return;
+
+    }
+    Global_Server_Identity_Server_Mode = server_mode != 0;
+}
+
 int SERVER_IDENTITY_start(void) {
     /*
         Purpose: Starts the requested operation
@@ -1738,8 +1754,16 @@ int SERVER_IDENTITY_start(void) {
     }
 
     Global_Server_Identity_Thread_Started = 1;
-    server_identity_set_status("ML-DSA-87 identity verified, trusted public key loaded.");
-    server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_QUERY);
+
+    if (Global_Server_Identity_Server_Mode) {
+        server_identity_set_status("ML-DSA-87 server identity verified; signed LAN announcements are active.");
+        server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_ANNOUNCE);
+    }
+
+    else {
+        server_identity_set_status("Client mode active; waiting for the trusted server identity.");
+        server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_QUERY);
+    }
     return 1;
 }
 

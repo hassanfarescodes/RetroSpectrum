@@ -29,6 +29,7 @@ int DATASTORE_server_delete_content(const char *document_kind, const char *docum
                                     size_t error_size);
 int SECURE_NETWORK_delete_document(const char *document_kind, const char *document_name, int *deleted, char *error,
                                    size_t error_size);
+int SECURE_NETWORK_server_is_running(void);
 
 #if OPENSSL_VERSION_NUMBER < 0x30500000L
 #error "SecureNetwork.c requires OpenSSL 3.5.0 or newer."
@@ -1350,6 +1351,20 @@ failure:
     SSL_CTX_free(Global_Secure_Server_Context);
     Global_Secure_Server_Context = NULL;
     return 0;
+}
+
+int SECURE_NETWORK_server_is_running(void) {
+    /*
+        Purpose: Reports whether the secure LAN server is actively listening
+        Returns: Boolean status
+    */
+
+    int running;
+
+    pthread_mutex_lock(&Global_Secure_Server_Lock);
+    running = Global_Secure_Server_Running && Global_Secure_Server_Thread_Started && Global_Secure_Listen_Fd >= 0;
+    pthread_mutex_unlock(&Global_Secure_Server_Lock);
+    return running;
 }
 
 void SECURE_NETWORK_stop_server(void) {

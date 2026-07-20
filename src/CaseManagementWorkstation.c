@@ -7645,7 +7645,7 @@ static void case_metadata_draw_description(SDL_Renderer *renderer, TTF_Font *fon
     int y = rect.y + 8;
     int line_count = 0;
 
-    //draw_text(renderer, font, "Description", rect.x, rect.y - 19, Case_Muted);
+    // draw_text(renderer, font, "Description", rect.x, rect.y - 19, Case_Muted);
     draw_filled_rect(renderer, rect, active ? Case_Panel_2 : (SDL_Color){0, 7, 3, 255});
     draw_outline_rect(renderer, rect, active ? Case_Border_Hi : Case_Border);
 

@@ -159,6 +159,7 @@ static const SDL_Color AUTH_WARN = {255, 180, 40, 255};
 
 static char Global_Auth_Server_Id[SERVER_IDENTITY_ID_BUFFER] = "";
 static char Global_Auth_Server_Name[SERVER_IDENTITY_SERVER_NAME_BUFFER] = "RetroSpectrum Server";
+static int Global_Auth_Client_Only_Mode = 0;
 
 static int auth_point_in_rect(int x, int y, SDL_Rect rect) {
     /*
@@ -1307,8 +1308,11 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
 
     if (show_change_server) {
 
-        top_right_label = !state->database_ready ? "DATABASE LOCKED"
-                                                 : (state->user_count == 0 ? "INITIALIZE ADMIN" : "ADMIN CONSOLE");
+        top_right_label = Global_Auth_Client_Only_Mode
+                              ? "CLIENT MODE"
+                              : (!state->database_ready
+                                     ? "DATABASE LOCKED"
+                                     : (state->user_count == 0 ? "INITIALIZE ADMIN" : "ADMIN CONSOLE"));
 
     }
 
@@ -1327,8 +1331,13 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
 
         auth_draw_button(renderer, font_small, top_left, "CHANGE SERVER",
                          auth_point_in_rect(mouse_x, mouse_y, top_left));
-        auth_draw_button(renderer, font_small, database_key_button, "KEY FILE PATH",
-                         auth_point_in_rect(mouse_x, mouse_y, database_key_button));
+
+        if (!Global_Auth_Client_Only_Mode) {
+
+            auth_draw_button(renderer, font_small, database_key_button, "KEY FILE PATH",
+                             auth_point_in_rect(mouse_x, mouse_y, database_key_button));
+
+        }
 
     }
     auth_draw_button(renderer, font_small, top_right, top_right_label, auth_point_in_rect(mouse_x, mouse_y, top_right));
@@ -1344,9 +1353,12 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
         SDL_Rect username = auth_field_rect(panel, 0);
         SDL_Rect password = auth_field_rect(panel, 1);
 
-        auth_draw_centered_text(renderer, font_small,
-                                state->stage == AUTH_STAGE_LOGIN ? "LOCAL ACCOUNT LOGIN" : "ADMINISTRATOR LOGIN",
-                                (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
+        auth_draw_centered_text(
+            renderer, font_small,
+            state->stage == AUTH_STAGE_LOGIN
+                ? (Global_Auth_Client_Only_Mode ? "REMOTE SERVER LOGIN" : "LOCAL ACCOUNT LOGIN")
+                : "ADMINISTRATOR LOGIN",
+            (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
         auth_draw_field(renderer, font_small, username, "Username", state->username,
                         state->active_field == AUTH_FIELD_USERNAME, 0);
         auth_draw_field(renderer, font_small, password, "Password", state->password,
@@ -1354,7 +1366,8 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
         auth_draw_button(renderer, font_small, primary_button, state->stage == AUTH_STAGE_LOGIN ? "LOGIN" : "AUTHORIZE",
                          auth_point_in_rect(mouse_x, mouse_y, primary_button));
 
-        if (state->stage == AUTH_STAGE_LOGIN && state->user_count == 0 && state->status[0] == '\0') {
+        if (!Global_Auth_Client_Only_Mode && state->stage == AUTH_STAGE_LOGIN && state->user_count == 0 &&
+            state->status[0] == '\0') {
 
             auth_draw_centered_text(renderer, font_small, "No administrator exists. Use Initialize Admin.",
                                     (SDL_Rect){panel.x + 25, panel.y + panel.h - 120, panel.w - 50, 24}, AUTH_WARN);
@@ -3696,6 +3709,15 @@ static int auth_submit_create_two_factor(sqlite3 *database, Type_Auth_State *sta
     return 1;
 }
 
+void AUTH_set_client_only_mode(int client_only) {
+    /*
+        Purpose: Restricts authentication to the trusted remote server
+        Returns: No value
+    */
+
+    Global_Auth_Client_Only_Mode = client_only != 0;
+}
+
 static int auth_submit_remote(Type_Auth_State *state) {
     /*
         Purpose: Submits the remote
@@ -3752,15 +3774,31 @@ static int auth_submit(sqlite3 *database, Type_Auth_State *state) {
         Returns: Success status
     */
 
-    if (!database || !state) {
+    if (!state) {
 
         return 0;
 
     }
 
+    if (Global_Auth_Client_Only_Mode) {
+
+        if (SERVER_IDENTITY_trusted_is_local()) {
+            auth_set_status(state, AUTH_ERROR,
+                            "Client mode requires a server-provided .rspub key. Use CHANGE SERVER first.");
+            return 0;
+        }
+        return auth_submit_remote(state);
+    }
+
     if (!SERVER_IDENTITY_trusted_is_local()) {
 
         return auth_submit_remote(state);
+
+    }
+
+    if (!database) {
+
+        return 0;
 
     }
 
@@ -4073,7 +4111,14 @@ static void auth_handle_mouse(Type_Auth_State *state, int mouse_x, int mouse_y, 
 
     if (show_change_server && auth_point_in_rect(mouse_x, mouse_y, database_key_button)) {
 
-        const char *current_path = DATABASE_CRYPTO_key_path();
+        const char *current_path;
+
+        if (Global_Auth_Client_Only_Mode) {
+            auth_set_status(state, AUTH_ERROR, "Client mode does not open a local authentication database.");
+            return;
+        }
+
+        current_path = DATABASE_CRYPTO_key_path();
         auth_clear_sensitive(state);
         auth_copy_text(state->import_path, sizeof(state->import_path), current_path ? current_path : "");
         state->import_cursor = strlen(state->import_path);
@@ -4088,6 +4133,14 @@ static void auth_handle_mouse(Type_Auth_State *state, int mouse_x, int mouse_y, 
     if (auth_point_in_rect(mouse_x, mouse_y, top_right)) {
 
         if (show_change_server) {
+
+            if (Global_Auth_Client_Only_Mode) {
+
+                auth_set_status(state, AUTH_MUTED,
+                                "Client mode authenticates only with the trusted remote server.");
+                return;
+
+            }
 
             if (!state->database_ready || !database || !*database) {
 
@@ -4315,6 +4368,13 @@ static void auth_handle_mouse(Type_Auth_State *state, int mouse_x, int mouse_y, 
 
     }
 
+    if (Global_Auth_Client_Only_Mode) {
+
+        *authenticated = auth_submit(NULL, state);
+        return;
+
+    }
+
     if (!database || !*database || !state->database_ready) {
 
         auth_set_status(state, AUTH_ERROR, "Select a valid database key file before logging in.");
@@ -4377,7 +4437,15 @@ int AUTH_run(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font_small, T
 
     }
 
-    if (auth_open_database(&database, database_path, sizeof(database_path))) {
+    if (Global_Auth_Client_Only_Mode) {
+        state.database_ready = 0;
+        auth_set_status(&state, AUTH_MUTED,
+                        SERVER_IDENTITY_trusted_is_local()
+                            ? "Client mode: use CHANGE SERVER to import the server-provided .rspub key."
+                            : "Client mode: sign in to the trusted remote server.");
+    }
+
+    else if (auth_open_database(&database, database_path, sizeof(database_path))) {
 
         state.database_ready = 1;
 
@@ -4568,6 +4636,12 @@ int AUTH_run(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font_small, T
                         button = auth_primary_button_rect(panel);
                         auth_handle_mouse(&state, button.x + button.w / 2, button.y + button.h / 2, width, height,
                                           &database, &authenticated, &admin_request);
+
+                    }
+
+                    else if (Global_Auth_Client_Only_Mode) {
+
+                        authenticated = auth_submit(NULL, &state);
 
                     }
 

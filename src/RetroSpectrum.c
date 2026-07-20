@@ -32,9 +32,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+#include <termios.h>
 #include <unistd.h>
-
-static const double M_PI = 3.14159265358979323846264338327950288;
 
 // HackRF Library
 #include <libhackrf/hackrf.h>
@@ -79,6 +78,10 @@ static const double M_PI = 3.14159265358979323846264338327950288;
 
 // GUI functions implemented in GUIs.c and called from this main logic file
 
+/* Runtime mode setters implemented by the authentication and identity modules. */
+void AUTH_set_client_only_mode(int client_only);
+void SERVER_IDENTITY_set_server_mode(int server_mode);
+
 void add_fft_line_to_waterfall(uint32_t *pixels, int tex_w, int tex_h, double *db);
 
 int ANALYSIS_export_classification_fields(char *file_name, size_t file_name_size, double *frequency_mhz,
@@ -90,6 +93,12 @@ void CLASSIFICATION_prefill_from_analysis_selection(const char *file_name, doubl
 int CLASSIFICATION_is_text_entry_active(void);
 int ANALYSIS_is_text_entry_active(void);
 int DECODE_is_text_entry_active(void);
+
+// Selects an explicit SQLCipher master-key file before authentication.
+int DATABASE_CRYPTO_set_key_path(const char *path, char *error, size_t error_size);
+
+// Reports whether this process currently owns a live secure LAN server listener.
+int SECURE_NETWORK_server_is_running(void);
 
 // ======================
 // Global Initializations
@@ -195,6 +204,17 @@ static int Global_HackRF_Library_Initialized = 0;
 static int Global_HackRF_Connected = 0;
 static int Global_Cached_Recording = 0;
 static char Global_Record_Dir[512] = DEFAULT_RECORD_DIR;
+static int Global_CLI_Mode = 0;
+static int Global_Help_Requested = 0;
+static char Global_Database_Key_Path[4096] = "";
+
+enum Type_Network_Mode {
+    NETWORK_MODE_UNSET = 0,
+    NETWORK_MODE_SERVER,
+    NETWORK_MODE_CLIENT
+};
+
+static enum Type_Network_Mode Global_Network_Mode = NETWORK_MODE_UNSET;
 
 static double Global_Rec_FIR[REC_FIR_TAPS];
 static double Global_Rec_Hist_I[REC_FIR_TAPS];
@@ -2368,9 +2388,1005 @@ static void main_make_cursor_box(Type_Input_Box *dst, const Type_Input_Box *src,
     dst->text[out] = '\0';
 }
 
+// =============================
+// Headless Administration Console
+// =============================
+
+#define RETROSPECTRUM_CLI_MAX_USERS 256
+#define RETROSPECTRUM_CLI_LINE_MAX 512
+#define RETROSPECTRUM_CLI_ERROR_MAX 384
+#define RETROSPECTRUM_CLI_PASSWORD_MAX 127
+
+static void cli_secure_zero(void *memory, size_t size) {
+    /*
+
+    Purpose: Clears sensitive CLI memory without allowing compiler removal
+
+    Return: No value
+
+    */
+
+    volatile unsigned char *bytes = (volatile unsigned char *)memory;
+
+    if (!memory) {
+
+        return;
+
+    }
+
+    while (size > 0) {
+        *bytes++ = 0;
+        size--;
+    }
+}
+
+static void cli_trim_line(char *text) {
+    /*
+
+    Purpose: Removes leading and trailing whitespace from CLI input
+
+    Return: No value
+
+    */
+
+    size_t start = 0;
+    size_t length;
+
+    if (!text) {
+
+        return;
+
+    }
+
+    length = strlen(text);
+
+    while (length > 0 && isspace((unsigned char)text[length - 1])) {
+        text[--length] = '\0';
+    }
+
+    while (text[start] && isspace((unsigned char)text[start])) {
+        start++;
+    }
+
+    if (start > 0) {
+        memmove(text, text + start, strlen(text + start) + 1);
+    }
+}
+
+static int cli_read_line(const char *prompt, char *output, size_t output_size, int hidden) {
+    /*
+
+    Purpose: Reads a normal or hidden line from the controlling terminal
+
+    Return: Read status
+
+    */
+
+    struct termios original;
+    struct termios hidden_settings;
+    int terminal_changed = 0;
+
+    if (!output || output_size == 0) {
+
+        return 0;
+
+    }
+
+    output[0] = '\0';
+
+    if (prompt) {
+        fputs(prompt, stdout);
+        fflush(stdout);
+    }
+
+    if (hidden) {
+
+        if (!isatty(STDIN_FILENO) || tcgetattr(STDIN_FILENO, &original) != 0) {
+            fputc('\n', stderr);
+            fprintf(stderr, "Secure password input requires an interactive terminal.\n");
+            return 0;
+        }
+
+        hidden_settings = original;
+        hidden_settings.c_lflag &= (tcflag_t)~ECHO;
+
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden_settings) != 0) {
+            fputc('\n', stderr);
+            fprintf(stderr, "Unable to disable terminal echo for secure input.\n");
+            return 0;
+        }
+        terminal_changed = 1;
+    }
+
+    if (!fgets(output, (int)output_size, stdin)) {
+
+        if (terminal_changed) {
+            (void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
+            fputc('\n', stdout);
+        }
+        output[0] = '\0';
+        return 0;
+    }
+
+    if (terminal_changed) {
+        (void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
+        fputc('\n', stdout);
+    }
+
+    {
+        size_t length = strlen(output);
+        int complete_line = length > 0 && output[length - 1] == '\n';
+
+        if (!complete_line && !feof(stdin)) {
+            int character;
+
+            while ((character = fgetc(stdin)) != '\n' && character != EOF) {
+            }
+            output[0] = '\0';
+            fprintf(stderr, "Input exceeded the maximum supported length.\n");
+            return 0;
+        }
+
+        while (length > 0 && (output[length - 1] == '\n' || output[length - 1] == '\r')) {
+            output[--length] = '\0';
+        }
+    }
+
+    if (!hidden) {
+        cli_trim_line(output);
+    }
+    return 1;
+}
+
+static int cli_prompt_yes_no(const char *prompt, int default_value) {
+    /*
+
+    Purpose: Reads a yes-or-no response
+
+    Return: Boolean response
+
+    */
+
+    char answer[32];
+
+    while (Global_Running) {
+
+        if (!cli_read_line(prompt, answer, sizeof(answer), 0)) {
+
+            return default_value;
+
+        }
+
+        if (answer[0] == '\0') {
+
+            return default_value;
+
+        }
+
+        for (size_t index = 0; answer[index]; index++) {
+            answer[index] = (char)tolower((unsigned char)answer[index]);
+        }
+
+        if (strcmp(answer, "y") == 0 || strcmp(answer, "yes") == 0) {
+
+            return 1;
+
+        }
+
+        if (strcmp(answer, "n") == 0 || strcmp(answer, "no") == 0) {
+
+            return 0;
+
+        }
+
+        fprintf(stderr, "Enter yes or no.\n");
+    }
+
+    return default_value;
+}
+
+static int cli_prompt_password_twice(char *password, size_t password_size) {
+    /*
+
+    Purpose: Reads and confirms a password without terminal echo
+
+    Return: Success status
+
+    */
+
+    char confirmation[RETROSPECTRUM_CLI_PASSWORD_MAX + 1];
+    int success = 0;
+
+    memset(confirmation, 0, sizeof(confirmation));
+
+    if (!cli_read_line("Password: ", password, password_size, 1) ||
+        !cli_read_line("Confirm password: ", confirmation, sizeof(confirmation), 1)) {
+
+        goto cleanup;
+
+    }
+
+    if (strcmp(password, confirmation) != 0) {
+        fprintf(stderr, "Passwords do not match.\n");
+        goto cleanup;
+    }
+
+    success = 1;
+
+cleanup:
+    cli_secure_zero(confirmation, sizeof(confirmation));
+    return success;
+}
+
+static const char *cli_role_name(int role) {
+    /*
+
+    Purpose: Gets the printable account role
+
+    Return: Role name
+
+    */
+
+    if (role == AUTH_ROLE_ADMIN) {
+
+        return "admin";
+
+    }
+
+    if (role == AUTH_ROLE_CO_ADMIN) {
+
+        return "co-admin";
+
+    }
+
+    return "user";
+}
+
+static int cli_role_is_privileged(int role) {
+    /*
+
+    Purpose: Checks whether a role may use account-management commands
+
+    Return: Boolean status
+
+    */
+
+    return role == AUTH_ROLE_ADMIN || role == AUTH_ROLE_CO_ADMIN;
+}
+
+static int cli_load_users(Type_Auth_User_Summary *users, size_t capacity, size_t *count) {
+    /*
+
+    Purpose: Loads users from the local authentication database
+
+    Return: Success status
+
+    */
+
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+
+    if (!AUTH_DB_list_users(users, capacity, count, error, sizeof(error))) {
+        fprintf(stderr, "Unable to load users: %s\n", error[0] ? error : "authentication database unavailable");
+        return 0;
+    }
+
+    return 1;
+}
+
+static int cli_lookup_user(const char *username, Type_Auth_User_Summary *summary) {
+    /*
+
+    Purpose: Finds a user summary by exact username
+
+    Return: Found status
+
+    */
+
+    Type_Auth_User_Summary users[RETROSPECTRUM_CLI_MAX_USERS];
+    size_t count = 0;
+
+    if (!username || !cli_load_users(users, RETROSPECTRUM_CLI_MAX_USERS, &count)) {
+
+        return 0;
+
+    }
+
+    for (size_t index = 0; index < count; index++) {
+
+        if (strcmp(users[index].username, username) == 0) {
+
+            if (summary) {
+                *summary = users[index];
+            }
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static void cli_print_users(void) {
+    /*
+
+    Purpose: Prints the authentication user table
+
+    Return: No value
+
+    */
+
+    Type_Auth_User_Summary users[RETROSPECTRUM_CLI_MAX_USERS];
+    size_t count = 0;
+
+    if (!cli_load_users(users, RETROSPECTRUM_CLI_MAX_USERS, &count)) {
+
+        return;
+
+    }
+
+    printf("\n%-32s %-10s %-8s %s\n", "USERNAME", "ROLE", "2FA", "CREATED");
+    printf("%-32s %-10s %-8s %s\n", "--------------------------------", "----------", "--------",
+           "-------------------");
+
+    for (size_t index = 0; index < count; index++) {
+        char created[32] = "unknown";
+        time_t created_time = (time_t)users[index].created_at;
+        struct tm *local_time = NULL;
+
+        if (created_time > 0) {
+            local_time = localtime(&created_time);
+        }
+
+        if (local_time) {
+            (void)strftime(created, sizeof(created), "%Y-%m-%d %H:%M", local_time);
+        }
+
+        printf("%-32.32s %-10s %-8s %s\n", users[index].username, cli_role_name(users[index].role),
+               users[index].totp_enabled ? "enabled" : "disabled", created);
+    }
+
+    printf("\n%zu account%s\n\n", count, count == 1 ? "" : "s");
+}
+
+static int cli_enroll_totp(unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES]) {
+    /*
+
+    Purpose: Generates and verifies a TOTP secret before it is stored
+
+    Return: Success status
+
+    */
+
+    char base32[128] = "";
+    char code[16] = "";
+
+    if (!AUTH_TOTP_generate_secret(secret) || !AUTH_TOTP_base32(secret, base32, sizeof(base32))) {
+        fprintf(stderr, "Unable to generate a secure 2FA secret.\n");
+        return 0;
+    }
+
+    printf("\nAdd this secret to the user's authenticator application:\n%s\n", base32);
+    printf("Type: TOTP    Digits: 6    Period: 30 seconds\n\n");
+
+    if (!cli_read_line("Current 2FA code: ", code, sizeof(code), 0) || !AUTH_TOTP_verify(secret, code)) {
+        fprintf(stderr, "The 2FA code was not valid. No 2FA change was saved.\n");
+        cli_secure_zero(code, sizeof(code));
+        return 0;
+    }
+
+    cli_secure_zero(code, sizeof(code));
+    return 1;
+}
+
+static int cli_bootstrap_primary_admin(void) {
+    /*
+
+    Purpose: Creates the primary administrator when the database has no users
+
+    Return: Success status
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char password[RETROSPECTRUM_CLI_PASSWORD_MAX + 1] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+    unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES];
+    int enable_totp = 0;
+    int success = 0;
+
+    memset(secret, 0, sizeof(secret));
+
+    printf("No authentication accounts exist. Create the primary administrator.\n\n");
+
+    if (!cli_read_line("Administrator username: ", username, sizeof(username), 0) || username[0] == '\0' ||
+        !cli_prompt_password_twice(password, sizeof(password))) {
+
+        goto cleanup;
+
+    }
+
+    enable_totp = cli_prompt_yes_no("Enable 2FA now? [Y/n]: ", 1);
+
+    if (enable_totp && !cli_enroll_totp(secret)) {
+
+        goto cleanup;
+
+    }
+
+    if (!AUTH_DB_create_user(username, password, enable_totp, 1, enable_totp ? secret : NULL, NULL, error,
+                             sizeof(error))) {
+        fprintf(stderr, "Unable to create the primary administrator: %s\n",
+                error[0] ? error : "authentication operation failed");
+        goto cleanup;
+    }
+
+    printf("Primary administrator '%s' created.\n\n", username);
+    success = 1;
+
+cleanup:
+    cli_secure_zero(password, sizeof(password));
+    cli_secure_zero(secret, sizeof(secret));
+    return success;
+}
+
+static int cli_authenticate(char *authenticated_username, size_t username_size, int *authenticated_role) {
+    /*
+
+    Purpose: Authenticates one local CLI session with optional TOTP
+
+    Return: Success status
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char password[RETROSPECTRUM_CLI_PASSWORD_MAX + 1] = "";
+    char totp[16] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+    Type_Auth_User_Summary summary;
+    int privileged = 0;
+    int result;
+    int success = 0;
+
+    memset(&summary, 0, sizeof(summary));
+
+    if (!cli_read_line("Username: ", username, sizeof(username), 0) || username[0] == '\0' ||
+        !cli_read_line("Password: ", password, sizeof(password), 1)) {
+
+        goto cleanup;
+
+    }
+
+    result = AUTH_SERVER_authenticate(username, password, NULL, "local-cli", &privileged, error, sizeof(error));
+
+    if (result == AUTH_SERVER_RESULT_TOTP_REQUIRED) {
+
+        if (!cli_read_line("2FA code: ", totp, sizeof(totp), 0)) {
+
+            goto cleanup;
+
+        }
+
+        error[0] = '\0';
+        result = AUTH_SERVER_authenticate(username, password, totp, "local-cli", &privileged, error, sizeof(error));
+    }
+
+    if (result != AUTH_SERVER_RESULT_SUCCESS) {
+        fprintf(stderr, "Login failed: %s\n", error[0] ? error : "invalid credentials");
+        goto cleanup;
+    }
+
+    if (!cli_lookup_user(username, &summary)) {
+        fprintf(stderr, "Login succeeded, but the account role could not be loaded.\n");
+        goto cleanup;
+    }
+
+    snprintf(authenticated_username, username_size, "%s", username);
+    *authenticated_role = summary.role;
+    success = 1;
+
+cleanup:
+    cli_secure_zero(password, sizeof(password));
+    cli_secure_zero(totp, sizeof(totp));
+    return success;
+}
+
+static int cli_read_target_username(char *username, size_t username_size, const char *argument) {
+    /*
+
+    Purpose: Resolves a username from a command argument or an interactive prompt
+
+    Return: Success status
+
+    */
+
+    if (argument && argument[0]) {
+        snprintf(username, username_size, "%s", argument);
+        return 1;
+    }
+
+    return cli_read_line("Target username: ", username, username_size, 0) && username[0] != '\0';
+}
+
+static void cli_create_user(const char *acting_admin) {
+    /*
+
+    Purpose: Creates a user and optionally promotes it to co-administrator
+
+    Return: No value
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char password[RETROSPECTRUM_CLI_PASSWORD_MAX + 1] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+    unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES];
+    int enable_totp;
+    int make_co_admin;
+
+    memset(secret, 0, sizeof(secret));
+
+    if (!cli_read_line("New username: ", username, sizeof(username), 0) || username[0] == '\0' ||
+        !cli_prompt_password_twice(password, sizeof(password))) {
+
+        goto cleanup;
+
+    }
+
+    enable_totp = cli_prompt_yes_no("Enable 2FA? [y/N]: ", 0);
+    make_co_admin = cli_prompt_yes_no("Create as co-admin? [y/N]: ", 0);
+
+    if (enable_totp && !cli_enroll_totp(secret)) {
+
+        goto cleanup;
+
+    }
+
+    if (!AUTH_DB_create_user(username, password, enable_totp, 0, enable_totp ? secret : NULL, acting_admin, error,
+                             sizeof(error))) {
+        fprintf(stderr, "Unable to create user: %s\n", error[0] ? error : "authentication operation failed");
+        goto cleanup;
+    }
+
+    printf("User '%s' created.\n", username);
+
+    if (make_co_admin) {
+        error[0] = '\0';
+
+        if (!AUTH_DB_set_role(username, AUTH_ROLE_CO_ADMIN, acting_admin, error, sizeof(error))) {
+            fprintf(stderr, "The account was created as a user, but promotion failed: %s\n",
+                    error[0] ? error : "role update failed");
+        }
+
+        else {
+            printf("User '%s' promoted to co-admin.\n", username);
+        }
+    }
+
+cleanup:
+    cli_secure_zero(password, sizeof(password));
+    cli_secure_zero(secret, sizeof(secret));
+}
+
+static void cli_reset_password(const char *acting_admin, const char *argument) {
+    /*
+
+    Purpose: Resets an account password
+
+    Return: No value
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char password[RETROSPECTRUM_CLI_PASSWORD_MAX + 1] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+
+    if (!cli_read_target_username(username, sizeof(username), argument) ||
+        !cli_prompt_password_twice(password, sizeof(password))) {
+
+        goto cleanup;
+
+    }
+
+    if (!AUTH_DB_reset_password(username, password, acting_admin, error, sizeof(error))) {
+        fprintf(stderr, "Unable to reset password: %s\n", error[0] ? error : "authentication operation failed");
+        goto cleanup;
+    }
+
+    printf("Password reset for '%s'.\n", username);
+
+cleanup:
+    cli_secure_zero(password, sizeof(password));
+}
+
+static void cli_enable_totp(const char *acting_admin, const char *argument) {
+    /*
+
+    Purpose: Enables or replaces TOTP for an account
+
+    Return: No value
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+    unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES];
+
+    memset(secret, 0, sizeof(secret));
+
+    if (!cli_read_target_username(username, sizeof(username), argument) || !cli_enroll_totp(secret)) {
+
+        goto cleanup;
+
+    }
+
+    if (!AUTH_DB_set_totp(username, secret, acting_admin, error, sizeof(error))) {
+        fprintf(stderr, "Unable to enable 2FA: %s\n", error[0] ? error : "authentication operation failed");
+        goto cleanup;
+    }
+
+    printf("2FA enabled for '%s'.\n", username);
+
+cleanup:
+    cli_secure_zero(secret, sizeof(secret));
+}
+
+static void cli_disable_totp(const char *acting_admin, const char *argument) {
+    /*
+
+    Purpose: Disables TOTP for an account
+
+    Return: No value
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+
+    if (!cli_read_target_username(username, sizeof(username), argument)) {
+
+        return;
+
+    }
+
+    if (!cli_prompt_yes_no("Disable 2FA for this account? [y/N]: ", 0)) {
+
+        return;
+
+    }
+
+    if (!AUTH_DB_remove_totp(username, acting_admin, error, sizeof(error))) {
+        fprintf(stderr, "Unable to disable 2FA: %s\n", error[0] ? error : "authentication operation failed");
+        return;
+    }
+
+    printf("2FA disabled for '%s'.\n", username);
+}
+
+static void cli_set_role(const char *acting_admin, const char *username_argument, const char *role_argument) {
+    /*
+
+    Purpose: Sets a non-primary account to user or co-admin
+
+    Return: No value
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char role_text[32] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+    int role;
+
+    if (!cli_read_target_username(username, sizeof(username), username_argument)) {
+
+        return;
+
+    }
+
+    if (role_argument && role_argument[0]) {
+        snprintf(role_text, sizeof(role_text), "%s", role_argument);
+    }
+
+    else if (!cli_read_line("Role (user/co-admin): ", role_text, sizeof(role_text), 0)) {
+
+        return;
+
+    }
+
+    for (size_t index = 0; role_text[index]; index++) {
+        role_text[index] = (char)tolower((unsigned char)role_text[index]);
+    }
+
+    if (strcmp(role_text, "user") == 0) {
+        role = AUTH_ROLE_USER;
+    }
+
+    else if (strcmp(role_text, "co-admin") == 0 || strcmp(role_text, "coadmin") == 0) {
+        role = AUTH_ROLE_CO_ADMIN;
+    }
+
+    else {
+        fprintf(stderr, "Role must be 'user' or 'co-admin'.\n");
+        return;
+    }
+
+    if (!AUTH_DB_set_role(username, role, acting_admin, error, sizeof(error))) {
+        fprintf(stderr, "Unable to update role: %s\n", error[0] ? error : "authentication operation failed");
+        return;
+    }
+
+    printf("Role for '%s' set to %s.\n", username, cli_role_name(role));
+}
+
+static void cli_delete_user(const char *acting_admin, const char *argument) {
+    /*
+
+    Purpose: Deletes a non-primary account after exact-name confirmation
+
+    Return: No value
+
+    */
+
+    char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char confirmation[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+    char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+
+    if (!cli_read_target_username(username, sizeof(username), argument)) {
+
+        return;
+
+    }
+
+    printf("Type '%s' to confirm deletion.\n", username);
+
+    if (!cli_read_line("Confirmation: ", confirmation, sizeof(confirmation), 0) ||
+        strcmp(username, confirmation) != 0) {
+        fprintf(stderr, "Deletion cancelled.\n");
+        return;
+    }
+
+    if (!AUTH_DB_delete_user(username, acting_admin, error, sizeof(error))) {
+        fprintf(stderr, "Unable to delete user: %s\n", error[0] ? error : "authentication operation failed");
+        return;
+    }
+
+    printf("User '%s' deleted.\n", username);
+}
+
+static void cli_print_privileged_commands(void) {
+    /*
+
+    Purpose: Prints administrator and co-administrator commands
+
+    Return: No value
+
+    */
+
+    printf("Available commands:\n");
+    printf("  status                        Display centralized server status\n");
+    printf("  users                         Display all user accounts\n");
+    printf("  create-user                   Create a user or co-admin interactively\n");
+    printf("  reset-password [username]     Reset an account password\n");
+    printf("  enable-2fa [username]         Enable or replace account 2FA\n");
+    printf("  disable-2fa [username]        Disable account 2FA\n");
+    printf("  set-role [username] [role]    Set role to user or co-admin\n");
+    printf("  delete-user [username]        Delete a non-primary account\n");
+    printf("  whoami                        Display the authenticated account\n");
+    printf("  help                          Print this command list\n");
+    printf("  logout                        End this session and return to login\n");
+    printf("  exit                          Close the CLI\n\n");
+}
+
+static void cli_print_user_commands(void) {
+    /*
+
+    Purpose: Prints commands available to an ordinary user
+
+    Return: No value
+
+    */
+
+    printf("Available commands:\n");
+    printf("  logout                        End this session and return to login\n");
+    printf("  exit                          Close the CLI\n\n");
+}
+
+static int cli_run_session(const char *username, int role) {
+    /*
+
+    Purpose: Runs one authenticated CLI command session
+
+    Return: One to log out, zero to exit the process
+
+    */
+
+    char line[RETROSPECTRUM_CLI_LINE_MAX];
+
+    printf("\nLogged in as %s (%s).\n\n", username, cli_role_name(role));
+
+    if (cli_role_is_privileged(role)) {
+        cli_print_privileged_commands();
+    }
+
+    else {
+        cli_print_user_commands();
+    }
+
+    while (Global_Running) {
+        char *command;
+        char *argument_one;
+        char *argument_two;
+
+        if (!cli_read_line("retrospectrum> ", line, sizeof(line), 0)) {
+
+            return 0;
+
+        }
+
+        command = strtok(line, " \t");
+
+        if (!command) {
+
+            continue;
+
+        }
+
+        argument_one = strtok(NULL, " \t");
+        argument_two = strtok(NULL, " \t");
+
+        if (strcmp(command, "logout") == 0) {
+            printf("Logged out.\n\n");
+            return 1;
+        }
+
+        if (strcmp(command, "exit") == 0 || strcmp(command, "quit") == 0) {
+
+            return 0;
+
+        }
+
+        if (!cli_role_is_privileged(role)) {
+
+            if (strcmp(command, "help") == 0) {
+                cli_print_user_commands();
+            }
+
+            else {
+                fprintf(stderr, "Ordinary users may only log out or exit this CLI.\n");
+            }
+            continue;
+        }
+
+        if (strcmp(command, "status") == 0) {
+            printf("%s\n", SECURE_NETWORK_server_is_running() ? "online" : "offline");
+        }
+
+        else if (strcmp(command, "users") == 0 || strcmp(command, "list-users") == 0) {
+            cli_print_users();
+        }
+
+        else if (strcmp(command, "create-user") == 0) {
+            cli_create_user(username);
+        }
+
+        else if (strcmp(command, "reset-password") == 0) {
+            cli_reset_password(username, argument_one);
+        }
+
+        else if (strcmp(command, "enable-2fa") == 0) {
+            cli_enable_totp(username, argument_one);
+        }
+
+        else if (strcmp(command, "disable-2fa") == 0) {
+            cli_disable_totp(username, argument_one);
+        }
+
+        else if (strcmp(command, "set-role") == 0) {
+            cli_set_role(username, argument_one, argument_two);
+        }
+
+        else if (strcmp(command, "delete-user") == 0) {
+            cli_delete_user(username, argument_one);
+        }
+
+        else if (strcmp(command, "whoami") == 0) {
+            printf("%s (%s)\n", username, cli_role_name(role));
+        }
+
+        else if (strcmp(command, "help") == 0) {
+            cli_print_privileged_commands();
+        }
+
+        else if (strcmp(command, "clear") == 0) {
+            fputs("\033[2J\033[H", stdout);
+            fflush(stdout);
+        }
+
+        else {
+            fprintf(stderr, "Unknown command. Type 'help' to list commands.\n");
+        }
+    }
+
+    return 0;
+}
+
+static int run_management_cli(void) {
+    /*
+
+    Purpose: Runs RetroSpectrum in headless account-management mode
+
+    Return: Process exit status
+
+    */
+
+    Type_Auth_User_Summary users[RETROSPECTRUM_CLI_MAX_USERS];
+    size_t user_count = 0;
+
+    printf("RetroSpectrum Server Administration CLI\n");
+    printf("=======================================\n\n");
+
+    if (!cli_load_users(users, RETROSPECTRUM_CLI_MAX_USERS, &user_count)) {
+
+        return 1;
+
+    }
+
+    if (user_count == 0 && !cli_bootstrap_primary_admin()) {
+
+        return 1;
+
+    }
+
+    while (Global_Running) {
+        char username[AUTH_PUBLIC_USERNAME_MAX + 1] = "";
+        int role = AUTH_ROLE_USER;
+
+        if (!cli_authenticate(username, sizeof(username), &role)) {
+
+            if (!Global_Running || feof(stdin)) {
+
+                break;
+
+            }
+
+            printf("\n");
+            continue;
+        }
+
+        if (!cli_run_session(username, role)) {
+
+            break;
+
+        }
+    }
+
+    printf("Administration CLI closed.\n");
+    return 0;
+}
+
 // =====================
 // Command Line Handling
 // =====================
+
+static void print_command_line_usage(const char *program_name, FILE *stream) {
+    /*
+
+    Purpose: Prints supported command-line arguments
+
+    Return: No value
+
+    */
+
+    fprintf(stream, "Usage:\n");
+    fprintf(stream, "  %s -S -o record_dir [--database-key absolute_path]\n", program_name);
+    fprintf(stream, "  %s -C -o record_dir\n", program_name);
+    fprintf(stream, "  %s -S --cli [--database-key absolute_path]\n\n", program_name);
+    fprintf(stream, "Options:\n");
+    fprintf(stream, "  -S, --server           Run as the centralized server and listen on TCP 47742.\n");
+    fprintf(stream, "  -C, --client           Run as an endpoint client without starting a server.\n");
+    fprintf(stream, "  -o record_dir          Required recording directory in GUI mode.\n");
+    fprintf(stream, "  --cli, --admin-cli     Run the headless server administration CLI.\n");
+    fprintf(stream, "  --database-key path    Select an existing 32-byte SQLCipher master-key file.\n");
+    fprintf(stream, "  -h, --help             Show this help text.\n");
+}
 
 static int parse_command_line_args(int argc, char **argv) {
     /*
@@ -2384,12 +3400,8 @@ static int parse_command_line_args(int argc, char **argv) {
     int output_dir_provided = 0;
 
     if (argc <= 1) {
-
-        fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
-        fprintf(stderr, "  -o record_dir   Required directory used to save and "
-                        "scan recordings.\n");
+        print_command_line_usage(argv[0], stderr);
         return 0;
-
     }
 
     for (int i = 1; i < argc; i++) {
@@ -2397,38 +3409,97 @@ static int parse_command_line_args(int argc, char **argv) {
         if (strcmp(argv[i], "-o") == 0) {
 
             if (i + 1 >= argc) {
-
                 fprintf(stderr, "Missing value for -o record directory.\n");
-                fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
+                print_command_line_usage(argv[0], stderr);
                 return 0;
-
             }
 
-            snprintf(Global_Record_Dir, sizeof(Global_Record_Dir), "%s", argv[i + 1]);
+            if (snprintf(Global_Record_Dir, sizeof(Global_Record_Dir), "%s", argv[i + 1]) >=
+                (int)sizeof(Global_Record_Dir)) {
+                fprintf(stderr, "The recording directory path is too long.\n");
+                return 0;
+            }
             output_dir_provided = 1;
             i++;
+        }
 
+        else if (strcmp(argv[i], "-S") == 0 || strcmp(argv[i], "--server") == 0) {
+
+            if (Global_Network_Mode == NETWORK_MODE_CLIENT) {
+                fprintf(stderr, "-S/--server and -C/--client cannot be used together.\n");
+                return 0;
+            }
+            Global_Network_Mode = NETWORK_MODE_SERVER;
+        }
+
+        else if (strcmp(argv[i], "-C") == 0 || strcmp(argv[i], "--client") == 0) {
+
+            if (Global_Network_Mode == NETWORK_MODE_SERVER) {
+                fprintf(stderr, "-S/--server and -C/--client cannot be used together.\n");
+                return 0;
+            }
+            Global_Network_Mode = NETWORK_MODE_CLIENT;
+        }
+
+        else if (strcmp(argv[i], "--cli") == 0 || strcmp(argv[i], "--admin-cli") == 0 ||
+                 strcmp(argv[i], "-c") == 0) {
+            Global_CLI_Mode = 1;
+        }
+
+        else if (strcmp(argv[i], "--database-key") == 0) {
+
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Missing value for --database-key.\n");
+                print_command_line_usage(argv[0], stderr);
+                return 0;
+            }
+
+            if (snprintf(Global_Database_Key_Path, sizeof(Global_Database_Key_Path), "%s", argv[i + 1]) >=
+                (int)sizeof(Global_Database_Key_Path)) {
+                fprintf(stderr, "The database key-file path is too long.\n");
+                return 0;
+            }
+            i++;
+        }
+
+        else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            Global_Help_Requested = 1;
+            print_command_line_usage(argv[0], stdout);
+            return 0;
         }
 
         else {
-
             fprintf(stderr, "Unknown argument: %s\n", argv[i]);
-            fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
-            fprintf(stderr, "  -o record_dir   Required directory used to save and "
-                            "scan recordings.\n");
+            print_command_line_usage(argv[0], stderr);
             return 0;
-
         }
     }
 
-    if (!output_dir_provided) {
+    if (Global_CLI_Mode) {
 
-        fprintf(stderr, "Missing required -o record directory.\n");
-        fprintf(stderr, "Usage: %s -o record_dir\n", argv[0]);
-        fprintf(stderr, "  -o record_dir   Required directory used to save and "
-                        "scan recordings.\n");
-        return 0;
+        if (Global_Network_Mode == NETWORK_MODE_CLIENT) {
+            fprintf(stderr, "The administration CLI can only run in server mode. Use -S --cli.\n");
+            return 0;
+        }
 
+        if (Global_Network_Mode == NETWORK_MODE_UNSET) {
+            Global_Network_Mode = NETWORK_MODE_SERVER;
+        }
+    }
+
+    else {
+
+        if (Global_Network_Mode == NETWORK_MODE_UNSET) {
+            fprintf(stderr, "Select exactly one runtime mode: -S for server or -C for client.\n");
+            print_command_line_usage(argv[0], stderr);
+            return 0;
+        }
+
+        if (!output_dir_provided) {
+            fprintf(stderr, "Missing required -o record directory for GUI mode.\n");
+            print_command_line_usage(argv[0], stderr);
+            return 0;
+        }
     }
 
     return 1;
@@ -2451,8 +3522,42 @@ int main(int argc, char **argv) {
 
     if (!parse_command_line_args(argc, argv)) {
 
-        return 1;
+        return Global_Help_Requested ? 0 : 1;
 
+    }
+
+    SERVER_IDENTITY_set_server_mode(Global_Network_Mode == NETWORK_MODE_SERVER);
+    AUTH_set_client_only_mode(Global_Network_Mode == NETWORK_MODE_CLIENT);
+
+    if (Global_Database_Key_Path[0]) {
+        char database_key_error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+
+        if (!DATABASE_CRYPTO_set_key_path(Global_Database_Key_Path, database_key_error,
+                                           sizeof(database_key_error))) {
+            fprintf(stderr, "Unable to use database key file: %s\n",
+                    database_key_error[0] ? database_key_error : "key validation failed");
+            return 1;
+        }
+    }
+
+    if (Global_CLI_Mode) {
+        char secure_network_error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
+        int cli_exit_status;
+
+        if (!SERVER_IDENTITY_start()) {
+            fprintf(stderr, "Unable to initialize the cryptographic RetroSpectrum server identity.\n");
+        }
+
+        else if (!SECURE_NETWORK_start_server(secure_network_error, sizeof(secure_network_error))) {
+            fprintf(stderr, "Secure LAN server unavailable: %s\n",
+                    secure_network_error[0] ? secure_network_error : "server startup failed");
+        }
+
+        cli_exit_status = run_management_cli();
+
+        SECURE_NETWORK_stop_server();
+        SERVER_IDENTITY_stop();
+        return cli_exit_status;
     }
 
     memset(&ring_buf, 0, sizeof(ring_buf));
@@ -2658,12 +3763,12 @@ int main(int argc, char **argv) {
 
     if (!SERVER_IDENTITY_start()) {
 
-        fprintf(stderr, "Unable to initialize the cryptographic RetroSpectrum server identity.\n");
+        fprintf(stderr, "Unable to initialize the cryptographic RetroSpectrum identity service.\n");
         Global_Running = 0;
 
     }
 
-    else {
+    else if (Global_Network_Mode == NETWORK_MODE_SERVER) {
 
         char secure_network_error[256] = "";
 
@@ -2673,6 +3778,10 @@ int main(int argc, char **argv) {
 
         }
 
+    }
+
+    else {
+        fprintf(stderr, "RetroSpectrum client mode: no local server listener was started.\n");
     }
 
     if (Global_Running) {
