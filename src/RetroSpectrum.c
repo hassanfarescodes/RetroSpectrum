@@ -22,6 +22,7 @@
 // Standard Libraries
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <math.h>
 #include <pthread.h>
 #include <signal.h>
@@ -31,8 +32,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <time.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 // HackRF Library
@@ -100,6 +101,9 @@ int DATABASE_CRYPTO_set_key_path(const char *path, char *error, size_t error_siz
 // Reports whether this process currently owns a live secure LAN server listener.
 int SECURE_NETWORK_server_is_running(void);
 
+// Reports and consumes an authenticated remote-server connection failure.
+int SECURE_NETWORK_remote_connection_lost(void);
+
 // ======================
 // Global Initializations
 // ======================
@@ -117,6 +121,7 @@ int SECURE_NETWORK_server_is_running(void);
 #define DEFAULT_DC_CORRECTION_ENABLE 0
 #define DEFAULT_WATERFALL_FPS 60
 #define DEFAULT_ROWS_PER_FRAME 4
+#define SERVER_CONNECTION_CHECK_MS 250
 
 #define MIN_WINDOW_WIDTH 1320
 #define MIN_WINDOW_HEIGHT 650
@@ -202,17 +207,50 @@ static int Global_Rec_Decimation = 1;
 static int Global_Radio_Running = 0;
 static int Global_HackRF_Library_Initialized = 0;
 static int Global_HackRF_Connected = 0;
+static hackrf_device *Global_HackRF_Device = NULL;
+
+#define RETROSPECTRUM_TX_MAX_REPEATS 100U
+#define RETROSPECTRUM_TX_CONVERT_CHUNK 8192U
+
+typedef struct {
+    pthread_mutex_t lock;
+    FILE *file;
+    uint64_t file_size_bytes;
+    uint64_t bytes_consumed;
+    uint64_t center_frequency_hz;
+    uint32_t sample_rate_hz;
+    uint32_t requested_bandwidth_hz;
+    uint32_t actual_bandwidth_hz;
+    int tx_gain_db;
+    unsigned int repeat_count;
+    unsigned int total_passes;
+    unsigned int current_pass;
+    int active;
+    int cancel_requested;
+    int callback_finish_armed;
+    int callback_done;
+    int callback_failed;
+    int result_ready;
+    int result_succeeded;
+    uint64_t saved_center_frequency_hz;
+    uint32_t saved_sample_rate_hz;
+    uint32_t saved_display_span_hz;
+    int saved_lna_gain;
+    int saved_vga_gain;
+    int saved_amp_enable;
+    char result_message[256];
+} Type_Transmit_State;
+
+static Type_Transmit_State Global_Transmit_State = {
+    .lock = PTHREAD_MUTEX_INITIALIZER, .file = NULL, .active = 0, .result_ready = 0};
+
 static int Global_Cached_Recording = 0;
 static char Global_Record_Dir[512] = DEFAULT_RECORD_DIR;
 static int Global_CLI_Mode = 0;
 static int Global_Help_Requested = 0;
 static char Global_Database_Key_Path[4096] = "";
 
-enum Type_Network_Mode {
-    NETWORK_MODE_UNSET = 0,
-    NETWORK_MODE_SERVER,
-    NETWORK_MODE_CLIENT
-};
+enum Type_Network_Mode { NETWORK_MODE_UNSET = 0, NETWORK_MODE_SERVER, NETWORK_MODE_CLIENT };
 
 static enum Type_Network_Mode Global_Network_Mode = NETWORK_MODE_UNSET;
 
@@ -1938,6 +1976,677 @@ static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz, uint32_t
     return start_radio(dev);
 }
 
+static int retrospectrum_tx_callback(hackrf_transfer *transfer) {
+    /*
+        Purpose: Converts signed 16-bit interleaved IQ samples to HackRF signed 8-bit IQ data
+        Returns: Zero while streaming and nonzero when the stream must stop
+    */
+
+    Type_Transmit_State *state;
+    int16_t input[RETROSPECTRUM_TX_CONVERT_CHUNK];
+    size_t output_offset = 0;
+    size_t output_length;
+
+    if (!transfer || !transfer->buffer || transfer->valid_length <= 0) {
+
+        return -1;
+
+    }
+
+    state = transfer->tx_ctx ? (Type_Transmit_State *)transfer->tx_ctx : &Global_Transmit_State;
+    output_length = (size_t)transfer->valid_length;
+
+    pthread_mutex_lock(&state->lock);
+
+    if (!state->active || !state->file || state->cancel_requested || state->callback_finish_armed) {
+
+        memset(transfer->buffer, 0, output_length);
+        state->callback_done = 1;
+        pthread_mutex_unlock(&state->lock);
+        return -1;
+
+    }
+
+    while (output_offset < output_length) {
+        size_t wanted = output_length - output_offset;
+
+        if (wanted > RETROSPECTRUM_TX_CONVERT_CHUNK) {
+
+            wanted = RETROSPECTRUM_TX_CONVERT_CHUNK;
+
+        }
+
+        size_t got = fread(input, sizeof(int16_t), wanted, state->file);
+
+        for (size_t i = 0; i < got; i++) {
+            int sample = (int)(input[i] / 256);
+
+            if (sample < -127) {
+
+                sample = -127;
+
+            }
+
+            if (sample > 127) {
+
+                sample = 127;
+
+            }
+
+            transfer->buffer[output_offset + i] = (uint8_t)(int8_t)sample;
+        }
+
+        output_offset += got;
+        state->bytes_consumed += (uint64_t)got * sizeof(int16_t);
+
+        if (got == wanted) {
+
+            continue;
+
+        }
+
+        if (ferror(state->file)) {
+
+            clearerr(state->file);
+            state->callback_failed = 1;
+            state->callback_finish_armed = 1;
+            snprintf(state->result_message, sizeof(state->result_message),
+                     "Transmission failed while reading the IQ file.");
+            memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+            break;
+
+        }
+
+        if (feof(state->file)) {
+
+            if (state->current_pass + 1U < state->total_passes) {
+
+                state->current_pass++;
+                clearerr(state->file);
+
+                if (fseek(state->file, 0, SEEK_SET) != 0) {
+
+                    state->callback_failed = 1;
+                    state->callback_finish_armed = 1;
+                    snprintf(state->result_message, sizeof(state->result_message),
+                             "Transmission failed while rewinding the IQ file.");
+                    memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+                    break;
+
+                }
+
+                continue;
+
+            }
+
+            state->bytes_consumed = state->file_size_bytes * (uint64_t)state->total_passes;
+            state->callback_finish_armed = 1;
+            memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+            break;
+
+        }
+
+        state->callback_failed = 1;
+        state->callback_finish_armed = 1;
+        snprintf(state->result_message, sizeof(state->result_message),
+                 "Transmission stopped because the IQ file returned no data.");
+        memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+        break;
+    }
+
+    pthread_mutex_unlock(&state->lock);
+    return 0;
+}
+
+static void retrospectrum_close_transmit_file_locked(Type_Transmit_State *state) {
+    /*
+        Purpose: Closes the active transmission file while the state lock is held
+        Returns: No value
+    */
+
+    if (state && state->file) {
+
+        fclose(state->file);
+        state->file = NULL;
+
+    }
+}
+
+static int retrospectrum_restore_receive_settings(uint64_t center_frequency_hz, uint32_t sample_rate_hz,
+                                                  uint32_t display_span_hz, int lna_gain, int vga_gain,
+                                                  int amp_enable) {
+    /*
+        Purpose: Restores the HackRF receive configuration after transmission
+        Returns: Restore status
+    */
+
+    if (!Global_HackRF_Device) {
+
+        return 0;
+
+    }
+
+    if (!apply_radio_settings(Global_HackRF_Device, center_frequency_hz, sample_rate_hz, display_span_hz, lna_gain,
+                              vga_gain, amp_enable)) {
+
+        Global_HackRF_Connected = 0;
+        Global_Radio_Running = 0;
+        return 0;
+
+    }
+
+    Global_HackRF_Connected = 1;
+    return 1;
+}
+
+static void retrospectrum_finalize_transmission(int forced_cancel, int restore_receive) {
+    /*
+        Purpose: Stops TX, closes the IQ file, publishes a result, and optionally restores RX
+        Returns: No value
+    */
+
+    Type_Transmit_State *state = &Global_Transmit_State;
+    uint64_t saved_center_frequency_hz;
+    uint32_t saved_sample_rate_hz;
+    uint32_t saved_display_span_hz;
+    int saved_lna_gain;
+    int saved_vga_gain;
+    int saved_amp_enable;
+    int failed;
+    int canceled;
+    char callback_message[256];
+
+    pthread_mutex_lock(&state->lock);
+
+    if (!state->active) {
+
+        pthread_mutex_unlock(&state->lock);
+        return;
+
+    }
+
+    if (forced_cancel) {
+
+        state->cancel_requested = 1;
+
+    }
+
+    saved_center_frequency_hz = state->saved_center_frequency_hz;
+    saved_sample_rate_hz = state->saved_sample_rate_hz;
+    saved_display_span_hz = state->saved_display_span_hz;
+    saved_lna_gain = state->saved_lna_gain;
+    saved_vga_gain = state->saved_vga_gain;
+    saved_amp_enable = state->saved_amp_enable;
+    failed = state->callback_failed;
+    canceled = state->cancel_requested;
+    snprintf(callback_message, sizeof(callback_message), "%s", state->result_message);
+    pthread_mutex_unlock(&state->lock);
+
+    if (Global_HackRF_Device) {
+
+        (void)hackrf_stop_tx(Global_HackRF_Device);
+
+    }
+
+    pthread_mutex_lock(&state->lock);
+    retrospectrum_close_transmit_file_locked(state);
+    state->active = 0;
+    state->callback_done = 0;
+    state->callback_finish_armed = 0;
+    state->result_ready = restore_receive ? 1 : 0;
+    state->result_succeeded = (!failed && !canceled) ? 1 : 0;
+
+    if (canceled) {
+
+        snprintf(state->result_message, sizeof(state->result_message), "Transmission canceled.");
+
+    }
+
+    else if (failed) {
+
+        snprintf(state->result_message, sizeof(state->result_message), "%s",
+                 callback_message[0] ? callback_message : "Transmission failed.");
+
+    }
+
+    else {
+
+        snprintf(state->result_message, sizeof(state->result_message), "Transmission succeeded.");
+
+    }
+
+    pthread_mutex_unlock(&state->lock);
+
+    if (restore_receive &&
+        !retrospectrum_restore_receive_settings(saved_center_frequency_hz, saved_sample_rate_hz, saved_display_span_hz,
+                                                saved_lna_gain, saved_vga_gain, saved_amp_enable)) {
+
+        pthread_mutex_lock(&state->lock);
+        state->result_succeeded = 0;
+        snprintf(state->result_message, sizeof(state->result_message),
+                 "Transmission ended, but the HackRF receive configuration could not be restored.");
+        pthread_mutex_unlock(&state->lock);
+
+    }
+}
+
+static void retrospectrum_pump_transmission(void) {
+    /*
+        Purpose: Finalizes a completed asynchronous HackRF transmission on the main thread
+        Returns: No value
+    */
+
+    int should_finalize = 0;
+
+    pthread_mutex_lock(&Global_Transmit_State.lock);
+    should_finalize = Global_Transmit_State.active && Global_Transmit_State.callback_done;
+    pthread_mutex_unlock(&Global_Transmit_State.lock);
+
+    if (should_finalize) {
+
+        retrospectrum_finalize_transmission(0, 1);
+
+    }
+}
+
+int RETROSPECTRUM_start_file_transmission(const char *path, uint64_t center_frequency_hz, uint32_t sample_rate_hz,
+                                          uint32_t bandwidth_hz, int tx_gain_db, unsigned int repeat_count, char *error,
+                                          size_t error_size) {
+    /*
+        Purpose: Starts asynchronous HackRF transmission of a signed complex16 IQ file
+        Returns: Start status
+    */
+
+    Type_Transmit_State *state = &Global_Transmit_State;
+    FILE *file = NULL;
+    long file_size = 0;
+    uint32_t actual_bandwidth_hz;
+    int start_result;
+
+    if (error && error_size > 0) {
+
+        error[0] = '\0';
+
+    }
+
+    if (!path || path[0] == '\0') {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Select an IQ recording before transmitting.");
+
+        }
+        return 0;
+
+    }
+
+    if (!Global_HackRF_Connected || !Global_HackRF_Device) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "HackRF One is not connected.");
+
+        }
+        return 0;
+
+    }
+
+    if (center_frequency_hz < 1000000ULL || center_frequency_hz > 6000000000ULL) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Frequency must be from 1000000 to 6000000000 Hz.");
+
+        }
+        return 0;
+
+    }
+
+    if (sample_rate_hz < 2000000U || sample_rate_hz > 20000000U) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Sample rate must be from 2000000 to 20000000 Sps.");
+
+        }
+        return 0;
+
+    }
+
+    if (bandwidth_hz < 1000000U || bandwidth_hz > sample_rate_hz) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Bandwidth must be from 1000000 Hz through the sample rate.");
+
+        }
+        return 0;
+
+    }
+
+    if (tx_gain_db < 0 || tx_gain_db > 47) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "TX gain must be from 0 to 47 dB.");
+
+        }
+        return 0;
+
+    }
+
+    if (repeat_count > RETROSPECTRUM_TX_MAX_REPEATS) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Repeat count must be from 0 to %u.", RETROSPECTRUM_TX_MAX_REPEATS);
+
+        }
+        return 0;
+
+    }
+
+    actual_bandwidth_hz =
+        hackrf_compute_baseband_filter_bw_round_down_lt(bandwidth_hz < UINT32_MAX ? bandwidth_hz + 1U : bandwidth_hz);
+
+    if (actual_bandwidth_hz == 0 || actual_bandwidth_hz > sample_rate_hz) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "The requested bandwidth is not supported by HackRF.");
+
+        }
+        return 0;
+
+    }
+
+    file = fopen(path, "rb");
+
+    if (!file) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to open the selected IQ file: %s", strerror(errno));
+
+        }
+        return 0;
+
+    }
+
+    if (fseek(file, 0, SEEK_END) != 0 || (file_size = ftell(file)) <= 0 || fseek(file, 0, SEEK_SET) != 0) {
+
+        fclose(file);
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "The selected IQ file is empty or unreadable.");
+
+        }
+        return 0;
+
+    }
+
+    if (((uint64_t)file_size % (sizeof(int16_t) * 2U)) != 0U) {
+
+        fclose(file);
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "The IQ file must contain complete interleaved int16 I/Q pairs.");
+
+        }
+        return 0;
+
+    }
+
+    pthread_mutex_lock(&state->lock);
+
+    if (state->active) {
+
+        pthread_mutex_unlock(&state->lock);
+        fclose(file);
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Another transmission is already active.");
+
+        }
+        return 0;
+
+    }
+
+    state->file = file;
+    state->file_size_bytes = (uint64_t)file_size;
+    state->bytes_consumed = 0;
+    state->center_frequency_hz = center_frequency_hz;
+    state->sample_rate_hz = sample_rate_hz;
+    state->requested_bandwidth_hz = bandwidth_hz;
+    state->actual_bandwidth_hz = actual_bandwidth_hz;
+    state->tx_gain_db = tx_gain_db;
+    state->repeat_count = repeat_count;
+    state->total_passes = repeat_count + 1U;
+    state->current_pass = 0;
+    state->active = 1;
+    state->cancel_requested = 0;
+    state->callback_finish_armed = 0;
+    state->callback_done = 0;
+    state->callback_failed = 0;
+    state->result_ready = 0;
+    state->result_succeeded = 0;
+    state->saved_center_frequency_hz = Global_Center_Freq_Hz;
+    state->saved_sample_rate_hz = Global_Sample_Rate_Hz;
+    state->saved_display_span_hz = Global_Display_Span_Hz;
+    state->saved_lna_gain = Global_LNA_Gain;
+    state->saved_vga_gain = Global_VGA_Gain;
+    state->saved_amp_enable = Global_Amp_Enable;
+    state->result_message[0] = '\0';
+    pthread_mutex_unlock(&state->lock);
+
+    if (Global_Rec) {
+
+        stop_recording();
+
+    }
+
+    if (!stop_radio(Global_HackRF_Device)) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to stop HackRF receive mode.");
+
+        }
+        goto start_failed;
+
+    }
+
+    if (hackrf_set_sample_rate(Global_HackRF_Device, (double)sample_rate_hz) != HACKRF_SUCCESS) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "HackRF rejected the sample rate.");
+
+        }
+        goto start_failed;
+
+    }
+
+    if (hackrf_set_freq(Global_HackRF_Device, center_frequency_hz) != HACKRF_SUCCESS) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "HackRF rejected the transmit frequency.");
+
+        }
+        goto start_failed;
+
+    }
+
+    if (hackrf_set_baseband_filter_bandwidth(Global_HackRF_Device, actual_bandwidth_hz) != HACKRF_SUCCESS) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "HackRF rejected the baseband bandwidth.");
+
+        }
+        goto start_failed;
+
+    }
+
+    if (hackrf_set_amp_enable(Global_HackRF_Device, 0) != HACKRF_SUCCESS) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to disable the HackRF RF amplifier before TX.");
+
+        }
+        goto start_failed;
+
+    }
+
+    if (hackrf_set_txvga_gain(Global_HackRF_Device, (uint32_t)tx_gain_db) != HACKRF_SUCCESS) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "HackRF rejected the TX gain.");
+
+        }
+        goto start_failed;
+
+    }
+
+    start_result = hackrf_start_tx(Global_HackRF_Device, retrospectrum_tx_callback, state);
+
+    if (start_result != HACKRF_SUCCESS) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to start HackRF transmission (%d).", start_result);
+
+        }
+        goto start_failed;
+
+    }
+
+    return 1;
+
+start_failed:
+    pthread_mutex_lock(&state->lock);
+    retrospectrum_close_transmit_file_locked(state);
+    state->active = 0;
+    state->callback_done = 0;
+    state->callback_finish_armed = 0;
+    pthread_mutex_unlock(&state->lock);
+
+    (void)retrospectrum_restore_receive_settings(state->saved_center_frequency_hz, state->saved_sample_rate_hz,
+                                                 state->saved_display_span_hz, state->saved_lna_gain,
+                                                 state->saved_vga_gain, state->saved_amp_enable);
+    return 0;
+}
+
+void RETROSPECTRUM_cancel_file_transmission(void) {
+    /*
+        Purpose: Requests cancellation of the current asynchronous transmission
+        Returns: No value
+    */
+
+    pthread_mutex_lock(&Global_Transmit_State.lock);
+
+    if (Global_Transmit_State.active) {
+
+        Global_Transmit_State.cancel_requested = 1;
+
+    }
+
+    pthread_mutex_unlock(&Global_Transmit_State.lock);
+}
+
+int RETROSPECTRUM_get_transmission_status(double *progress, int *active, int *result_ready, int *succeeded,
+                                          char *message, size_t message_size) {
+    /*
+        Purpose: Gets a thread-safe snapshot of the transmission state
+        Returns: Whether any active or completed transmission state exists
+    */
+
+    Type_Transmit_State *state = &Global_Transmit_State;
+    uint64_t total_bytes;
+    int has_state;
+
+    pthread_mutex_lock(&state->lock);
+    total_bytes = state->file_size_bytes * (uint64_t)(state->total_passes ? state->total_passes : 1U);
+
+    if (progress) {
+
+        *progress = total_bytes > 0 ? (double)state->bytes_consumed / (double)total_bytes : 0.0;
+
+        if (*progress < 0.0) {
+
+            *progress = 0.0;
+
+        }
+
+        if (*progress > 1.0) {
+
+            *progress = 1.0;
+
+        }
+
+    }
+
+    if (active) {
+
+        *active = state->active;
+
+    }
+
+    if (result_ready) {
+
+        *result_ready = state->result_ready;
+
+    }
+
+    if (succeeded) {
+
+        *succeeded = state->result_succeeded;
+
+    }
+
+    if (message && message_size > 0) {
+
+        snprintf(message, message_size, "%s", state->result_message);
+
+    }
+
+    has_state = state->active || state->result_ready;
+    pthread_mutex_unlock(&state->lock);
+    return has_state;
+}
+
+void RETROSPECTRUM_acknowledge_transmission_result(void) {
+    /*
+        Purpose: Clears the completed transmission result after the user closes its prompt
+        Returns: No value
+    */
+
+    pthread_mutex_lock(&Global_Transmit_State.lock);
+    Global_Transmit_State.result_ready = 0;
+    Global_Transmit_State.result_message[0] = '\0';
+    pthread_mutex_unlock(&Global_Transmit_State.lock);
+}
+
+static int RETROSPECTRUM_transmission_is_active(void) {
+    /*
+        Purpose: Reports whether HackRF is currently in asynchronous TX mode
+        Returns: Active status
+    */
+
+    int active;
+
+    pthread_mutex_lock(&Global_Transmit_State.lock);
+    active = Global_Transmit_State.active;
+    pthread_mutex_unlock(&Global_Transmit_State.lock);
+    return active;
+}
+
 static int apply_from_inputs(hackrf_device *dev, Type_Input_Box *freq_box, Type_Input_Box *sr_box,
                              Type_Input_Box *display_box, Type_Input_Box *lna_box, Type_Input_Box *vga_box,
                              Type_Input_Box *fps_box, Type_Input_Box *rows_box, uint32_t *waterfall_pixels, int tex_w,
@@ -2449,7 +3158,9 @@ static void cli_trim_line(char *text) {
     }
 
     if (start > 0) {
+
         memmove(text, text + start, strlen(text + start) + 1);
+
     }
 }
 
@@ -2475,42 +3186,54 @@ static int cli_read_line(const char *prompt, char *output, size_t output_size, i
     output[0] = '\0';
 
     if (prompt) {
+
         fputs(prompt, stdout);
         fflush(stdout);
+
     }
 
     if (hidden) {
 
         if (!isatty(STDIN_FILENO) || tcgetattr(STDIN_FILENO, &original) != 0) {
+
             fputc('\n', stderr);
             fprintf(stderr, "Secure password input requires an interactive terminal.\n");
             return 0;
+
         }
 
         hidden_settings = original;
         hidden_settings.c_lflag &= (tcflag_t)~ECHO;
 
         if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &hidden_settings) != 0) {
+
             fputc('\n', stderr);
             fprintf(stderr, "Unable to disable terminal echo for secure input.\n");
             return 0;
+
         }
         terminal_changed = 1;
+
     }
 
     if (!fgets(output, (int)output_size, stdin)) {
 
         if (terminal_changed) {
+
             (void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
             fputc('\n', stdout);
+
         }
         output[0] = '\0';
         return 0;
+
     }
 
     if (terminal_changed) {
+
         (void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &original);
         fputc('\n', stdout);
+
     }
 
     {
@@ -2518,6 +3241,7 @@ static int cli_read_line(const char *prompt, char *output, size_t output_size, i
         int complete_line = length > 0 && output[length - 1] == '\n';
 
         if (!complete_line && !feof(stdin)) {
+
             int character;
 
             while ((character = fgetc(stdin)) != '\n' && character != EOF) {
@@ -2525,6 +3249,7 @@ static int cli_read_line(const char *prompt, char *output, size_t output_size, i
             output[0] = '\0';
             fprintf(stderr, "Input exceeded the maximum supported length.\n");
             return 0;
+
         }
 
         while (length > 0 && (output[length - 1] == '\n' || output[length - 1] == '\r')) {
@@ -2533,7 +3258,9 @@ static int cli_read_line(const char *prompt, char *output, size_t output_size, i
     }
 
     if (!hidden) {
+
         cli_trim_line(output);
+
     }
     return 1;
 }
@@ -2607,8 +3334,10 @@ static int cli_prompt_password_twice(char *password, size_t password_size) {
     }
 
     if (strcmp(password, confirmation) != 0) {
+
         fprintf(stderr, "Passwords do not match.\n");
         goto cleanup;
+
     }
 
     success = 1;
@@ -2666,8 +3395,10 @@ static int cli_load_users(Type_Auth_User_Summary *users, size_t capacity, size_t
     char error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
 
     if (!AUTH_DB_list_users(users, capacity, count, error, sizeof(error))) {
+
         fprintf(stderr, "Unable to load users: %s\n", error[0] ? error : "authentication database unavailable");
         return 0;
+
     }
 
     return 1;
@@ -2696,9 +3427,12 @@ static int cli_lookup_user(const char *username, Type_Auth_User_Summary *summary
         if (strcmp(users[index].username, username) == 0) {
 
             if (summary) {
+
                 *summary = users[index];
+
             }
             return 1;
+
         }
     }
 
@@ -2733,11 +3467,15 @@ static void cli_print_users(void) {
         struct tm *local_time = NULL;
 
         if (created_time > 0) {
+
             local_time = localtime(&created_time);
+
         }
 
         if (local_time) {
+
             (void)strftime(created, sizeof(created), "%Y-%m-%d %H:%M", local_time);
+
         }
 
         printf("%-32.32s %-10s %-8s %s\n", users[index].username, cli_role_name(users[index].role),
@@ -2760,17 +3498,21 @@ static int cli_enroll_totp(unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES]) 
     char code[16] = "";
 
     if (!AUTH_TOTP_generate_secret(secret) || !AUTH_TOTP_base32(secret, base32, sizeof(base32))) {
+
         fprintf(stderr, "Unable to generate a secure 2FA secret.\n");
         return 0;
+
     }
 
     printf("\nAdd this secret to the user's authenticator application:\n%s\n", base32);
     printf("Type: TOTP    Digits: 6    Period: 30 seconds\n\n");
 
     if (!cli_read_line("Current 2FA code: ", code, sizeof(code), 0) || !AUTH_TOTP_verify(secret, code)) {
+
         fprintf(stderr, "The 2FA code was not valid. No 2FA change was saved.\n");
         cli_secure_zero(code, sizeof(code));
         return 0;
+
     }
 
     cli_secure_zero(code, sizeof(code));
@@ -2814,9 +3556,11 @@ static int cli_bootstrap_primary_admin(void) {
 
     if (!AUTH_DB_create_user(username, password, enable_totp, 1, enable_totp ? secret : NULL, NULL, error,
                              sizeof(error))) {
+
         fprintf(stderr, "Unable to create the primary administrator: %s\n",
                 error[0] ? error : "authentication operation failed");
         goto cleanup;
+
     }
 
     printf("Primary administrator '%s' created.\n\n", username);
@@ -2867,16 +3611,21 @@ static int cli_authenticate(char *authenticated_username, size_t username_size, 
 
         error[0] = '\0';
         result = AUTH_SERVER_authenticate(username, password, totp, "local-cli", &privileged, error, sizeof(error));
+
     }
 
     if (result != AUTH_SERVER_RESULT_SUCCESS) {
+
         fprintf(stderr, "Login failed: %s\n", error[0] ? error : "invalid credentials");
         goto cleanup;
+
     }
 
     if (!cli_lookup_user(username, &summary)) {
+
         fprintf(stderr, "Login succeeded, but the account role could not be loaded.\n");
         goto cleanup;
+
     }
 
     snprintf(authenticated_username, username_size, "%s", username);
@@ -2899,8 +3648,10 @@ static int cli_read_target_username(char *username, size_t username_size, const 
     */
 
     if (argument && argument[0]) {
+
         snprintf(username, username_size, "%s", argument);
         return 1;
+
     }
 
     return cli_read_line("Target username: ", username, username_size, 0) && username[0] != '\0';
@@ -2942,23 +3693,31 @@ static void cli_create_user(const char *acting_admin) {
 
     if (!AUTH_DB_create_user(username, password, enable_totp, 0, enable_totp ? secret : NULL, acting_admin, error,
                              sizeof(error))) {
+
         fprintf(stderr, "Unable to create user: %s\n", error[0] ? error : "authentication operation failed");
         goto cleanup;
+
     }
 
     printf("User '%s' created.\n", username);
 
     if (make_co_admin) {
+
         error[0] = '\0';
 
         if (!AUTH_DB_set_role(username, AUTH_ROLE_CO_ADMIN, acting_admin, error, sizeof(error))) {
+
             fprintf(stderr, "The account was created as a user, but promotion failed: %s\n",
                     error[0] ? error : "role update failed");
+
         }
 
         else {
+
             printf("User '%s' promoted to co-admin.\n", username);
+
         }
+
     }
 
 cleanup:
@@ -2987,8 +3746,10 @@ static void cli_reset_password(const char *acting_admin, const char *argument) {
     }
 
     if (!AUTH_DB_reset_password(username, password, acting_admin, error, sizeof(error))) {
+
         fprintf(stderr, "Unable to reset password: %s\n", error[0] ? error : "authentication operation failed");
         goto cleanup;
+
     }
 
     printf("Password reset for '%s'.\n", username);
@@ -3019,8 +3780,10 @@ static void cli_enable_totp(const char *acting_admin, const char *argument) {
     }
 
     if (!AUTH_DB_set_totp(username, secret, acting_admin, error, sizeof(error))) {
+
         fprintf(stderr, "Unable to enable 2FA: %s\n", error[0] ? error : "authentication operation failed");
         goto cleanup;
+
     }
 
     printf("2FA enabled for '%s'.\n", username);
@@ -3054,8 +3817,10 @@ static void cli_disable_totp(const char *acting_admin, const char *argument) {
     }
 
     if (!AUTH_DB_remove_totp(username, acting_admin, error, sizeof(error))) {
+
         fprintf(stderr, "Unable to disable 2FA: %s\n", error[0] ? error : "authentication operation failed");
         return;
+
     }
 
     printf("2FA disabled for '%s'.\n", username);
@@ -3082,7 +3847,9 @@ static void cli_set_role(const char *acting_admin, const char *username_argument
     }
 
     if (role_argument && role_argument[0]) {
+
         snprintf(role_text, sizeof(role_text), "%s", role_argument);
+
     }
 
     else if (!cli_read_line("Role (user/co-admin): ", role_text, sizeof(role_text), 0)) {
@@ -3096,21 +3863,29 @@ static void cli_set_role(const char *acting_admin, const char *username_argument
     }
 
     if (strcmp(role_text, "user") == 0) {
+
         role = AUTH_ROLE_USER;
+
     }
 
     else if (strcmp(role_text, "co-admin") == 0 || strcmp(role_text, "coadmin") == 0) {
+
         role = AUTH_ROLE_CO_ADMIN;
+
     }
 
     else {
+
         fprintf(stderr, "Role must be 'user' or 'co-admin'.\n");
         return;
+
     }
 
     if (!AUTH_DB_set_role(username, role, acting_admin, error, sizeof(error))) {
+
         fprintf(stderr, "Unable to update role: %s\n", error[0] ? error : "authentication operation failed");
         return;
+
     }
 
     printf("Role for '%s' set to %s.\n", username, cli_role_name(role));
@@ -3139,13 +3914,17 @@ static void cli_delete_user(const char *acting_admin, const char *argument) {
 
     if (!cli_read_line("Confirmation: ", confirmation, sizeof(confirmation), 0) ||
         strcmp(username, confirmation) != 0) {
+
         fprintf(stderr, "Deletion cancelled.\n");
         return;
+
     }
 
     if (!AUTH_DB_delete_user(username, acting_admin, error, sizeof(error))) {
+
         fprintf(stderr, "Unable to delete user: %s\n", error[0] ? error : "authentication operation failed");
         return;
+
     }
 
     printf("User '%s' deleted.\n", username);
@@ -3203,11 +3982,15 @@ static int cli_run_session(const char *username, int role) {
     printf("\nLogged in as %s (%s).\n\n", username, cli_role_name(role));
 
     if (cli_role_is_privileged(role)) {
+
         cli_print_privileged_commands();
+
     }
 
     else {
+
         cli_print_user_commands();
+
     }
 
     while (Global_Running) {
@@ -3233,8 +4016,10 @@ static int cli_run_session(const char *username, int role) {
         argument_two = strtok(NULL, " \t");
 
         if (strcmp(command, "logout") == 0) {
+
             printf("Logged out.\n\n");
             return 1;
+
         }
 
         if (strcmp(command, "exit") == 0 || strcmp(command, "quit") == 0) {
@@ -3246,62 +4031,91 @@ static int cli_run_session(const char *username, int role) {
         if (!cli_role_is_privileged(role)) {
 
             if (strcmp(command, "help") == 0) {
+
                 cli_print_user_commands();
+
             }
 
             else {
+
                 fprintf(stderr, "Ordinary users may only log out or exit this CLI.\n");
+
             }
             continue;
+
         }
 
         if (strcmp(command, "status") == 0) {
+
             printf("%s\n", SECURE_NETWORK_server_is_running() ? "online" : "offline");
+
         }
 
         else if (strcmp(command, "users") == 0 || strcmp(command, "list-users") == 0) {
+
             cli_print_users();
+
         }
 
         else if (strcmp(command, "create-user") == 0) {
+
             cli_create_user(username);
+
         }
 
         else if (strcmp(command, "reset-password") == 0) {
+
             cli_reset_password(username, argument_one);
+
         }
 
         else if (strcmp(command, "enable-2fa") == 0) {
+
             cli_enable_totp(username, argument_one);
+
         }
 
         else if (strcmp(command, "disable-2fa") == 0) {
+
             cli_disable_totp(username, argument_one);
+
         }
 
         else if (strcmp(command, "set-role") == 0) {
+
             cli_set_role(username, argument_one, argument_two);
+
         }
 
         else if (strcmp(command, "delete-user") == 0) {
+
             cli_delete_user(username, argument_one);
+
         }
 
         else if (strcmp(command, "whoami") == 0) {
+
             printf("%s (%s)\n", username, cli_role_name(role));
+
         }
 
         else if (strcmp(command, "help") == 0) {
+
             cli_print_privileged_commands();
+
         }
 
         else if (strcmp(command, "clear") == 0) {
+
             fputs("\033[2J\033[H", stdout);
             fflush(stdout);
+
         }
 
         else {
+
             fprintf(stderr, "Unknown command. Type 'help' to list commands.\n");
+
         }
     }
 
@@ -3349,6 +4163,7 @@ static int run_management_cli(void) {
 
             printf("\n");
             continue;
+
         }
 
         if (!cli_run_session(username, role)) {
@@ -3400,8 +4215,10 @@ static int parse_command_line_args(int argc, char **argv) {
     int output_dir_provided = 0;
 
     if (argc <= 1) {
+
         print_command_line_usage(argv[0], stderr);
         return 0;
+
     }
 
     for (int i = 1; i < argc; i++) {
@@ -3409,97 +4226,128 @@ static int parse_command_line_args(int argc, char **argv) {
         if (strcmp(argv[i], "-o") == 0) {
 
             if (i + 1 >= argc) {
+
                 fprintf(stderr, "Missing value for -o record directory.\n");
                 print_command_line_usage(argv[0], stderr);
                 return 0;
+
             }
 
             if (snprintf(Global_Record_Dir, sizeof(Global_Record_Dir), "%s", argv[i + 1]) >=
                 (int)sizeof(Global_Record_Dir)) {
+
                 fprintf(stderr, "The recording directory path is too long.\n");
                 return 0;
+
             }
             output_dir_provided = 1;
             i++;
+
         }
 
         else if (strcmp(argv[i], "-S") == 0 || strcmp(argv[i], "--server") == 0) {
 
             if (Global_Network_Mode == NETWORK_MODE_CLIENT) {
+
                 fprintf(stderr, "-S/--server and -C/--client cannot be used together.\n");
                 return 0;
+
             }
             Global_Network_Mode = NETWORK_MODE_SERVER;
+
         }
 
         else if (strcmp(argv[i], "-C") == 0 || strcmp(argv[i], "--client") == 0) {
 
             if (Global_Network_Mode == NETWORK_MODE_SERVER) {
+
                 fprintf(stderr, "-S/--server and -C/--client cannot be used together.\n");
                 return 0;
+
             }
             Global_Network_Mode = NETWORK_MODE_CLIENT;
+
         }
 
-        else if (strcmp(argv[i], "--cli") == 0 || strcmp(argv[i], "--admin-cli") == 0 ||
-                 strcmp(argv[i], "-c") == 0) {
+        else if (strcmp(argv[i], "--cli") == 0 || strcmp(argv[i], "--admin-cli") == 0 || strcmp(argv[i], "-c") == 0) {
+
             Global_CLI_Mode = 1;
+
         }
 
         else if (strcmp(argv[i], "--database-key") == 0) {
 
             if (i + 1 >= argc) {
+
                 fprintf(stderr, "Missing value for --database-key.\n");
                 print_command_line_usage(argv[0], stderr);
                 return 0;
+
             }
 
             if (snprintf(Global_Database_Key_Path, sizeof(Global_Database_Key_Path), "%s", argv[i + 1]) >=
                 (int)sizeof(Global_Database_Key_Path)) {
+
                 fprintf(stderr, "The database key-file path is too long.\n");
                 return 0;
+
             }
             i++;
+
         }
 
         else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+
             Global_Help_Requested = 1;
             print_command_line_usage(argv[0], stdout);
             return 0;
+
         }
 
         else {
+
             fprintf(stderr, "Unknown argument: %s\n", argv[i]);
             print_command_line_usage(argv[0], stderr);
             return 0;
+
         }
     }
 
     if (Global_CLI_Mode) {
 
         if (Global_Network_Mode == NETWORK_MODE_CLIENT) {
+
             fprintf(stderr, "The administration CLI can only run in server mode. Use -S --cli.\n");
             return 0;
+
         }
 
         if (Global_Network_Mode == NETWORK_MODE_UNSET) {
+
             Global_Network_Mode = NETWORK_MODE_SERVER;
+
         }
+
     }
 
     else {
 
         if (Global_Network_Mode == NETWORK_MODE_UNSET) {
+
             fprintf(stderr, "Select exactly one runtime mode: -S for server or -C for client.\n");
             print_command_line_usage(argv[0], stderr);
             return 0;
+
         }
 
         if (!output_dir_provided) {
+
             fprintf(stderr, "Missing required -o record directory for GUI mode.\n");
             print_command_line_usage(argv[0], stderr);
             return 0;
+
         }
+
     }
 
     return 1;
@@ -3530,27 +4378,35 @@ int main(int argc, char **argv) {
     AUTH_set_client_only_mode(Global_Network_Mode == NETWORK_MODE_CLIENT);
 
     if (Global_Database_Key_Path[0]) {
+
         char database_key_error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
 
-        if (!DATABASE_CRYPTO_set_key_path(Global_Database_Key_Path, database_key_error,
-                                           sizeof(database_key_error))) {
+        if (!DATABASE_CRYPTO_set_key_path(Global_Database_Key_Path, database_key_error, sizeof(database_key_error))) {
+
             fprintf(stderr, "Unable to use database key file: %s\n",
                     database_key_error[0] ? database_key_error : "key validation failed");
             return 1;
+
         }
+
     }
 
     if (Global_CLI_Mode) {
+
         char secure_network_error[RETROSPECTRUM_CLI_ERROR_MAX] = "";
         int cli_exit_status;
 
         if (!SERVER_IDENTITY_start()) {
+
             fprintf(stderr, "Unable to initialize the cryptographic RetroSpectrum server identity.\n");
+
         }
 
         else if (!SECURE_NETWORK_start_server(secure_network_error, sizeof(secure_network_error))) {
+
             fprintf(stderr, "Secure LAN server unavailable: %s\n",
                     secure_network_error[0] ? secure_network_error : "server startup failed");
+
         }
 
         cli_exit_status = run_management_cli();
@@ -3558,6 +4414,7 @@ int main(int argc, char **argv) {
         SECURE_NETWORK_stop_server();
         SERVER_IDENTITY_stop();
         return cli_exit_status;
+
     }
 
     memset(&ring_buf, 0, sizeof(ring_buf));
@@ -3591,6 +4448,8 @@ int main(int argc, char **argv) {
 
         if (hackrf_open_result == HACKRF_SUCCESS && dev) {
 
+            Global_HackRF_Device = dev;
+
             if (apply_radio_settings(dev, Global_Center_Freq_Hz, Global_Sample_Rate_Hz, Global_Display_Span_Hz,
                                      Global_LNA_Gain, Global_VGA_Gain, Global_Amp_Enable)) {
 
@@ -3604,6 +4463,7 @@ int main(int argc, char **argv) {
                 stop_radio(dev);
                 hackrf_close(dev);
                 dev = NULL;
+                Global_HackRF_Device = NULL;
 
             }
 
@@ -3613,6 +4473,7 @@ int main(int argc, char **argv) {
 
             fprintf(stderr, "HackRF One not connected; SDR tab disabled.\n");
             dev = NULL;
+            Global_HackRF_Device = NULL;
 
         }
 
@@ -3639,6 +4500,7 @@ int main(int argc, char **argv) {
             stop_radio(dev);
             hackrf_close(dev);
             dev = NULL;
+            Global_HackRF_Device = NULL;
 
         }
 
@@ -3667,6 +4529,7 @@ int main(int argc, char **argv) {
             stop_radio(dev);
             hackrf_close(dev);
             dev = NULL;
+            Global_HackRF_Device = NULL;
 
         }
 
@@ -3781,7 +4644,9 @@ int main(int argc, char **argv) {
     }
 
     else {
+
         fprintf(stderr, "RetroSpectrum client mode: no local server listener was started.\n");
+
     }
 
     if (Global_Running) {
@@ -3837,6 +4702,7 @@ int main(int argc, char **argv) {
 
     uint64_t next_waterfall_ms = SDL_GetTicks64();
     uint64_t next_hackrf_health_ms = SDL_GetTicks64() + 1000;
+    uint64_t next_server_connection_check_ms = SDL_GetTicks64() + SERVER_CONNECTION_CHECK_MS;
 
     while (Global_Running) {
         int logout_requested = 0;
@@ -4897,7 +5763,22 @@ int main(int argc, char **argv) {
 
         uint64_t now_ms = SDL_GetTicks64();
 
-        if (Global_HackRF_Connected && dev && now_ms >= next_hackrf_health_ms) {
+        if (now_ms >= next_server_connection_check_ms) {
+
+            if (SECURE_NETWORK_remote_connection_lost()) {
+
+                fprintf(stderr, "Remote server connection lost; ending the authenticated session.\n");
+                logout_requested = 1;
+
+            }
+            next_server_connection_check_ms = now_ms + SERVER_CONNECTION_CHECK_MS;
+
+        }
+
+        retrospectrum_pump_transmission();
+
+        if (Global_HackRF_Connected && dev && !RETROSPECTRUM_transmission_is_active() &&
+            now_ms >= next_hackrf_health_ms) {
 
             int streaming_state = hackrf_is_streaming(dev);
 
@@ -4919,6 +5800,7 @@ int main(int argc, char **argv) {
 
                 hackrf_close(dev);
                 dev = NULL;
+                Global_HackRF_Device = NULL;
 
                 fprintf(stderr, "HackRF One disconnected; SDR tab disabled.\n");
 
@@ -5005,6 +5887,12 @@ int main(int argc, char **argv) {
 
         if (logout_requested) {
 
+            if (RETROSPECTRUM_transmission_is_active()) {
+
+                retrospectrum_finalize_transmission(1, 1);
+
+            }
+
             active = FIELD_NONE;
 
             if (Global_Classification_Mode) {
@@ -5059,6 +5947,7 @@ int main(int argc, char **argv) {
 
             fprintf(stderr, "RetroSpectrum server: %s\n", AUTH_get_server_name());
             next_waterfall_ms = SDL_GetTicks64();
+            next_server_connection_check_ms = SDL_GetTicks64() + SERVER_CONNECTION_CHECK_MS;
             continue;
 
         }
@@ -5175,6 +6064,12 @@ int main(int argc, char **argv) {
 
     dashboard_shutdown();
 
+    if (RETROSPECTRUM_transmission_is_active()) {
+
+        retrospectrum_finalize_transmission(1, 0);
+
+    }
+
     stop_recording();
 
     if (dev) {
@@ -5188,6 +6083,7 @@ int main(int argc, char **argv) {
 
         hackrf_close(dev);
         dev = NULL;
+        Global_HackRF_Device = NULL;
 
     }
 

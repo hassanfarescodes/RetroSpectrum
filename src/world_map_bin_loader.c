@@ -120,11 +120,56 @@ typedef struct WM_View {
     int drag_start_y;
     int drag_last_x;
     int drag_last_y;
+    int drag_offset_x;
+    int drag_offset_y;
+    int drag_hover_country;
 } WM_View;
 
+typedef struct WM_Render_Cache {
+    SDL_Texture *texture;
+    SDL_Renderer *renderer;
+    int texture_w;
+    int texture_h;
+    int map_w;
+    int map_h;
+    double min_lon;
+    double max_lon;
+    double min_lat;
+    double max_lat;
+    double source_lon_span;
+    double source_lat_span;
+    int valid;
+} WM_Render_Cache;
+
 static WM_Map_Data WM_DATA = {0};
-static WM_View WM_VIEW = {-180.0, 180.0, -90.0, 90.0, -1, 0, 0, 0, 0, 0, 0};
+static WM_View WM_VIEW = {
+    .min_lon = -180.0,
+    .max_lon = 180.0,
+    .min_lat = -90.0,
+    .max_lat = 90.0,
+    .zoomed_country = -1,
+    .drag_hover_country = -1,
+};
+static WM_Render_Cache WM_RENDER_CACHE = {0};
 static int WM_LAST_HOVER_POLYGON = -1;
+/* -2 means no completed click is pending; -1 means the user clicked ocean/background. */
+static int WM_PENDING_CLICK_COUNTRY = -2;
+static int WM_RENDERING_CACHE_TEXTURE = 0;
+
+static void WM_destroy_render_cache(void) {
+    /*
+        Purpose: Destroys the cached world-map texture
+        Returns: No value
+    */
+
+    if (WM_RENDER_CACHE.texture) {
+
+        SDL_DestroyTexture(WM_RENDER_CACHE.texture);
+
+    }
+
+    memset(&WM_RENDER_CACHE, 0, sizeof(WM_RENDER_CACHE));
+}
 
 static int WM_read_exact(FILE *fp, void *dst, size_t bytes) {
     /*
@@ -486,7 +531,12 @@ void WORLD_MAP_reset_view(void) {
     WM_VIEW.drag_start_y = 0;
     WM_VIEW.drag_last_x = 0;
     WM_VIEW.drag_last_y = 0;
+    WM_VIEW.drag_offset_x = 0;
+    WM_VIEW.drag_offset_y = 0;
+    WM_VIEW.drag_hover_country = -1;
     WM_LAST_HOVER_POLYGON = -1;
+    WM_PENDING_CLICK_COUNTRY = -2;
+    WM_RENDER_CACHE.valid = 0;
 }
 
 void WORLD_MAP_free(void) {
@@ -495,6 +545,7 @@ void WORLD_MAP_free(void) {
         Returns: No value
     */
 
+    WM_destroy_render_cache();
     WORLD_MAP_free_flags();
     free(WM_DATA.points);
     free(WM_DATA.polygons);
@@ -1133,6 +1184,186 @@ static void WM_pan_view_pixels(SDL_Rect map_rect, int dx, int dy) {
     WM_VIEW.zoomed_country = -1;
 }
 
+int WORLD_MAP_is_dragging(void) {
+    /*
+        Purpose: Reports whether the map is currently being dragged
+        Returns: Boolean dragging state
+    */
+
+    return WM_VIEW.dragging;
+}
+
+void WORLD_MAP_get_drag_offset(int *out_x, int *out_y) {
+    /*
+        Purpose: Returns the temporary screen-space map offset used during dragging
+        Returns: No value
+    */
+
+    if (out_x) {
+
+        *out_x = WM_VIEW.dragging ? WM_VIEW.drag_offset_x : 0;
+
+    }
+
+    if (out_y) {
+
+        *out_y = WM_VIEW.dragging ? WM_VIEW.drag_offset_y : 0;
+
+    }
+}
+
+int WORLD_MAP_take_clicked_country(void) {
+    /*
+        Purpose: Returns a completed map click exactly once
+        Returns: Country index, -1 for map background, or -2 when no click is pending
+    */
+
+    int country = WM_PENDING_CLICK_COUNTRY;
+    WM_PENDING_CLICK_COUNTRY = -2;
+    return country;
+}
+
+static void WM_clamp_drag_offset(SDL_Rect map_rect, int raw_dx, int raw_dy, int *out_dx, int *out_dy) {
+    /*
+        Purpose: Clamps the temporary drag offset to the geographic world bounds
+        Returns: No value
+    */
+
+    int clamped_dx = raw_dx;
+    int clamped_dy = raw_dy;
+
+    if (map_rect.w > 0 && map_rect.h > 0) {
+
+        double lon_span = WM_VIEW.max_lon - WM_VIEW.min_lon;
+        double lat_span = WM_VIEW.max_lat - WM_VIEW.min_lat;
+
+        if (lon_span > 0.0001) {
+
+            double requested_dlon = -((double)raw_dx / (double)map_rect.w) * lon_span;
+            double min_dlon = -180.0 - WM_VIEW.min_lon;
+            double max_dlon = 180.0 - WM_VIEW.max_lon;
+
+            if (requested_dlon < min_dlon) {
+
+                requested_dlon = min_dlon;
+
+            }
+
+            if (requested_dlon > max_dlon) {
+
+                requested_dlon = max_dlon;
+
+            }
+
+            clamped_dx = (int)llround(-(requested_dlon / lon_span) * (double)map_rect.w);
+
+        }
+
+        if (lat_span > 0.0001) {
+
+            double requested_dlat = ((double)raw_dy / (double)map_rect.h) * lat_span;
+            double min_dlat = -90.0 - WM_VIEW.min_lat;
+            double max_dlat = 90.0 - WM_VIEW.max_lat;
+
+            if (requested_dlat < min_dlat) {
+
+                requested_dlat = min_dlat;
+
+            }
+
+            if (requested_dlat > max_dlat) {
+
+                requested_dlat = max_dlat;
+
+            }
+
+            clamped_dy = (int)llround((requested_dlat / lat_span) * (double)map_rect.h);
+
+        }
+
+    }
+
+    if (out_dx) {
+
+        *out_dx = clamped_dx;
+
+    }
+
+    if (out_dy) {
+
+        *out_dy = clamped_dy;
+
+    }
+}
+
+static void WM_update_drag_position(SDL_Rect map_rect, int mouse_x, int mouse_y) {
+    /*
+        Purpose: Updates drag displacement from the newest physical mouse position
+        Returns: No value
+    */
+
+    int total_dx = mouse_x - WM_VIEW.drag_start_x;
+    int total_dy = mouse_y - WM_VIEW.drag_start_y;
+
+    WM_clamp_drag_offset(map_rect, total_dx, total_dy, &WM_VIEW.drag_offset_x, &WM_VIEW.drag_offset_y);
+    WM_VIEW.drag_last_x = mouse_x;
+    WM_VIEW.drag_last_y = mouse_y;
+
+    if (total_dx * total_dx + total_dy * total_dy > 16) {
+
+        WM_VIEW.drag_moved = 1;
+
+    }
+}
+
+static void WM_finish_drag(SDL_Rect map_rect, int released_x, int released_y, int allow_click) {
+    /*
+        Purpose: Commits a drag immediately and releases mouse capture
+        Returns: No value
+    */
+
+    if (!WM_VIEW.dragging) {
+
+        return;
+
+    }
+
+    WM_update_drag_position(map_rect, released_x, released_y);
+
+    int final_dx = WM_VIEW.drag_offset_x;
+    int final_dy = WM_VIEW.drag_offset_y;
+    int should_click_zoom = allow_click && !WM_VIEW.drag_moved;
+
+    if (!should_click_zoom && (final_dx != 0 || final_dy != 0)) {
+
+        WM_pan_view_pixels(map_rect, final_dx, final_dy);
+        /* Keep the oversized cache. WM_render_cache_source_rect() will reuse it
+         * when possible and rebuild only when the committed view leaves it. */
+
+    }
+
+    WM_VIEW.dragging = 0;
+    WM_VIEW.drag_moved = 0;
+    WM_VIEW.drag_offset_x = 0;
+    WM_VIEW.drag_offset_y = 0;
+    WM_VIEW.drag_hover_country = -1;
+    SDL_CaptureMouse(SDL_FALSE);
+
+    if (should_click_zoom && released_x >= map_rect.x && released_x < map_rect.x + map_rect.w &&
+        released_y >= map_rect.y && released_y < map_rect.y + map_rect.h) {
+
+        int hover_country = WM_country_at(map_rect, released_x, released_y);
+        WM_PENDING_CLICK_COUNTRY = hover_country;
+
+        if (hover_country >= 0) {
+
+            WM_zoom_to_country(hover_country, WM_LAST_HOVER_POLYGON, map_rect);
+
+        }
+
+    }
+}
+
 void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect) {
     /*
         Purpose: Handles the event
@@ -1187,12 +1418,17 @@ void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect) {
         if (event->button.x >= map_rect.x && event->button.x < map_rect.x + map_rect.w &&
             event->button.y >= map_rect.y && event->button.y < map_rect.y + map_rect.h) {
 
+            WM_PENDING_CLICK_COUNTRY = -2;
             WM_VIEW.dragging = 1;
             WM_VIEW.drag_moved = 0;
             WM_VIEW.drag_start_x = event->button.x;
             WM_VIEW.drag_start_y = event->button.y;
             WM_VIEW.drag_last_x = event->button.x;
             WM_VIEW.drag_last_y = event->button.y;
+            WM_VIEW.drag_offset_x = 0;
+            WM_VIEW.drag_offset_y = 0;
+            WM_VIEW.drag_hover_country = -1;
+            SDL_CaptureMouse(SDL_TRUE);
 
         }
         return;
@@ -1201,49 +1437,33 @@ void WORLD_MAP_handle_event(const SDL_Event *event, SDL_Rect map_rect) {
 
     if (event->type == SDL_MOUSEMOTION && WM_VIEW.dragging) {
 
-        int dx = event->motion.x - WM_VIEW.drag_last_x;
-        int dy = event->motion.y - WM_VIEW.drag_last_y;
-        int total_dx = event->motion.x - WM_VIEW.drag_start_x;
-        int total_dy = event->motion.y - WM_VIEW.drag_start_y;
+        int mouse_x = event->motion.x;
+        int mouse_y = event->motion.y;
+        Uint32 buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
 
-        if (dx != 0 || dy != 0) {
+        if (!(buttons & SDL_BUTTON_LMASK)) {
 
-            WM_pan_view_pixels(map_rect, dx, dy);
-            WM_VIEW.drag_last_x = event->motion.x;
-            WM_VIEW.drag_last_y = event->motion.y;
+            WM_finish_drag(map_rect, WM_VIEW.drag_last_x, WM_VIEW.drag_last_y, 0);
+            return;
 
         }
 
-        if (total_dx * total_dx + total_dy * total_dy > 16) {
-
-            WM_VIEW.drag_moved = 1;
-
-        }
+        /* Use the newest mouse position instead of replaying stale queued motion. */
+        WM_update_drag_position(map_rect, mouse_x, mouse_y);
         return;
 
     }
 
     if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT && WM_VIEW.dragging) {
 
-        int released_x = event->button.x;
-        int released_y = event->button.y;
-        int should_click_zoom = !WM_VIEW.drag_moved;
+        WM_finish_drag(map_rect, event->button.x, event->button.y, 1);
+        return;
 
-        WM_VIEW.dragging = 0;
-        WM_VIEW.drag_moved = 0;
+    }
 
-        if (should_click_zoom && released_x >= map_rect.x && released_x < map_rect.x + map_rect.w &&
-            released_y >= map_rect.y && released_y < map_rect.y + map_rect.h) {
+    if (event->type == SDL_WINDOWEVENT && event->window.event == SDL_WINDOWEVENT_FOCUS_LOST && WM_VIEW.dragging) {
 
-            int hover_country = WM_country_at(map_rect, released_x, released_y);
-
-            if (hover_country >= 0) {
-
-                WM_zoom_to_country(hover_country, WM_LAST_HOVER_POLYGON, map_rect);
-
-            }
-
-        }
+        WM_finish_drag(map_rect, WM_VIEW.drag_last_x, WM_VIEW.drag_last_y, 0);
         return;
 
     }
@@ -1576,7 +1796,7 @@ static void WM_draw_polygon(SDL_Renderer *renderer, SDL_Rect map_rect, const WM_
                          &pts[i].x, &pts[i].y);
     }
 
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawBlendMode(renderer, WM_RENDERING_CACHE_TEXTURE ? SDL_BLENDMODE_NONE : SDL_BLENDMODE_BLEND);
 
     if (fill) {
 
@@ -1600,6 +1820,369 @@ static void WM_draw_polygon(SDL_Renderer *renderer, SDL_Rect map_rect, const WM_
         }
 
     }
+}
+
+static void WM_fill_map_background(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    /*
+        Purpose: Draws the map background
+        Returns: No value
+    */
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 5, 4, 255);
+    SDL_RenderFillRect(renderer, &map_rect);
+}
+
+static void WM_draw_map_grid(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    /*
+        Purpose: Draws the map grid for the current viewport
+        Returns: No value
+    */
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 42, 32, 120);
+    for (int i = 0; i <= 12; i++) {
+        int x = map_rect.x + (map_rect.w * i) / 12;
+        SDL_RenderDrawLine(renderer, x, map_rect.y, x, map_rect.y + map_rect.h);
+    }
+    for (int i = 0; i <= 6; i++) {
+        int y = map_rect.y + (map_rect.h * i) / 6;
+        SDL_RenderDrawLine(renderer, map_rect.x, y, map_rect.x + map_rect.w, y);
+    }
+}
+
+static void WM_render_base_map_layer(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    /*
+        Purpose: Renders the non-interactive world-map geometry layer
+        Returns: No value
+    */
+
+    SDL_RenderSetClipRect(renderer, &map_rect);
+    for (uint32_t i = 0; i < WM_DATA.polygon_count; i++) {
+
+        if (!WM_polygon_intersects_view(&WM_DATA.polygons[i])) {
+
+            continue;
+
+        }
+
+        WM_draw_polygon(renderer, map_rect, &WM_DATA.polygons[i], 1, (SDL_Color){0, 35, 18, 135},
+                        (SDL_Color){0, 85, 38, 115});
+    }
+    SDL_SetRenderDrawBlendMode(renderer, WM_RENDERING_CACHE_TEXTURE ? SDL_BLENDMODE_NONE : SDL_BLENDMODE_BLEND);
+    WM_draw_detail_lines(renderer, map_rect);
+    SDL_RenderSetClipRect(renderer, NULL);
+}
+
+static void WM_draw_hover_layer(SDL_Renderer *renderer, SDL_Rect map_rect, int hover_country) {
+    /*
+        Purpose: Draws the currently hovered country over the cached base map
+        Returns: No value
+    */
+
+    if (hover_country < 0 || hover_country >= (int)WM_DATA.country_count) {
+
+        return;
+
+    }
+
+    SDL_RenderSetClipRect(renderer, &map_rect);
+    for (uint32_t i = 0; i < WM_DATA.polygon_count; i++) {
+        const WM_Polygon *polygon = &WM_DATA.polygons[i];
+
+        if (polygon->country != hover_country || !WM_polygon_intersects_view(polygon)) {
+
+            continue;
+
+        }
+
+        WM_draw_polygon(renderer, map_rect, polygon, 1, (SDL_Color){0, 150, 65, 70}, (SDL_Color){0, 255, 95, 0});
+    }
+    WM_draw_hover_detail_lines(renderer, map_rect, hover_country);
+    SDL_RenderSetClipRect(renderer, NULL);
+}
+
+static int WM_render_cache_factor(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    /*
+        Purpose: Selects the largest safe overscan factor for the map texture
+        Returns: Texture overscan factor
+    */
+
+    int factor = 3;
+    SDL_RendererInfo info;
+    memset(&info, 0, sizeof(info));
+
+    if (SDL_GetRendererInfo(renderer, &info) != 0 || !(info.flags & SDL_RENDERER_TARGETTEXTURE)) {
+
+        return 0;
+
+    }
+
+    while (factor > 1) {
+        int texture_w = map_rect.w * factor;
+        int texture_h = map_rect.h * factor;
+        int width_ok = info.max_texture_width <= 0 || texture_w <= info.max_texture_width;
+        int height_ok = info.max_texture_height <= 0 || texture_h <= info.max_texture_height;
+
+        if (width_ok && height_ok) {
+
+            break;
+
+        }
+
+        factor--;
+    }
+
+    return factor;
+}
+
+static int WM_render_cache_source_rect(SDL_Rect map_rect, SDL_Rect *source_rect) {
+    /*
+        Purpose: Calculates the visible source rectangle inside the cached texture
+        Returns: Success status
+    */
+
+    if (!source_rect || !WM_RENDER_CACHE.valid || !WM_RENDER_CACHE.texture || WM_RENDER_CACHE.map_w != map_rect.w ||
+        WM_RENDER_CACHE.map_h != map_rect.h) {
+
+        return 0;
+
+    }
+
+    double lon_span = WM_VIEW.max_lon - WM_VIEW.min_lon;
+    double lat_span = WM_VIEW.max_lat - WM_VIEW.min_lat;
+    double lon_tolerance = fabs(WM_RENDER_CACHE.source_lon_span) * 1e-9 + 1e-9;
+    double lat_tolerance = fabs(WM_RENDER_CACHE.source_lat_span) * 1e-9 + 1e-9;
+
+    if (fabs(lon_span - WM_RENDER_CACHE.source_lon_span) > lon_tolerance ||
+        fabs(lat_span - WM_RENDER_CACHE.source_lat_span) > lat_tolerance) {
+
+        return 0;
+
+    }
+
+    double cache_lon_span = WM_RENDER_CACHE.max_lon - WM_RENDER_CACHE.min_lon;
+    double cache_lat_span = WM_RENDER_CACHE.max_lat - WM_RENDER_CACHE.min_lat;
+
+    if (cache_lon_span <= 0.0 || cache_lat_span <= 0.0) {
+
+        return 0;
+
+    }
+
+    int source_x =
+        (int)llround((WM_VIEW.min_lon - WM_RENDER_CACHE.min_lon) * (double)WM_RENDER_CACHE.texture_w / cache_lon_span);
+    int source_y =
+        (int)llround((WM_RENDER_CACHE.max_lat - WM_VIEW.max_lat) * (double)WM_RENDER_CACHE.texture_h / cache_lat_span);
+
+    if (source_x < 0 || source_y < 0 || source_x + map_rect.w > WM_RENDER_CACHE.texture_w ||
+        source_y + map_rect.h > WM_RENDER_CACHE.texture_h) {
+
+        return 0;
+
+    }
+
+    *source_rect = (SDL_Rect){source_x, source_y, map_rect.w, map_rect.h};
+    return 1;
+}
+
+static int WM_rebuild_render_cache(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    /*
+        Purpose: Renders an oversized world map into an SDL texture
+        Returns: Success status
+    */
+
+    if (!renderer || map_rect.w <= 0 || map_rect.h <= 0) {
+
+        return 0;
+
+    }
+
+    int factor = WM_render_cache_factor(renderer, map_rect);
+
+    if (factor <= 0) {
+
+        WM_destroy_render_cache();
+        return 0;
+
+    }
+
+    int texture_w = map_rect.w * factor;
+    int texture_h = map_rect.h * factor;
+
+    if (!WM_RENDER_CACHE.texture || WM_RENDER_CACHE.renderer != renderer || WM_RENDER_CACHE.texture_w != texture_w ||
+        WM_RENDER_CACHE.texture_h != texture_h) {
+
+        WM_destroy_render_cache();
+        WM_RENDER_CACHE.texture =
+            SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, texture_w, texture_h);
+
+        if (!WM_RENDER_CACHE.texture) {
+
+            return 0;
+
+        }
+
+        SDL_SetTextureBlendMode(WM_RENDER_CACHE.texture, SDL_BLENDMODE_BLEND);
+        WM_RENDER_CACHE.renderer = renderer;
+        WM_RENDER_CACHE.texture_w = texture_w;
+        WM_RENDER_CACHE.texture_h = texture_h;
+
+    }
+
+    double source_lon_span = WM_VIEW.max_lon - WM_VIEW.min_lon;
+    double source_lat_span = WM_VIEW.max_lat - WM_VIEW.min_lat;
+    double center_lon = (WM_VIEW.min_lon + WM_VIEW.max_lon) * 0.5;
+    double center_lat = (WM_VIEW.min_lat + WM_VIEW.max_lat) * 0.5;
+    double cache_lon_span = source_lon_span * (double)factor;
+    double cache_lat_span = source_lat_span * (double)factor;
+
+    WM_RENDER_CACHE.min_lon = center_lon - cache_lon_span * 0.5;
+    WM_RENDER_CACHE.max_lon = center_lon + cache_lon_span * 0.5;
+    WM_RENDER_CACHE.min_lat = center_lat - cache_lat_span * 0.5;
+    WM_RENDER_CACHE.max_lat = center_lat + cache_lat_span * 0.5;
+    WM_RENDER_CACHE.source_lon_span = source_lon_span;
+    WM_RENDER_CACHE.source_lat_span = source_lat_span;
+    WM_RENDER_CACHE.map_w = map_rect.w;
+    WM_RENDER_CACHE.map_h = map_rect.h;
+    WM_RENDER_CACHE.valid = 0;
+
+    SDL_Texture *previous_target = SDL_GetRenderTarget(renderer);
+    SDL_Rect previous_viewport;
+    SDL_Rect previous_clip;
+    SDL_bool previous_clip_enabled = SDL_RenderIsClipEnabled(renderer);
+    SDL_RenderGetViewport(renderer, &previous_viewport);
+    SDL_RenderGetClipRect(renderer, &previous_clip);
+
+    if (SDL_SetRenderTarget(renderer, WM_RENDER_CACHE.texture) != 0) {
+
+        WM_destroy_render_cache();
+        return 0;
+
+    }
+
+    SDL_RenderSetViewport(renderer, NULL);
+    SDL_RenderSetClipRect(renderer, NULL);
+
+    WM_View saved_view = WM_VIEW;
+    WM_VIEW.min_lon = WM_RENDER_CACHE.min_lon;
+    WM_VIEW.max_lon = WM_RENDER_CACHE.max_lon;
+    WM_VIEW.min_lat = WM_RENDER_CACHE.min_lat;
+    WM_VIEW.max_lat = WM_RENDER_CACHE.max_lat;
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+    WM_RENDERING_CACHE_TEXTURE = 1;
+    WM_render_base_map_layer(renderer, (SDL_Rect){0, 0, texture_w, texture_h});
+    WM_RENDERING_CACHE_TEXTURE = 0;
+    WM_VIEW = saved_view;
+
+    SDL_SetRenderTarget(renderer, previous_target);
+    SDL_RenderSetViewport(renderer, &previous_viewport);
+
+    if (previous_clip_enabled) {
+
+        SDL_RenderSetClipRect(renderer, &previous_clip);
+
+    }
+
+    else {
+
+        SDL_RenderSetClipRect(renderer, NULL);
+
+    }
+
+    WM_RENDER_CACHE.valid = 1;
+    return 1;
+}
+
+static int WM_draw_cached_base_map(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    /*
+        Purpose: Copies the visible world-map region from the render cache
+        Returns: Success status
+    */
+
+    SDL_Rect source_rect;
+
+    if (!WM_render_cache_source_rect(map_rect, &source_rect)) {
+
+        if (!WM_rebuild_render_cache(renderer, map_rect) || !WM_render_cache_source_rect(map_rect, &source_rect)) {
+
+            return 0;
+
+        }
+
+    }
+
+    return SDL_RenderCopy(renderer, WM_RENDER_CACHE.texture, &source_rect, &map_rect) == 0;
+}
+
+static int WM_draw_dragged_cached_base_map(SDL_Renderer *renderer, SDL_Rect map_rect) {
+    /*
+        Purpose: Shifts the frozen map texture during a drag without changing the geographic view
+        Returns: Success status
+    */
+
+    SDL_Rect source_rect;
+
+    if (!WM_render_cache_source_rect(map_rect, &source_rect)) {
+
+        if (!WM_rebuild_render_cache(renderer, map_rect) || !WM_render_cache_source_rect(map_rect, &source_rect)) {
+
+            return 0;
+
+        }
+
+    }
+
+    source_rect.x -= WM_VIEW.drag_offset_x;
+    source_rect.y -= WM_VIEW.drag_offset_y;
+
+    SDL_Rect clipped_source = source_rect;
+    SDL_Rect destination = map_rect;
+
+    if (clipped_source.x < 0) {
+
+        int clipped = -clipped_source.x;
+        clipped_source.x = 0;
+        clipped_source.w -= clipped;
+        destination.x += clipped;
+        destination.w -= clipped;
+
+    }
+
+    if (clipped_source.y < 0) {
+
+        int clipped = -clipped_source.y;
+        clipped_source.y = 0;
+        clipped_source.h -= clipped;
+        destination.y += clipped;
+        destination.h -= clipped;
+
+    }
+
+    if (clipped_source.x + clipped_source.w > WM_RENDER_CACHE.texture_w) {
+
+        clipped_source.w = WM_RENDER_CACHE.texture_w - clipped_source.x;
+        destination.w = clipped_source.w;
+
+    }
+
+    if (clipped_source.y + clipped_source.h > WM_RENDER_CACHE.texture_h) {
+
+        clipped_source.h = WM_RENDER_CACHE.texture_h - clipped_source.y;
+        destination.h = clipped_source.h;
+
+    }
+
+    if (clipped_source.w <= 0 || clipped_source.h <= 0 || destination.w <= 0 || destination.h <= 0) {
+
+        return 0;
+
+    }
+
+    return SDL_RenderCopy(renderer, WM_RENDER_CACHE.texture, &clipped_source, &destination) == 0;
 }
 
 static void WM_load_flag(SDL_Renderer *renderer, WM_Country *country, const char *flags_dir) {
@@ -1718,39 +2301,32 @@ void WORLD_MAP_draw(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect map_rect, S
 
     }
 
-    int hover = WM_country_at(map_rect, mouse_x, mouse_y);
+    int hover = WM_VIEW.dragging ? WM_VIEW.drag_hover_country : WM_country_at(map_rect, mouse_x, mouse_y);
 
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 5, 4, 255);
-    SDL_RenderFillRect(renderer, &map_rect);
+    WM_fill_map_background(renderer, map_rect);
+    WM_draw_map_grid(renderer, map_rect);
 
-    SDL_SetRenderDrawColor(renderer, 0, 42, 32, 120);
-    for (int i = 0; i <= 12; i++) {
-        int x = map_rect.x + (map_rect.w * i) / 12;
-        SDL_RenderDrawLine(renderer, x, map_rect.y, x, map_rect.y + map_rect.h);
-    }
-    for (int i = 0; i <= 6; i++) {
-        int y = map_rect.y + (map_rect.h * i) / 6;
-        SDL_RenderDrawLine(renderer, map_rect.x, y, map_rect.x + map_rect.w, y);
-    }
+    if (WM_VIEW.dragging) {
 
-    SDL_RenderSetClipRect(renderer, &map_rect);
-    for (uint32_t i = 0; i < WM_DATA.polygon_count; i++) {
+        if (!WM_draw_dragged_cached_base_map(renderer, map_rect)) {
 
-        if (!WM_polygon_intersects_view(&WM_DATA.polygons[i])) {
-
-            continue;
+            WM_render_base_map_layer(renderer, map_rect);
 
         }
-        int c = WM_DATA.polygons[i].country;
-        int is_hover = (c == hover);
-        WM_draw_polygon(renderer, map_rect, &WM_DATA.polygons[i], 1,
-                        is_hover ? (SDL_Color){0, 150, 65, 70} : (SDL_Color){0, 35, 18, 135},
-                        is_hover ? (SDL_Color){0, 255, 95, 0} : (SDL_Color){0, 85, 38, 115});
+
     }
-    WM_draw_detail_lines(renderer, map_rect);
-    WM_draw_hover_detail_lines(renderer, map_rect, hover);
-    SDL_RenderSetClipRect(renderer, NULL);
+
+    else {
+
+        if (!WM_draw_cached_base_map(renderer, map_rect)) {
+
+            WM_render_base_map_layer(renderer, map_rect);
+
+        }
+
+        WM_draw_hover_layer(renderer, map_rect, hover);
+
+    }
 
     SDL_SetRenderDrawColor(renderer, 0, 180, 70, 255);
     SDL_RenderDrawRect(renderer, &map_rect);

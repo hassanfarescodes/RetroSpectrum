@@ -23,6 +23,11 @@
 #include "SecureNetwork.h"
 #include "ServerIdentity.h"
 
+#include <stddef.h>
+
+/* Kept here so this source also builds when older headers omit the new API. */
+int SECURE_NETWORK_verify_password(const char *username, const char *password, char *error, size_t error_size);
+
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -159,6 +164,7 @@ static const SDL_Color AUTH_WARN = {255, 180, 40, 255};
 
 static char Global_Auth_Server_Id[SERVER_IDENTITY_ID_BUFFER] = "";
 static char Global_Auth_Server_Name[SERVER_IDENTITY_SERVER_NAME_BUFFER] = "RetroSpectrum Server";
+static char Global_Auth_Current_Username[AUTH_USERNAME_MAX + 1] = "";
 static int Global_Auth_Client_Only_Mode = 0;
 
 static int auth_point_in_rect(int x, int y, SDL_Rect rect) {
@@ -1308,11 +1314,11 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
 
     if (show_change_server) {
 
-        top_right_label = Global_Auth_Client_Only_Mode
-                              ? "CLIENT MODE"
-                              : (!state->database_ready
-                                     ? "DATABASE LOCKED"
-                                     : (state->user_count == 0 ? "INITIALIZE ADMIN" : "ADMIN CONSOLE"));
+        top_right_label =
+            Global_Auth_Client_Only_Mode
+                ? "CLIENT MODE"
+                : (!state->database_ready ? "DATABASE LOCKED"
+                                          : (state->user_count == 0 ? "INITIALIZE ADMIN" : "ADMIN CONSOLE"));
 
     }
 
@@ -1353,12 +1359,11 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
         SDL_Rect username = auth_field_rect(panel, 0);
         SDL_Rect password = auth_field_rect(panel, 1);
 
-        auth_draw_centered_text(
-            renderer, font_small,
-            state->stage == AUTH_STAGE_LOGIN
-                ? (Global_Auth_Client_Only_Mode ? "REMOTE SERVER LOGIN" : "LOCAL ACCOUNT LOGIN")
-                : "ADMINISTRATOR LOGIN",
-            (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
+        auth_draw_centered_text(renderer, font_small,
+                                state->stage == AUTH_STAGE_LOGIN
+                                    ? (Global_Auth_Client_Only_Mode ? "REMOTE SERVER LOGIN" : "LOCAL ACCOUNT LOGIN")
+                                    : "ADMINISTRATOR LOGIN",
+                                (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
         auth_draw_field(renderer, font_small, username, "Username", state->username,
                         state->active_field == AUTH_FIELD_USERNAME, 0);
         auth_draw_field(renderer, font_small, password, "Password", state->password,
@@ -3783,11 +3788,14 @@ static int auth_submit(sqlite3 *database, Type_Auth_State *state) {
     if (Global_Auth_Client_Only_Mode) {
 
         if (SERVER_IDENTITY_trusted_is_local()) {
+
             auth_set_status(state, AUTH_ERROR,
                             "Client mode requires a server-provided .rspub key. Use CHANGE SERVER first.");
             return 0;
+
         }
         return auth_submit_remote(state);
+
     }
 
     if (!SERVER_IDENTITY_trusted_is_local()) {
@@ -4114,8 +4122,10 @@ static void auth_handle_mouse(Type_Auth_State *state, int mouse_x, int mouse_y, 
         const char *current_path;
 
         if (Global_Auth_Client_Only_Mode) {
+
             auth_set_status(state, AUTH_ERROR, "Client mode does not open a local authentication database.");
             return;
+
         }
 
         current_path = DATABASE_CRYPTO_key_path();
@@ -4136,8 +4146,7 @@ static void auth_handle_mouse(Type_Auth_State *state, int mouse_x, int mouse_y, 
 
             if (Global_Auth_Client_Only_Mode) {
 
-                auth_set_status(state, AUTH_MUTED,
-                                "Client mode authenticates only with the trusted remote server.");
+                auth_set_status(state, AUTH_MUTED, "Client mode authenticates only with the trusted remote server.");
                 return;
 
             }
@@ -4402,6 +4411,15 @@ const char *AUTH_get_server_name(void) {
     return Global_Auth_Server_Name;
 }
 
+const char *AUTH_get_current_username(void) {
+    /*
+        Purpose: Gets the username for the active authenticated session
+        Returns: Text pointer
+    */
+
+    return Global_Auth_Current_Username;
+}
+
 int AUTH_run(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font_small, TTF_Font *font_medium) {
     /*
         Purpose: Runs the requested operation
@@ -4414,6 +4432,8 @@ int AUTH_run(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font_small, T
     int authenticated = 0;
     int running = 1;
     int admin_request = 0;
+
+    auth_secure_zero(Global_Auth_Current_Username, sizeof(Global_Auth_Current_Username));
 
     if (!window || !renderer || !font_small || !font_medium) {
 
@@ -4438,11 +4458,13 @@ int AUTH_run(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font_small, T
     }
 
     if (Global_Auth_Client_Only_Mode) {
+
         state.database_ready = 0;
         auth_set_status(&state, AUTH_MUTED,
                         SERVER_IDENTITY_trusted_is_local()
                             ? "Client mode: use CHANGE SERVER to import the server-provided .rspub key."
                             : "Client mode: sign in to the trusted remote server.");
+
     }
 
     else if (auth_open_database(&database, database_path, sizeof(database_path))) {
@@ -4723,7 +4745,14 @@ int AUTH_run(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font_small, T
 
     if (authenticated) {
 
+        auth_copy_text(Global_Auth_Current_Username, sizeof(Global_Auth_Current_Username), state.username);
         running = auth_run_transition(window, renderer, font_small, font_medium, state.username);
+
+    }
+
+    if (!authenticated || !running) {
+
+        auth_secure_zero(Global_Auth_Current_Username, sizeof(Global_Auth_Current_Username));
 
     }
 
@@ -4984,6 +5013,109 @@ cleanup:
     auth_secure_zero(secret, sizeof(secret));
     auth_secure_zero(&record, sizeof(record));
     return result;
+}
+
+int AUTH_SERVER_verify_password(const char *username, const char *password, const char *remote_ip, char *error,
+                                size_t error_size) {
+    /*
+        Purpose: Re-verifies an authenticated account password without starting a new session
+        Returns: Success status
+    */
+
+    sqlite3 *database = NULL;
+    Type_Auth_User_Record record;
+    char path[PATH_MAX];
+    char ip_scope[128];
+    char account_scope[256];
+    int load_result;
+    int success = 0;
+
+    memset(&record, 0, sizeof(record));
+
+    if (error && error_size > 0) {
+
+        error[0] = '\0';
+
+    }
+
+    if (!username || username[0] == '\0' || !password || password[0] == '\0' || !remote_ip ||
+        snprintf(ip_scope, sizeof(ip_scope), "NET_REAUTH_IP:%s", remote_ip) >= (int)sizeof(ip_scope) ||
+        snprintf(account_scope, sizeof(account_scope), "NET_REAUTH:%s:%s", username, remote_ip) >=
+            (int)sizeof(account_scope)) {
+
+        auth_public_error(error, error_size, "Invalid password verification request.");
+        return 0;
+
+    }
+
+    if (!auth_open_database(&database, path, sizeof(path))) {
+
+        auth_public_error(error, error_size, "Authentication service unavailable.");
+        return 0;
+
+    }
+
+    if (auth_rate_limit_remaining(database, ip_scope) > 0 || auth_rate_limit_remaining(database, account_scope) > 0) {
+
+        auth_public_error(error, error_size, "Too many password attempts. Try again later.");
+        goto cleanup;
+
+    }
+
+    load_result = auth_load_user(database, username, &record);
+
+    if (load_result <= 0) {
+
+        auth_dummy_password_work(password);
+
+    }
+
+    if (load_result <= 0 || !auth_verify_password(database, username, password, &record)) {
+
+        (void)auth_rate_limit_failure(database, ip_scope);
+        (void)auth_rate_limit_failure(database, account_scope);
+        auth_public_error(error, error_size, "Invalid password.");
+        goto cleanup;
+
+    }
+
+    auth_rate_limit_success(database, ip_scope);
+    auth_rate_limit_success(database, account_scope);
+    success = 1;
+
+cleanup:
+    sqlite3_close(database);
+    auth_secure_zero(&record, sizeof(record));
+    return success;
+}
+
+int AUTH_verify_current_password(const char *password, char *error, size_t error_size) {
+    /*
+        Purpose: Verifies the password for the active authenticated session
+        Returns: Success status
+    */
+
+    if (!password || password[0] == '\0') {
+
+        auth_public_error(error, error_size, "Enter your password.");
+        return 0;
+
+    }
+
+    if (Global_Auth_Current_Username[0] == '\0') {
+
+        auth_public_error(error, error_size, "No authenticated user session is available.");
+        return 0;
+
+    }
+
+    if (Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) {
+
+        return SECURE_NETWORK_verify_password(Global_Auth_Current_Username, password, error, error_size);
+
+    }
+
+    return AUTH_SERVER_verify_password(Global_Auth_Current_Username, password, "local-gui", error, error_size);
 }
 
 int AUTH_DB_server_list_users(Type_Auth_User_Summary *users, size_t capacity, size_t *count, char *error,

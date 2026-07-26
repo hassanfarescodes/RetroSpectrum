@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -104,6 +105,27 @@ static int dashboard_point_in_rect(int x, int y, SDL_Rect r) {
     */
 
     return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+}
+
+static void dashboard_update_timestamp(Type_Dashboard_State *dashboard) {
+    time_t now;
+    struct tm *local_time;
+
+    if (dashboard == NULL) {
+
+        return;
+
+    }
+
+    now = time(NULL);
+    local_time = localtime(&now);
+
+    if (local_time == NULL ||
+        strftime(dashboard->status, sizeof(dashboard->status), "Updated at %I:%M:%S %p", local_time) == 0) {
+
+        snprintf(dashboard->status, sizeof(dashboard->status), "Updated: Unknown");
+
+    }
 }
 
 static void dashboard_copy_text(char *dst, size_t dst_size, const char *src) {
@@ -1178,6 +1200,10 @@ void dashboard_draw_case_points(Type_Dashboard_State *dashboard, SDL_Renderer *r
 
     }
 
+    int drag_x = 0;
+    int drag_y = 0;
+    WORLD_MAP_get_drag_offset(&drag_x, &drag_y);
+
     for (int i = 0; i < Global_Dashboard_Case_Point_Count; i++) {
         Type_Dashboard_Case_Point *pt = &Global_Dashboard_Case_Points[i];
 
@@ -1191,6 +1217,15 @@ void dashboard_draw_case_points(Type_Dashboard_State *dashboard, SDL_Renderer *r
         int y = 0;
 
         if (!dashboard_lonlat_to_screen(pt->longitude, pt->latitude, map, &x, &y)) {
+
+            continue;
+
+        }
+
+        x += drag_x;
+        y += drag_y;
+
+        if (!dashboard_point_in_rect(x, y, map)) {
 
             continue;
 
@@ -2168,9 +2203,18 @@ int dashboard_handle_event(Type_Dashboard_State *dashboard, const SDL_Event *eve
 
             }
 
-            if (dashboard_point_in_rect(event->button.x, event->button.y, map)) {
+            /* Country hit-testing is deferred until a completed click. Performing
+             * WM_country_at() here caused every drag to pause before it started. */
 
-                int clicked_country = WM_country_at(map, event->button.x, event->button.y);
+        }
+
+        WORLD_MAP_handle_event(event, map);
+
+        if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
+
+            int clicked_country = WORLD_MAP_take_clicked_country();
+
+            if (clicked_country != -2) {
 
                 if (clicked_country >= 0) {
 
@@ -2198,8 +2242,6 @@ int dashboard_handle_event(Type_Dashboard_State *dashboard, const SDL_Event *eve
 
         }
 
-        WORLD_MAP_handle_event(event, map);
-
     }
 
     return DASHBOARD_EVENT_NONE;
@@ -2225,10 +2267,12 @@ void dashboard_draw(Type_Dashboard_State *dashboard, SDL_Renderer *renderer, TTF
 
     Uint64 now_ms = SDL_GetTicks64();
 
-    if (now_ms - dashboard->last_case_scan_ms > 1200) {
+    if (now_ms - dashboard->last_case_scan_ms > 15000) {
 
         dashboard_reload_cases(dashboard);
         dashboard->last_case_scan_ms = now_ms;
+
+        dashboard_update_timestamp(dashboard);
 
     }
 
@@ -2260,8 +2304,16 @@ void dashboard_draw(Type_Dashboard_State *dashboard, SDL_Renderer *renderer, TTF
 
         int draw_mouse_x = mouse_x;
         int draw_mouse_y = mouse_y;
+        int map_dragging = WORLD_MAP_is_dragging();
 
-        if (dashboard->locked_country >= 0 && dashboard->locked_country < (int)WM_DATA.country_count) {
+        if (map_dragging) {
+
+            draw_mouse_x = dashboard->hover_mouse_x;
+            draw_mouse_y = dashboard->hover_mouse_y;
+
+        }
+
+        else if (dashboard->locked_country >= 0 && dashboard->locked_country < (int)WM_DATA.country_count) {
 
             dashboard->hover_country = dashboard->locked_country;
             draw_mouse_x = dashboard->locked_mouse_x;

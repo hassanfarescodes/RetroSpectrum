@@ -1602,8 +1602,7 @@ static void *server_identity_thread_main(void *unused) {
         ssize_t received;
         time_t now = time(NULL);
 
-        if (Global_Server_Identity_Server_Mode &&
-            now - last_announce >= SERVER_IDENTITY_ANNOUNCE_INTERVAL) {
+        if (Global_Server_Identity_Server_Mode && now - last_announce >= SERVER_IDENTITY_ANNOUNCE_INTERVAL) {
 
             server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_ANNOUNCE);
             last_announce = now;
@@ -1756,13 +1755,17 @@ int SERVER_IDENTITY_start(void) {
     Global_Server_Identity_Thread_Started = 1;
 
     if (Global_Server_Identity_Server_Mode) {
+
         server_identity_set_status("ML-DSA-87 server identity verified; signed LAN announcements are active.");
         server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_ANNOUNCE);
+
     }
 
     else {
+
         server_identity_set_status("Client mode active; waiting for the trusted server identity.");
         server_identity_send_broadcast(SERVER_IDENTITY_PACKET_TYPE_QUERY);
+
     }
     return 1;
 }

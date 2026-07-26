@@ -8,12 +8,15 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
+#include <poll.h>
 #include <pthread.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +33,8 @@ int DATASTORE_server_delete_content(const char *document_kind, const char *docum
 int SECURE_NETWORK_delete_document(const char *document_kind, const char *document_name, int *deleted, char *error,
                                    size_t error_size);
 int SECURE_NETWORK_server_is_running(void);
+int AUTH_SERVER_verify_password(const char *username, const char *password, const char *remote_ip, char *error,
+                                size_t error_size);
 
 #if OPENSSL_VERSION_NUMBER < 0x30500000L
 #error "SecureNetwork.c requires OpenSSL 3.5.0 or newer."
@@ -44,7 +49,11 @@ int SECURE_NETWORK_server_is_running(void);
 #define SECURE_NETWORK_NONCE_BYTES 32
 #define SECURE_NETWORK_HEADER_BYTES 16
 #define SECURE_NETWORK_RESPONSE_FLAG 0x8000U
-#define SECURE_NETWORK_TIMEOUT_SECONDS 30
+#define SECURE_NETWORK_TIMEOUT_SECONDS 10
+#define SECURE_NETWORK_KEEPALIVE_IDLE_SECONDS 10
+#define SECURE_NETWORK_KEEPALIVE_INTERVAL_SECONDS 2
+#define SECURE_NETWORK_KEEPALIVE_PROBES 4
+#define SECURE_NETWORK_TCP_USER_TIMEOUT_MS 20000
 
 #define SECURE_NETWORK_TYPE_AUTH 1U
 #define SECURE_NETWORK_TYPE_SAVE 2U
@@ -53,6 +62,9 @@ int SECURE_NETWORK_server_is_running(void);
 #define SECURE_NETWORK_TYPE_LOGOUT 5U
 #define SECURE_NETWORK_TYPE_USER_LIST 6U
 #define SECURE_NETWORK_TYPE_DELETE 7U
+
+#define SECURE_NETWORK_AUTH_MODE_LOGIN 0U
+#define SECURE_NETWORK_AUTH_MODE_REAUTH 1U
 
 #define SECURE_NETWORK_STATUS_ERROR 0U
 #define SECURE_NETWORK_STATUS_OK 1U
@@ -74,6 +86,7 @@ static SSL_CTX *Global_Secure_Client_Context = NULL;
 static SSL *Global_Secure_Client_SSL = NULL;
 static int Global_Secure_Client_Fd = -1;
 static int Global_Secure_Client_Authenticated = 0;
+static int Global_Secure_Client_Connection_Lost = 0;
 static pthread_mutex_t Global_Secure_Client_Lock = PTHREAD_MUTEX_INITIALIZER;
 static uint32_t Global_Secure_Request_Id = 1;
 
@@ -653,7 +666,7 @@ static int secure_network_send_status(SSL *ssl, uint16_t request_type, uint32_t 
 }
 
 static int secure_network_parse_auth(const unsigned char *payload, size_t payload_size, char **username,
-                                     char **password, char **totp) {
+                                     char **password, char **totp, uint16_t *auth_mode) {
     /*
         Purpose: Parses the authentication
         Returns: Success status
@@ -665,7 +678,7 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
     size_t required;
     size_t offset = 8;
 
-    if (!payload || payload_size < 8 || !username || !password || !totp) {
+    if (!payload || payload_size < 8 || !username || !password || !totp || !auth_mode) {
 
         return 0;
 
@@ -673,6 +686,7 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
     username_size = secure_network_load_u16(payload);
     password_size = secure_network_load_u16(payload + 2);
     totp_size = secure_network_load_u16(payload + 4);
+    *auth_mode = secure_network_load_u16(payload + 6);
     required = 8U + username_size + password_size + totp_size;
 
     if (required != payload_size || username_size == 0 || username_size > 63 || password_size == 0 ||
@@ -705,24 +719,60 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
 }
 
 static int secure_network_handle_auth(SSL *ssl, uint32_t request_id, const unsigned char *payload, size_t payload_size,
-                                      const char *remote_ip, int *authenticated, int *is_admin) {
+                                      const char *remote_ip, int *authenticated, int *is_admin,
+                                      char *authenticated_username, size_t authenticated_username_size) {
     /*
-        Purpose: Handles the authentication
+        Purpose: Handles initial authentication and password re-verification
         Returns: Handling status
     */
 
     char *username = NULL;
     char *password = NULL;
     char *totp = NULL;
-    char message[256];
+    char message[256] = "";
+    uint16_t auth_mode = SECURE_NETWORK_AUTH_MODE_LOGIN;
     int admin = 0;
     int result;
     unsigned char extra[4];
 
-    if (!secure_network_parse_auth(payload, payload_size, &username, &password, &totp)) {
+    if (!secure_network_parse_auth(payload, payload_size, &username, &password, &totp, &auth_mode)) {
 
         secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id, SECURE_NETWORK_STATUS_ERROR,
                                    "Malformed authentication request.", NULL, 0);
+        goto cleanup;
+
+    }
+
+    if (auth_mode == SECURE_NETWORK_AUTH_MODE_REAUTH) {
+
+        if (!authenticated || !*authenticated || !authenticated_username || authenticated_username[0] == '\0') {
+
+            secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                       "Authentication is required.", NULL, 0);
+            goto cleanup;
+
+        }
+
+        if (strcmp(username, authenticated_username) != 0 || (totp && totp[0] != '\0')) {
+
+            secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                       "Invalid password verification request.", NULL, 0);
+            goto cleanup;
+
+        }
+
+        result = AUTH_SERVER_verify_password(authenticated_username, password, remote_ip, message, sizeof(message));
+        secure_network_send_status(
+            ssl, SECURE_NETWORK_TYPE_AUTH, request_id, result ? SECURE_NETWORK_STATUS_OK : SECURE_NETWORK_STATUS_ERROR,
+            result ? "Password verified." : (message[0] ? message : "Invalid password."), NULL, 0);
+        goto cleanup;
+
+    }
+
+    if (auth_mode != SECURE_NETWORK_AUTH_MODE_LOGIN) {
+
+        secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                   "Unsupported authentication mode.", NULL, 0);
         goto cleanup;
 
     }
@@ -733,6 +783,12 @@ static int secure_network_handle_auth(SSL *ssl, uint32_t request_id, const unsig
 
         *authenticated = 1;
         *is_admin = admin;
+
+        if (authenticated_username && authenticated_username_size > 0) {
+
+            snprintf(authenticated_username, authenticated_username_size, "%s", username);
+
+        }
         secure_network_store_u32(extra, (uint32_t)admin);
         secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id, SECURE_NETWORK_STATUS_OK,
                                    "Authenticated.", extra, sizeof(extra));
@@ -757,19 +813,19 @@ cleanup:
 
     if (username) {
 
-        OPENSSL_clear_free(username, strlen(username));
+        OPENSSL_clear_free(username, strlen(username) + 1U);
 
     }
 
     if (password) {
 
-        OPENSSL_clear_free(password, strlen(password));
+        OPENSSL_clear_free(password, strlen(password) + 1U);
 
     }
 
     if (totp) {
 
-        OPENSSL_clear_free(totp, strlen(totp));
+        OPENSSL_clear_free(totp, strlen(totp) + 1U);
 
     }
     return 1;
@@ -1072,6 +1128,7 @@ static void *secure_network_client_thread(void *argument) {
     Type_Secure_Client_Thread *client = argument;
     SSL *ssl = NULL;
     char remote_ip[INET_ADDRSTRLEN] = "unknown";
+    char authenticated_username[64] = "";
     int authenticated = 0;
     int is_admin = 0;
 
@@ -1107,8 +1164,25 @@ static void *secure_network_client_thread(void *argument) {
 
         if (type == SECURE_NETWORK_TYPE_AUTH) {
 
+            int was_authenticated = authenticated;
+
             keep = secure_network_handle_auth(ssl, request_id, payload, payload_size, remote_ip, &authenticated,
-                                              &is_admin);
+                                              &is_admin, authenticated_username, sizeof(authenticated_username));
+
+            /*
+                Remove the handshake/login socket timeout after successful
+                authentication so an idle authenticated session remains connected.
+            */
+
+            if (keep && !was_authenticated && authenticated) {
+
+                struct timeval no_timeout = {0, 0};
+
+                setsockopt(client->fd, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof(no_timeout));
+
+                setsockopt(client->fd, SOL_SOCKET, SO_SNDTIMEO, &no_timeout, sizeof(no_timeout));
+
+            }
 
         }
 
@@ -1172,6 +1246,8 @@ static void *secure_network_client_thread(void *argument) {
     }
 
 cleanup:
+
+    OPENSSL_cleanse(authenticated_username, sizeof(authenticated_username));
 
     if (ssl) {
 
@@ -1420,6 +1496,76 @@ static void secure_network_close_client_locked(void) {
     Global_Secure_Client_Authenticated = 0;
 }
 
+static void secure_network_abort_client_locked(void) {
+    /*
+        Purpose: Immediately releases a failed authenticated client connection
+        Returns: No value
+    */
+
+    int was_authenticated = Global_Secure_Client_Authenticated;
+
+    if (Global_Secure_Client_SSL) {
+
+        SSL_free(Global_Secure_Client_SSL);
+        Global_Secure_Client_SSL = NULL;
+
+    }
+
+    if (Global_Secure_Client_Fd >= 0) {
+
+        close(Global_Secure_Client_Fd);
+        Global_Secure_Client_Fd = -1;
+
+    }
+    SSL_CTX_free(Global_Secure_Client_Context);
+    Global_Secure_Client_Context = NULL;
+    Global_Secure_Client_Authenticated = 0;
+
+    if (was_authenticated) {
+
+        Global_Secure_Client_Connection_Lost = 1;
+
+    }
+}
+
+static void secure_network_configure_client_keepalive(int fd) {
+    /*
+        Purpose: Configures fast TCP failure detection for the remote session
+        Returns: No value
+    */
+
+    int enabled = 1;
+    int idle_seconds = SECURE_NETWORK_KEEPALIVE_IDLE_SECONDS;
+    int interval_seconds = SECURE_NETWORK_KEEPALIVE_INTERVAL_SECONDS;
+    int probes = SECURE_NETWORK_KEEPALIVE_PROBES;
+
+    if (fd < 0) {
+
+        return;
+
+    }
+    setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &enabled, sizeof(enabled));
+
+#ifdef TCP_KEEPIDLE
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle_seconds, sizeof(idle_seconds));
+#endif
+
+#ifdef TCP_KEEPINTVL
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &interval_seconds, sizeof(interval_seconds));
+#endif
+
+#ifdef TCP_KEEPCNT
+    setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &probes, sizeof(probes));
+#endif
+
+#ifdef TCP_USER_TIMEOUT
+    {
+        int timeout_ms = SECURE_NETWORK_TCP_USER_TIMEOUT_MS;
+        setsockopt(fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &timeout_ms, sizeof(timeout_ms));
+    }
+#endif
+}
+
 void SECURE_NETWORK_disconnect(void) {
     /*
         Purpose: Disconnects the requested operation
@@ -1427,6 +1573,7 @@ void SECURE_NETWORK_disconnect(void) {
     */
 
     pthread_mutex_lock(&Global_Secure_Client_Lock);
+    Global_Secure_Client_Connection_Lost = 0;
 
     if (Global_Secure_Client_SSL && Global_Secure_Client_Authenticated) {
 
@@ -1474,6 +1621,7 @@ static int secure_network_connect_locked(char *error, size_t error_size) {
         goto failure;
 
     }
+    secure_network_configure_client_keepalive(Global_Secure_Client_Fd);
     {
         struct timeval timeout = {SECURE_NETWORK_TIMEOUT_SECONDS, 0};
         setsockopt(Global_Secure_Client_Fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
@@ -1630,6 +1778,7 @@ int SECURE_NETWORK_authenticate(const char *username, const char *password, cons
     secure_network_store_u16(payload, (uint16_t)username_size);
     secure_network_store_u16(payload + 2, (uint16_t)password_size);
     secure_network_store_u16(payload + 4, (uint16_t)totp_size);
+    secure_network_store_u16(payload + 6, SECURE_NETWORK_AUTH_MODE_LOGIN);
     memcpy(payload + 8, username, username_size);
     memcpy(payload + 8 + username_size, password, password_size);
 
@@ -1655,6 +1804,7 @@ int SECURE_NETWORK_authenticate(const char *username, const char *password, cons
     if (status == SECURE_NETWORK_STATUS_OK) {
 
         Global_Secure_Client_Authenticated = 1;
+        Global_Secure_Client_Connection_Lost = 0;
 
         if (is_admin) {
 
@@ -1678,6 +1828,84 @@ cleanup:
     return result;
 }
 
+int SECURE_NETWORK_verify_password(const char *username, const char *password, char *error, size_t error_size) {
+    /*
+        Purpose: Re-verifies the active remote account password
+        Returns: Success status
+    */
+
+    size_t username_size = username ? strlen(username) : 0;
+    size_t password_size = password ? strlen(password) : 0;
+    size_t payload_size = 8U + username_size + password_size;
+    unsigned char *payload = NULL;
+    uint32_t request_id;
+    uint32_t status = SECURE_NETWORK_STATUS_ERROR;
+    int success = 0;
+
+    if (error && error_size > 0) {
+
+        error[0] = '\0';
+
+    }
+
+    if (!username || username_size == 0 || username_size > 63 || !password || password_size == 0 ||
+        password_size > 127) {
+
+        secure_network_set_error(error, error_size, "Enter a valid password.");
+        return 0;
+
+    }
+
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+
+    if (!Global_Secure_Client_Authenticated || !Global_Secure_Client_SSL) {
+
+        secure_network_set_error(error, error_size, "The remote authenticated session is unavailable.");
+        goto cleanup;
+
+    }
+
+    payload = OPENSSL_zalloc(payload_size);
+
+    if (!payload) {
+
+        secure_network_set_error(error, error_size, "Unable to prepare password verification.");
+        goto cleanup;
+
+    }
+
+    secure_network_store_u16(payload, (uint16_t)username_size);
+    secure_network_store_u16(payload + 2, (uint16_t)password_size);
+    secure_network_store_u16(payload + 4, 0U);
+    secure_network_store_u16(payload + 6, SECURE_NETWORK_AUTH_MODE_REAUTH);
+    memcpy(payload + 8, username, username_size);
+    memcpy(payload + 8 + username_size, password, password_size);
+    request_id = Global_Secure_Request_Id++;
+
+    if (!secure_network_send_frame(Global_Secure_Client_SSL, SECURE_NETWORK_TYPE_AUTH, request_id, payload,
+                                   payload_size) ||
+        !secure_network_receive_status_locked(SECURE_NETWORK_TYPE_AUTH, request_id, &status, error, error_size, NULL,
+                                              NULL)) {
+
+        secure_network_set_error(error, error_size, "The encrypted password verification exchange failed.");
+        secure_network_close_client_locked();
+        goto cleanup;
+
+    }
+
+    /*
+        Older servers ignore the authentication-mode field and process this as a
+        normal login. A TOTP-required response still proves that the supplied
+        password was correct, while newer servers return OK for re-verification.
+    */
+    success = status == SECURE_NETWORK_STATUS_OK || status == SECURE_NETWORK_STATUS_TOTP_REQUIRED;
+
+cleanup:
+    OPENSSL_clear_free(payload, payload_size);
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    return success;
+}
+
 int SECURE_NETWORK_is_authenticated_remote(void) {
     /*
         Purpose: Checks whether the authenticated is remote
@@ -1686,9 +1914,77 @@ int SECURE_NETWORK_is_authenticated_remote(void) {
 
     int result;
     pthread_mutex_lock(&Global_Secure_Client_Lock);
-    result = Global_Secure_Client_Authenticated;
+    result = Global_Secure_Client_Authenticated || Global_Secure_Client_Connection_Lost;
     pthread_mutex_unlock(&Global_Secure_Client_Lock);
     return result;
+}
+
+int SECURE_NETWORK_remote_connection_lost(void) {
+    /*
+        Purpose: Detects and consumes a failed authenticated remote-server session
+        Returns: Boolean connection-loss status
+    */
+
+    int connection_lost = 0;
+
+    pthread_mutex_lock(&Global_Secure_Client_Lock);
+
+    if (Global_Secure_Client_Authenticated && Global_Secure_Client_SSL && Global_Secure_Client_Fd >= 0) {
+
+        struct pollfd descriptor;
+        int poll_result;
+
+        memset(&descriptor, 0, sizeof(descriptor));
+        descriptor.fd = Global_Secure_Client_Fd;
+        descriptor.events = POLLIN | POLLERR | POLLHUP;
+
+#ifdef POLLRDHUP
+        descriptor.events |= POLLRDHUP;
+#endif
+
+        poll_result = poll(&descriptor, 1, 0);
+
+        if (poll_result < 0 && errno != EINTR) {
+
+            secure_network_abort_client_locked();
+
+        }
+
+        else if (poll_result > 0) {
+
+            short failure_events = POLLERR | POLLHUP | POLLNVAL;
+
+#ifdef POLLRDHUP
+            failure_events |= POLLRDHUP;
+#endif
+
+            if ((descriptor.revents & failure_events) != 0) {
+
+                secure_network_abort_client_locked();
+
+            }
+
+            else if ((descriptor.revents & POLLIN) != 0) {
+
+                unsigned char byte;
+                ssize_t received = recv(Global_Secure_Client_Fd, &byte, sizeof(byte), MSG_PEEK | MSG_DONTWAIT);
+
+                if (received == 0 || (received < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) {
+
+                    secure_network_abort_client_locked();
+
+                }
+
+            }
+
+        }
+
+    }
+
+    connection_lost = Global_Secure_Client_Connection_Lost;
+    Global_Secure_Client_Connection_Lost = 0;
+    pthread_mutex_unlock(&Global_Secure_Client_Lock);
+    return connection_lost;
 }
 
 const char *SECURE_NETWORK_status(void) {
@@ -1720,7 +2016,7 @@ static int secure_network_request_locked(uint16_t type, const void *payload, siz
     if (!secure_network_send_frame(Global_Secure_Client_SSL, type, request_id, payload, payload_size) ||
         !secure_network_receive_status_locked(type, request_id, status, error, error_size, extra, extra_size)) {
 
-        secure_network_close_client_locked();
+        secure_network_abort_client_locked();
         secure_network_set_error(error, error_size, "The encrypted server request failed.");
         return 0;
 

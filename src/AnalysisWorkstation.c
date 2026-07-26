@@ -33,6 +33,17 @@
 #include "AnalysisWorkstation.h"
 #include "GUIs.h"
 
+/* Kept here so this source also builds when older headers omit the new API. */
+const char *AUTH_get_current_username(void);
+int AUTH_verify_current_password(const char *password, char *error, size_t error_size);
+int RETROSPECTRUM_start_file_transmission(const char *path, uint64_t center_frequency_hz, uint32_t sample_rate_hz,
+                                          uint32_t bandwidth_hz, int tx_gain_db, unsigned int repeat_count, char *error,
+                                          size_t error_size);
+void RETROSPECTRUM_cancel_file_transmission(void);
+int RETROSPECTRUM_get_transmission_status(double *progress, int *active, int *result_ready, int *succeeded,
+                                          char *message, size_t message_size);
+void RETROSPECTRUM_acknowledge_transmission_result(void);
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -50,6 +61,14 @@
 #define ANALYSIS_FILE_SEARCH_TEXT_MAX 256
 #define ANALYSIS_FILE_SEARCH_ROW_H 34
 #define ANALYSIS_MULTITHREAD_COUNT 10
+#define ANALYSIS_TRANSMIT_PASSWORD_MAX 127
+#define ANALYSIS_TRANSMIT_FIELD_COUNT 5
+#define ANALYSIS_TRANSMIT_TEXT_MAX 32
+#define ANALYSIS_TRANSMIT_FIELD_FREQUENCY 0
+#define ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE 1
+#define ANALYSIS_TRANSMIT_FIELD_BANDWIDTH 2
+#define ANALYSIS_TRANSMIT_FIELD_GAIN 3
+#define ANALYSIS_TRANSMIT_FIELD_REPEAT 4
 
 #define ANALYSIS_NOISE_GRAPH_NONE 0
 #define ANALYSIS_NOISE_GRAPH_MAG 1
@@ -78,6 +97,26 @@ static char Global_Analysis_Record_Dir[512] = "Recordings";
 static uint64_t Global_Analysis_Fallback_Center_Hz = 0;
 static uint32_t Global_Analysis_Fallback_Rec_Out_Rate_Hz = 0;
 static uint32_t Global_Analysis_Fallback_Sample_Rate_Hz = 0;
+
+static void ANALYSIS_secure_clear(void *memory, size_t size) {
+    /*
+        Purpose: Clears sensitive prompt data without allowing compiler removal
+        Returns: No value
+    */
+
+    volatile unsigned char *bytes = (volatile unsigned char *)memory;
+
+    if (!bytes) {
+
+        return;
+
+    }
+
+    while (size > 0) {
+        *bytes++ = 0;
+        size--;
+    }
+}
 
 static double ANALYSIS_limit_double(double value, double low, double high) {
     /*
@@ -176,6 +215,23 @@ static SDL_Rect Global_Analysis_Multithread_Rect = {0, 8, 34, 34};
 static int Global_Analysis_Multithread_Rect_Valid = 0;
 static int Global_Analysis_Multithread_Enabled = 0;
 static int Global_Analysis_Multithread_Prompt_Open = 0;
+static SDL_Rect Global_Analysis_Transmit_Rect = {0, 8, 34, 34};
+static int Global_Analysis_Transmit_Rect_Valid = 0;
+static int Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+static int Global_Analysis_Transmit_Config_Prompt_Open = 0;
+static int Global_Analysis_Transmit_Progress_Prompt_Open = 0;
+static int Global_Analysis_Transmit_Result_Prompt_Open = 0;
+static int Global_Analysis_Transmit_Result_Succeeded = 0;
+static int Global_Analysis_Transmit_Config_Active_Field = 0;
+static int Global_Analysis_Transmit_Password_Cursor = 0;
+static int Global_Analysis_Transmit_Field_Cursor[ANALYSIS_TRANSMIT_FIELD_COUNT] = {0, 0, 0, 0, 0};
+static char Global_Analysis_Transmit_Password[ANALYSIS_TRANSMIT_PASSWORD_MAX + 1] = "";
+static char Global_Analysis_Transmit_Auth_Status[256] = "";
+static char Global_Analysis_Transmit_Config_Status[256] = "";
+static char Global_Analysis_Transmit_Field_Text[ANALYSIS_TRANSMIT_FIELD_COUNT][ANALYSIS_TRANSMIT_TEXT_MAX] = {
+    "", "", "", "20", "0"};
+static char Global_Analysis_Transmit_Result_Message[256] = "";
+static double Global_Analysis_Transmit_Progress = 0.0;
 static double Global_Analysis_Signal_Icon_Freq_Frac = 0.0;
 static int Global_Analysis_Delete_Confirm_Open = 0;
 static char Global_Analysis_Delete_Confirm_File[512] = "";
@@ -207,6 +263,7 @@ static void ANALYSIS_clear_noise_filter(void);
 static void ANALYSIS_draw_centered_button_text(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *text,
                                                SDL_Color color);
 static void ANALYSIS_get_signal_icon_rect(int win_w, int win_h, SDL_Rect *out);
+static void ANALYSIS_submit_transmission_settings(int password_verified);
 void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h);
 
 static const char *ANALYSIS_SIGNAL_FIELD_LABELS[ANALYSIS_SIGNAL_FIELD_COUNT] = {
@@ -1224,6 +1281,7 @@ static void ANALYSIS_draw_hover_sync_line(SDL_Renderer *renderer, TTF_Font *font
     int icon_hover_keeps_frequency_label =
         (Global_Analysis_Signal_Icon_Rect_Valid && point_in_rect(mouse_x, mouse_y, Global_Analysis_Signal_Icon_Rect)) ||
         (Global_Analysis_Multithread_Rect_Valid && point_in_rect(mouse_x, mouse_y, Global_Analysis_Multithread_Rect)) ||
+        (Global_Analysis_Transmit_Rect_Valid && point_in_rect(mouse_x, mouse_y, Global_Analysis_Transmit_Rect)) ||
         (Global_Analysis_Signal_Trash_Rect_Valid && point_in_rect(mouse_x, mouse_y, Global_Analysis_Signal_Trash_Rect));
 
     int found_freq_hover = 0;
@@ -3249,6 +3307,159 @@ static int ANALYSIS_draw_wrapped_text(SDL_Renderer *renderer, TTF_Font *font, co
     return lines;
 }
 
+static int ANALYSIS_draw_wrapped_text_limited(SDL_Renderer *renderer, TTF_Font *font, const char *text, int x, int y,
+                                              int max_px, int line_h, int max_lines, SDL_Color color) {
+    /*
+        Purpose: Draws wrapped text while limiting it to a fixed number of lines
+        Returns: Number of rendered lines
+    */
+
+    if (!renderer || !font || !text || max_px <= 0 || line_h <= 0 || max_lines <= 0) {
+
+        return 0;
+
+    }
+
+    int len = (int)strlen(text);
+    int pos = 0;
+    int lines = 0;
+
+    while (pos < len && lines < max_lines) {
+        while (pos < len && text[pos] == ' ') {
+            pos++;
+        }
+
+        if (pos >= len) {
+
+            break;
+
+        }
+
+        if (lines == max_lines - 1) {
+
+            char remaining[1024];
+            char shortened[1024];
+            size_t remaining_length = strlen(text + pos);
+
+            if (remaining_length >= sizeof(remaining)) {
+
+                remaining_length = sizeof(remaining) - 1;
+
+            }
+
+            memcpy(remaining, text + pos, remaining_length);
+            remaining[remaining_length] = '\0';
+            ANALYSIS_short_text(font, remaining, shortened, sizeof(shortened), max_px);
+            draw_text(renderer, font, shortened, x, y + (lines * line_h), color);
+            lines++;
+            break;
+
+        }
+
+        int best = 1;
+        int best_break = -1;
+
+        for (int n = 1; pos + n <= len && n < 1000; n++) {
+            char candidate[1024];
+            int text_w = 0;
+            int text_h = 0;
+
+            if (n >= (int)sizeof(candidate)) {
+
+                break;
+
+            }
+
+            memcpy(candidate, text + pos, (size_t)n);
+            candidate[n] = '\0';
+
+            if (TTF_SizeText(font, candidate, &text_w, &text_h) != 0 || text_w > max_px) {
+
+                break;
+
+            }
+
+            best = n;
+
+            if (text[pos + n - 1] == ' ' || text[pos + n - 1] == '_' || text[pos + n - 1] == '-' ||
+                text[pos + n - 1] == '/') {
+
+                best_break = n;
+
+            }
+        }
+
+        if (pos + best < len && best_break > 8) {
+
+            best = best_break;
+
+        }
+
+        char line[1024];
+
+        if (best >= (int)sizeof(line)) {
+
+            best = (int)sizeof(line) - 1;
+
+        }
+
+        memcpy(line, text + pos, (size_t)best);
+        line[best] = '\0';
+        draw_text(renderer, font, line, x, y + (lines * line_h), color);
+        pos += best;
+        lines++;
+    }
+
+    return lines;
+}
+
+static void ANALYSIS_format_transmit_live_conversion(int field, char *buffer, size_t buffer_size) {
+    /*
+        Purpose: Formats the live million-unit equivalent for a transmission field
+        Returns: No value
+    */
+
+    const char *text;
+    char *end = NULL;
+    unsigned long long value;
+
+    if (!buffer || buffer_size == 0) {
+
+        return;
+
+    }
+
+    buffer[0] = '\0';
+
+    if (field < ANALYSIS_TRANSMIT_FIELD_FREQUENCY || field > ANALYSIS_TRANSMIT_FIELD_BANDWIDTH) {
+
+        return;
+
+    }
+
+    text = Global_Analysis_Transmit_Field_Text[field];
+
+    if (!text || text[0] == '\0') {
+
+        snprintf(buffer, buffer_size, field == ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE ? "0.000000 MS/s" : "0.000000 MHz");
+        return;
+
+    }
+
+    errno = 0;
+    value = strtoull(text, &end, 10);
+
+    if (errno != 0 || end == text || *end != '\0') {
+
+        snprintf(buffer, buffer_size, field == ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE ? "Invalid MS/s" : "Invalid MHz");
+        return;
+
+    }
+
+    snprintf(buffer, buffer_size, field == ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE ? "%.6f MS/s" : "%.6f MHz",
+             (double)value / 1000000.0);
+}
+
 static void ANALYSIS_signal_refresh_filename_if_auto(void);
 static void ANALYSIS_draw_centered_button_text(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *text,
                                                SDL_Color color);
@@ -4065,14 +4276,35 @@ static void ANALYSIS_get_signal_icon_rect(int win_w, int win_h, SDL_Rect *out) {
 
     *out = (SDL_Rect){win_w - 394, 8, 34, 34};
 
-    if (out->x < MARGIN) {
+    if (out->x < MARGIN + (3 * (out->w + 8))) {
 
-        out->x = MARGIN;
+        out->x = MARGIN + (3 * (out->w + 8));
 
     }
 
     Global_Analysis_Signal_Icon_Rect = *out;
     Global_Analysis_Signal_Icon_Rect_Valid = 1;
+}
+
+static void ANALYSIS_get_transmit_rect(int win_w, int win_h, SDL_Rect *out) {
+    /*
+        Purpose: Gets the transmit icon rectangle
+        Returns: No value
+    */
+
+    if (!out) {
+
+        return;
+
+    }
+
+    SDL_Rect settings_rect;
+    ANALYSIS_get_signal_icon_rect(win_w, win_h, &settings_rect);
+
+    *out = (SDL_Rect){settings_rect.x - settings_rect.w - 8, settings_rect.y, settings_rect.w, settings_rect.h};
+
+    Global_Analysis_Transmit_Rect = *out;
+    Global_Analysis_Transmit_Rect_Valid = 1;
 }
 
 static void ANALYSIS_get_multithread_rect(int win_w, int win_h, SDL_Rect *out) {
@@ -4087,16 +4319,10 @@ static void ANALYSIS_get_multithread_rect(int win_w, int win_h, SDL_Rect *out) {
 
     }
 
-    SDL_Rect icon_rect;
-    ANALYSIS_get_signal_icon_rect(win_w, win_h, &icon_rect);
+    SDL_Rect transmit_rect;
+    ANALYSIS_get_transmit_rect(win_w, win_h, &transmit_rect);
 
-    *out = (SDL_Rect){icon_rect.x - icon_rect.w - 8, icon_rect.y, icon_rect.w, icon_rect.h};
-
-    if (out->x < MARGIN) {
-
-        out->x = icon_rect.x + icon_rect.w + 8;
-
-    }
+    *out = (SDL_Rect){transmit_rect.x - transmit_rect.w - 8, transmit_rect.y, transmit_rect.w, transmit_rect.h};
 
     Global_Analysis_Multithread_Rect = *out;
     Global_Analysis_Multithread_Rect_Valid = 1;
@@ -4118,12 +4344,6 @@ static void ANALYSIS_get_signal_trash_rect(int win_w, int win_h, SDL_Rect *out) 
     ANALYSIS_get_multithread_rect(win_w, win_h, &thread_rect);
 
     *out = (SDL_Rect){thread_rect.x - thread_rect.w - 8, thread_rect.y, thread_rect.w, thread_rect.h};
-
-    if (out->x < MARGIN) {
-
-        out->x = thread_rect.x + thread_rect.w + 8;
-
-    }
 
     Global_Analysis_Signal_Trash_Rect = *out;
     Global_Analysis_Signal_Trash_Rect_Valid = 1;
@@ -4651,6 +4871,1457 @@ static void ANALYSIS_draw_multithread_icon(SDL_Renderer *renderer, TTF_Font *fon
     draw_filled_rect(renderer, rect, bg);
     draw_outline_rect(renderer, rect, border);
     ANALYSIS_draw_centered_button_text(renderer, font, rect, "T", state_color);
+}
+
+static void ANALYSIS_draw_transmit_shape(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color) {
+    /*
+        Purpose: Draws a miniature transmitting tower with propagating waves
+        Returns: No value
+    */
+
+    if (!renderer) {
+
+        return;
+
+    }
+
+    int cx = rect.x + rect.w / 2;
+    int top = rect.y + 9;
+    int bottom = rect.y + rect.h - 7;
+
+    ANALYSIS_draw_thick_line(renderer, cx, top + 4, cx - 6, bottom, 2, color);
+    ANALYSIS_draw_thick_line(renderer, cx, top + 4, cx + 6, bottom, 2, color);
+    ANALYSIS_draw_thick_line(renderer, cx - 7, bottom, cx + 7, bottom, 2, color);
+    ANALYSIS_draw_thick_line(renderer, cx - 4, bottom - 6, cx + 4, bottom - 6, 1, color);
+    ANALYSIS_draw_circle_outline(renderer, cx, top + 2, 2, 2, color);
+
+    for (int radius = 6; radius <= 11; radius += 5) {
+        for (int dy = -radius; dy <= radius; dy++) {
+            double inside = (double)(radius * radius - dy * dy);
+
+            if (inside < 0.0) {
+
+                continue;
+
+            }
+
+            int dx = (int)lrint(sqrt(inside));
+
+            if (dx >= 4) {
+
+                SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+                SDL_RenderDrawPoint(renderer, cx - dx, top + 2 + dy);
+                SDL_RenderDrawPoint(renderer, cx + dx, top + 2 + dy);
+
+            }
+        }
+    }
+}
+
+static void ANALYSIS_draw_transmit_icon(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the file-transmission icon
+        Returns: No value
+    */
+
+    if (!renderer || !font || !ANALYSIS_signal_menu_available()) {
+
+        return;
+
+    }
+
+    SDL_Rect rect;
+    ANALYSIS_get_transmit_rect(win_w, win_h, &rect);
+
+    int mouse_x = 0;
+    int mouse_y = 0;
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+
+    int hover = point_in_rect(mouse_x, mouse_y, rect);
+    int active = Global_Analysis_Transmit_Auth_Prompt_Open || Global_Analysis_Transmit_Config_Prompt_Open ||
+                 Global_Analysis_Transmit_Progress_Prompt_Open || Global_Analysis_Transmit_Result_Prompt_Open;
+    SDL_Color bg = hover || active ? (SDL_Color){0, 40, 16, 235} : (SDL_Color){0, 0, 0, 220};
+    SDL_Color border = hover || active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 130, 50, 230};
+    SDL_Color icon = hover || active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 185, 70, 255};
+
+    if (hover || active) {
+
+        SDL_Rect glow = {rect.x - 3, rect.y - 3, rect.w + 6, rect.h + 6};
+        draw_filled_rect(renderer, glow, (SDL_Color){0, 255, 90, 35});
+        draw_outline_rect(renderer, glow, (SDL_Color){0, 255, 90, 150});
+
+    }
+
+    draw_filled_rect(renderer, rect, bg);
+    draw_outline_rect(renderer, rect, border);
+    ANALYSIS_draw_transmit_shape(renderer, rect, icon);
+}
+
+static void ANALYSIS_get_transmit_auth_rects(int win_w, int win_h, SDL_Rect *panel_rect, SDL_Rect *password_rect,
+                                             SDL_Rect *authorize_rect, SDL_Rect *cancel_rect) {
+    /*
+        Purpose: Gets the password-authorization prompt rectangles
+        Returns: No value
+    */
+
+    int panel_w = 590;
+    int panel_h = 330;
+
+    if (panel_w > win_w - 60) {
+
+        panel_w = win_w - 60;
+
+    }
+
+    if (panel_h > win_h - 60) {
+
+        panel_h = win_h - 60;
+
+    }
+
+    SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
+
+    if (panel_rect) {
+
+        *panel_rect = panel;
+
+    }
+
+    if (password_rect) {
+
+        *password_rect = (SDL_Rect){panel.x + 28, panel.y + 174, panel.w - 56, 42};
+
+    }
+
+    if (authorize_rect) {
+
+        *authorize_rect = (SDL_Rect){panel.x + panel.w - 274, panel.y + panel.h - 58, 126, 36};
+
+    }
+
+    if (cancel_rect) {
+
+        *cancel_rect = (SDL_Rect){panel.x + panel.w - 132, panel.y + panel.h - 58, 104, 36};
+
+    }
+}
+
+static void ANALYSIS_get_transmit_config_rects(int win_w, int win_h, SDL_Rect *panel_rect,
+                                               SDL_Rect field_rects[ANALYSIS_TRANSMIT_FIELD_COUNT],
+                                               SDL_Rect *transmit_rect, SDL_Rect *cancel_rect) {
+    /*
+        Purpose: Gets the explicit transmission-settings prompt rectangles
+        Returns: No value
+    */
+
+    int panel_w = 700;
+    int panel_h = 560;
+
+    if (panel_w > win_w - 40) {
+
+        panel_w = win_w - 40;
+
+    }
+
+    if (panel_h > win_h - 30) {
+
+        panel_h = win_h - 30;
+
+    }
+
+    SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
+
+    if (panel_rect) {
+
+        *panel_rect = panel;
+
+    }
+
+    if (field_rects) {
+
+        int first_y = panel.y + 150;
+        int spacing = 68;
+
+        for (int i = 0; i < ANALYSIS_TRANSMIT_FIELD_COUNT; i++) {
+            field_rects[i] = (SDL_Rect){panel.x + 28, first_y + (i * spacing), panel.w - 56, 38};
+        }
+
+    }
+
+    if (transmit_rect) {
+
+        *transmit_rect = (SDL_Rect){panel.x + panel.w - 274, panel.y + panel.h - 50, 126, 34};
+
+    }
+
+    if (cancel_rect) {
+
+        *cancel_rect = (SDL_Rect){panel.x + panel.w - 132, panel.y + panel.h - 50, 104, 34};
+
+    }
+}
+
+static void ANALYSIS_get_transmit_progress_rects(int win_w, int win_h, SDL_Rect *panel_rect, SDL_Rect *abort_rect) {
+    /*
+        Purpose: Gets the active-transmission prompt rectangles
+        Returns: No value
+    */
+
+    int panel_w = 600;
+    int panel_h = 380;
+
+    if (panel_w > win_w - 50) {
+
+        panel_w = win_w - 50;
+
+    }
+
+    if (panel_h > win_h - 50) {
+
+        panel_h = win_h - 50;
+
+    }
+
+    SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
+
+    if (panel_rect) {
+
+        *panel_rect = panel;
+
+    }
+
+    if (abort_rect) {
+
+        *abort_rect = (SDL_Rect){panel.x + panel.w - 132, panel.y + panel.h - 52, 104, 34};
+
+    }
+}
+
+static void ANALYSIS_get_transmit_result_rects(int win_w, int win_h, SDL_Rect *panel_rect, SDL_Rect *close_rect) {
+    /*
+        Purpose: Gets the completed-transmission prompt rectangles
+        Returns: No value
+    */
+
+    int panel_w = 560;
+    int panel_h = 240;
+
+    if (panel_w > win_w - 50) {
+
+        panel_w = win_w - 50;
+
+    }
+
+    if (panel_h > win_h - 50) {
+
+        panel_h = win_h - 50;
+
+    }
+
+    SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
+
+    if (panel_rect) {
+
+        *panel_rect = panel;
+
+    }
+
+    if (close_rect) {
+
+        *close_rect = (SDL_Rect){panel.x + panel.w - 132, panel.y + panel.h - 52, 104, 34};
+
+    }
+}
+
+static void ANALYSIS_draw_transmit_text_field(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *text,
+                                              int active, int password, int cursor) {
+    /*
+        Purpose: Draws a transmission text field with a blinking blue insertion cursor
+        Returns: No value
+    */
+
+    char display[ANALYSIS_TRANSMIT_PASSWORD_MAX + 1];
+    int text_length;
+
+    if (!renderer || !font) {
+
+        return;
+
+    }
+
+    text_length = text ? (int)strlen(text) : 0;
+
+    if (cursor < 0) {
+
+        cursor = 0;
+
+    }
+
+    if (cursor > text_length) {
+
+        cursor = text_length;
+
+    }
+
+    if (password) {
+
+        size_t length = text ? strlen(text) : 0;
+
+        if (length > sizeof(display) - 1) {
+
+            length = sizeof(display) - 1;
+
+        }
+
+        memset(display, '*', length);
+        display[length] = '\0';
+
+    }
+
+    else {
+
+        snprintf(display, sizeof(display), "%s", text ? text : "");
+
+    }
+
+    draw_filled_rect(renderer, rect, (SDL_Color){0, 20, 8, 255});
+    draw_outline_rect(renderer, rect, active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 130, 50, 230});
+    draw_text(renderer, font, display[0] ? display : " ", rect.x + 12, rect.y + 10, (SDL_Color){220, 255, 230, 255});
+
+    if (active && ((SDL_GetTicks64() / 500ULL) % 2ULL) == 0ULL) {
+
+        char prefix[ANALYSIS_TRANSMIT_PASSWORD_MAX + 1];
+        int prefix_width = 0;
+        int prefix_height = 0;
+        int cursor_x;
+
+        if (cursor >= (int)sizeof(prefix)) {
+
+            cursor = (int)sizeof(prefix) - 1;
+
+        }
+
+        memcpy(prefix, display, (size_t)cursor);
+        prefix[cursor] = '\0';
+        (void)TTF_SizeUTF8(font, prefix, &prefix_width, &prefix_height);
+        cursor_x = rect.x + 12 + prefix_width + 1;
+
+        if (cursor_x > rect.x + rect.w - 8) {
+
+            cursor_x = rect.x + rect.w - 8;
+
+        }
+
+        SDL_SetRenderDrawColor(renderer, 0, 170, 255, 255);
+        SDL_RenderDrawLine(renderer, cursor_x, rect.y + 7, cursor_x, rect.y + rect.h - 7);
+        SDL_RenderDrawLine(renderer, cursor_x + 1, rect.y + 7, cursor_x + 1, rect.y + rect.h - 7);
+
+    }
+}
+
+static void ANALYSIS_transmit_clamp_cursor(const char *text, int *cursor) {
+    /*
+        Purpose: Keeps a transmission text cursor inside its field
+        Returns: No value
+    */
+
+    int length = text ? (int)strlen(text) : 0;
+
+    if (!cursor) {
+
+        return;
+
+    }
+
+    if (*cursor < 0) {
+
+        *cursor = 0;
+
+    }
+
+    if (*cursor > length) {
+
+        *cursor = length;
+
+    }
+}
+
+static void ANALYSIS_transmit_insert_text(char *destination, size_t capacity, int *cursor, const char *source,
+                                          int digits_only) {
+    /*
+        Purpose: Inserts text at a transmission field cursor
+        Returns: No value
+    */
+
+    if (!destination || capacity == 0 || !cursor || !source) {
+
+        return;
+
+    }
+
+    ANALYSIS_transmit_clamp_cursor(destination, cursor);
+
+    for (const char *p = source; *p; p++) {
+        size_t length = strlen(destination);
+
+        if (length + 1 >= capacity) {
+
+            break;
+
+        }
+
+        if (digits_only && !isdigit((unsigned char)*p)) {
+
+            continue;
+
+        }
+
+        memmove(destination + *cursor + 1, destination + *cursor, length - (size_t)*cursor + 1);
+        destination[*cursor] = *p;
+        (*cursor)++;
+    }
+}
+
+static void ANALYSIS_transmit_backspace(char *text, int *cursor) {
+    /*
+        Purpose: Removes the character before a transmission field cursor
+        Returns: No value
+    */
+
+    size_t length;
+
+    if (!text || !cursor) {
+
+        return;
+
+    }
+
+    ANALYSIS_transmit_clamp_cursor(text, cursor);
+    length = strlen(text);
+
+    if (*cursor > 0) {
+
+        memmove(text + *cursor - 1, text + *cursor, length - (size_t)*cursor + 1);
+        (*cursor)--;
+
+    }
+}
+
+static void ANALYSIS_transmit_delete(char *text, int *cursor) {
+    /*
+        Purpose: Removes the character at a transmission field cursor
+        Returns: No value
+    */
+
+    size_t length;
+
+    if (!text || !cursor) {
+
+        return;
+
+    }
+
+    ANALYSIS_transmit_clamp_cursor(text, cursor);
+    length = strlen(text);
+
+    if ((size_t)*cursor < length) {
+
+        memmove(text + *cursor, text + *cursor + 1, length - (size_t)*cursor);
+
+    }
+}
+
+static void ANALYSIS_close_transmit_prompts(void) {
+    /*
+        Purpose: Closes transmission entry prompts and clears sensitive input
+        Returns: No value
+    */
+
+    Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+    Global_Analysis_Transmit_Config_Prompt_Open = 0;
+    Global_Analysis_Transmit_Config_Active_Field = 0;
+    Global_Analysis_Transmit_Password_Cursor = 0;
+    Global_Analysis_Transmit_Auth_Status[0] = '\0';
+    Global_Analysis_Transmit_Config_Status[0] = '\0';
+    ANALYSIS_secure_clear(Global_Analysis_Transmit_Password, sizeof(Global_Analysis_Transmit_Password));
+}
+
+static void ANALYSIS_prefill_transmit_fields(void) {
+    /*
+        Purpose: Prefills explicit TX settings without reading any recording filename metadata
+        Returns: No value
+    */
+
+    uint32_t sample_rate = Global_Analysis_Fallback_Rec_Out_Rate_Hz > 0 ? Global_Analysis_Fallback_Rec_Out_Rate_Hz
+                                                                        : Global_Analysis_Fallback_Sample_Rate_Hz;
+
+    memset(Global_Analysis_Transmit_Field_Text, 0, sizeof(Global_Analysis_Transmit_Field_Text));
+
+    if (Global_Analysis_Fallback_Center_Hz > 0) {
+
+        snprintf(Global_Analysis_Transmit_Field_Text[ANALYSIS_TRANSMIT_FIELD_FREQUENCY], ANALYSIS_TRANSMIT_TEXT_MAX,
+                 "%llu", (unsigned long long)Global_Analysis_Fallback_Center_Hz);
+
+    }
+
+    if (sample_rate > 0) {
+
+        snprintf(Global_Analysis_Transmit_Field_Text[ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE], ANALYSIS_TRANSMIT_TEXT_MAX,
+                 "%u", sample_rate);
+        snprintf(Global_Analysis_Transmit_Field_Text[ANALYSIS_TRANSMIT_FIELD_BANDWIDTH], ANALYSIS_TRANSMIT_TEXT_MAX,
+                 "%u", sample_rate);
+
+    }
+
+    snprintf(Global_Analysis_Transmit_Field_Text[ANALYSIS_TRANSMIT_FIELD_GAIN], ANALYSIS_TRANSMIT_TEXT_MAX, "20");
+    snprintf(Global_Analysis_Transmit_Field_Text[ANALYSIS_TRANSMIT_FIELD_REPEAT], ANALYSIS_TRANSMIT_TEXT_MAX, "0");
+
+    for (int i = 0; i < ANALYSIS_TRANSMIT_FIELD_COUNT; i++) {
+        Global_Analysis_Transmit_Field_Cursor[i] = (int)strlen(Global_Analysis_Transmit_Field_Text[i]);
+    }
+
+    Global_Analysis_Transmit_Config_Active_Field = ANALYSIS_TRANSMIT_FIELD_FREQUENCY;
+    Global_Analysis_Transmit_Config_Status[0] = '\0';
+}
+
+static void ANALYSIS_open_transmit_config_prompt(void) {
+    /*
+        Purpose: Opens explicit transmission settings before password confirmation
+        Returns: No value
+    */
+
+    const char *username = AUTH_get_current_username();
+    double progress = 0.0;
+    int active = 0;
+    int result_ready = 0;
+    int succeeded = 0;
+    char result[256] = "";
+
+    (void)RETROSPECTRUM_get_transmission_status(&progress, &active, &result_ready, &succeeded, result, sizeof(result));
+
+    if (active) {
+
+        Global_Analysis_Transmit_Progress_Prompt_Open = 1;
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "A transmission is already active");
+        return;
+
+    }
+
+    if (result_ready) {
+
+        Global_Analysis_Transmit_Result_Prompt_Open = 1;
+        Global_Analysis_Transmit_Result_Succeeded = succeeded;
+        snprintf(Global_Analysis_Transmit_Result_Message, sizeof(Global_Analysis_Transmit_Result_Message), "%s",
+                 result[0] ? result : (succeeded ? "Transmission succeeded." : "Transmission failed."));
+        return;
+
+    }
+
+    ANALYSIS_close_transmit_prompts();
+
+    if (!username || username[0] == '\0') {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                 "Unable to authorize transmission: no authenticated username is available");
+        return;
+
+    }
+
+    if (Global_Analysis_Path[0] == '\0' || Global_Analysis_IQ_Count == 0) {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Open an IQ recording before transmitting");
+        return;
+
+    }
+
+    ANALYSIS_prefill_transmit_fields();
+    Global_Analysis_Transmit_Config_Prompt_Open = 1;
+    Global_Analysis_Signal_Menu_Open = 0;
+    Global_Analysis_Multithread_Prompt_Open = 0;
+    Global_Analysis_Delete_Confirm_Open = 0;
+    Global_Analysis_Dragging = 0;
+    Global_Analysis_Filter_Selecting = 0;
+    Global_Analysis_Column_Selecting = 0;
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Configure transmission settings");
+}
+
+static void ANALYSIS_open_transmit_auth_prompt(void) {
+    /*
+        Purpose: Opens password confirmation after transmission settings are validated
+        Returns: No value
+    */
+
+    const char *username = AUTH_get_current_username();
+
+    if (!username || username[0] == '\0') {
+
+        snprintf(Global_Analysis_Transmit_Config_Status, sizeof(Global_Analysis_Transmit_Config_Status),
+                 "No authenticated username is available.");
+        Global_Analysis_Transmit_Config_Prompt_Open = 1;
+        return;
+
+    }
+
+    ANALYSIS_secure_clear(Global_Analysis_Transmit_Password, sizeof(Global_Analysis_Transmit_Password));
+    Global_Analysis_Transmit_Password_Cursor = 0;
+    Global_Analysis_Transmit_Auth_Status[0] = '\0';
+    Global_Analysis_Transmit_Config_Prompt_Open = 0;
+    Global_Analysis_Transmit_Auth_Prompt_Open = 1;
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+             "Password confirmation required to start transmission");
+}
+
+static void ANALYSIS_authorize_transmission(void) {
+    /*
+        Purpose: Verifies the current user's password and starts the configured transmission
+        Returns: No value
+    */
+
+    char error[256] = "";
+
+    if (Global_Analysis_Transmit_Password[0] == '\0') {
+
+        snprintf(Global_Analysis_Transmit_Auth_Status, sizeof(Global_Analysis_Transmit_Auth_Status),
+                 "Enter your password.");
+        return;
+
+    }
+
+    if (!AUTH_verify_current_password(Global_Analysis_Transmit_Password, error, sizeof(error))) {
+
+        ANALYSIS_secure_clear(Global_Analysis_Transmit_Password, sizeof(Global_Analysis_Transmit_Password));
+        Global_Analysis_Transmit_Password_Cursor = 0;
+        snprintf(Global_Analysis_Transmit_Auth_Status, sizeof(Global_Analysis_Transmit_Auth_Status), "%s",
+                 error[0] ? error : "Invalid password.");
+        return;
+
+    }
+
+    ANALYSIS_secure_clear(Global_Analysis_Transmit_Password, sizeof(Global_Analysis_Transmit_Password));
+    Global_Analysis_Transmit_Password_Cursor = 0;
+    Global_Analysis_Transmit_Auth_Status[0] = '\0';
+    Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+    ANALYSIS_submit_transmission_settings(1);
+}
+
+static int ANALYSIS_parse_transmit_integer(int field, const char *label, uint64_t minimum, uint64_t maximum,
+                                           uint64_t *value) {
+    /*
+        Purpose: Parses and validates an unsigned integer transmission field
+        Returns: Validation status
+    */
+
+    char *end = NULL;
+    unsigned long long parsed;
+    const char *text;
+
+    if (field < 0 || field >= ANALYSIS_TRANSMIT_FIELD_COUNT || !value) {
+
+        return 0;
+
+    }
+
+    text = Global_Analysis_Transmit_Field_Text[field];
+    errno = 0;
+    parsed = strtoull(text, &end, 10);
+
+    if (errno != 0 || !end || end == text || *end != '\0' || parsed < minimum || parsed > maximum) {
+
+        snprintf(Global_Analysis_Transmit_Config_Status, sizeof(Global_Analysis_Transmit_Config_Status),
+                 "%s must be from %llu to %llu.", label, (unsigned long long)minimum, (unsigned long long)maximum);
+        Global_Analysis_Transmit_Config_Active_Field = field;
+        return 0;
+
+    }
+
+    *value = (uint64_t)parsed;
+    return 1;
+}
+
+static void ANALYSIS_submit_transmission_settings(int password_verified) {
+    /*
+        Purpose: Validates explicit RF settings, then requests password confirmation or starts HackRF TX
+        Returns: No value
+    */
+
+    uint64_t frequency_hz = 0;
+    uint64_t sample_rate_sps = 0;
+    uint64_t bandwidth_hz = 0;
+    uint64_t gain_db = 0;
+    uint64_t repeat_count = 0;
+    char error[256] = "";
+
+    if (Global_Analysis_Path[0] == '\0' || Global_Analysis_IQ_Count == 0) {
+
+        snprintf(Global_Analysis_Transmit_Config_Status, sizeof(Global_Analysis_Transmit_Config_Status),
+                 "The selected IQ recording is no longer available.");
+        Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+        Global_Analysis_Transmit_Config_Prompt_Open = 1;
+        return;
+
+    }
+
+    if (!ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_FREQUENCY, "Frequency", 1000000ULL, 6000000000ULL,
+                                         &frequency_hz) ||
+        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE, "Sample rate", 2000000ULL, 20000000ULL,
+                                         &sample_rate_sps) ||
+        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_BANDWIDTH, "Bandwidth", 1000000ULL, 20000000ULL,
+                                         &bandwidth_hz) ||
+        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_GAIN, "TX gain", 0ULL, 47ULL, &gain_db) ||
+        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_REPEAT, "Repeat count", 0ULL, 100ULL, &repeat_count)) {
+
+        if (password_verified) {
+
+            Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+            Global_Analysis_Transmit_Config_Prompt_Open = 1;
+
+        }
+        return;
+
+    }
+
+    if (bandwidth_hz > sample_rate_sps) {
+
+        snprintf(Global_Analysis_Transmit_Config_Status, sizeof(Global_Analysis_Transmit_Config_Status),
+                 "Bandwidth cannot exceed the sample rate.");
+        Global_Analysis_Transmit_Config_Active_Field = ANALYSIS_TRANSMIT_FIELD_BANDWIDTH;
+
+        if (password_verified) {
+
+            Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+            Global_Analysis_Transmit_Config_Prompt_Open = 1;
+
+        }
+        return;
+
+    }
+
+    if (!password_verified) {
+
+        ANALYSIS_open_transmit_auth_prompt();
+        return;
+
+    }
+
+    if (!RETROSPECTRUM_start_file_transmission(Global_Analysis_Path, frequency_hz, (uint32_t)sample_rate_sps,
+                                               (uint32_t)bandwidth_hz, (int)gain_db, (unsigned int)repeat_count, error,
+                                               sizeof(error))) {
+
+        snprintf(Global_Analysis_Transmit_Config_Status, sizeof(Global_Analysis_Transmit_Config_Status), "%s",
+                 error[0] ? error : "Unable to start HackRF transmission.");
+        Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+        Global_Analysis_Transmit_Config_Prompt_Open = 1;
+        return;
+
+    }
+
+    Global_Analysis_Transmit_Auth_Prompt_Open = 0;
+    Global_Analysis_Transmit_Config_Prompt_Open = 0;
+    Global_Analysis_Transmit_Progress_Prompt_Open = 1;
+    Global_Analysis_Transmit_Progress = 0.0;
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Transmitting selected IQ recording");
+}
+
+static void ANALYSIS_update_transmission_state(void) {
+    /*
+        Purpose: Synchronizes the Analysis UI with the asynchronous HackRF TX state
+        Returns: No value
+    */
+
+    double progress = 0.0;
+    int active = 0;
+    int result_ready = 0;
+    int succeeded = 0;
+    char message[256] = "";
+
+    (void)RETROSPECTRUM_get_transmission_status(&progress, &active, &result_ready, &succeeded, message,
+                                                sizeof(message));
+    Global_Analysis_Transmit_Progress = progress;
+
+    if (active) {
+
+        Global_Analysis_Transmit_Progress_Prompt_Open = 1;
+
+    }
+
+    if (result_ready) {
+
+        Global_Analysis_Transmit_Progress_Prompt_Open = 0;
+        Global_Analysis_Transmit_Result_Prompt_Open = 1;
+        Global_Analysis_Transmit_Result_Succeeded = succeeded;
+        snprintf(Global_Analysis_Transmit_Result_Message, sizeof(Global_Analysis_Transmit_Result_Message), "%s",
+                 message[0] ? message : (succeeded ? "Transmission succeeded." : "Transmission failed."));
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s", Global_Analysis_Transmit_Result_Message);
+
+    }
+}
+
+static void ANALYSIS_draw_transmit_auth_prompt(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the transmission password prompt
+        Returns: No value
+    */
+
+    if (!renderer || !font || !Global_Analysis_Transmit_Auth_Prompt_Open) {
+
+        return;
+
+    }
+
+    SDL_Rect panel;
+    SDL_Rect password_rect;
+    SDL_Rect authorize_rect;
+    SDL_Rect cancel_rect;
+    const char *username = AUTH_get_current_username();
+    int mouse_x = 0;
+    int mouse_y = 0;
+
+    ANALYSIS_get_transmit_auth_rects(win_w, win_h, &panel, &password_rect, &authorize_rect, &cancel_rect);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, (SDL_Rect){0, 0, win_w, win_h}, (SDL_Color){0, 0, 0, 175});
+    draw_filled_rect(renderer, panel, (SDL_Color){0, 8, 3, 250});
+    draw_outline_rect(renderer, panel, (SDL_Color){0, 255, 90, 255});
+    draw_filled_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, (SDL_Color){0, 24, 8, 245});
+    draw_outline_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, (SDL_Color){0, 160, 60, 230});
+
+    draw_text(renderer, font, "Confirm Transmission", panel.x + 24, panel.y + 18, (SDL_Color){0, 255, 90, 255});
+    draw_text(renderer, font, "Enter your password to start transmitting with these settings.", panel.x + 24,
+              panel.y + 76, (SDL_Color){220, 220, 220, 255});
+    draw_text(renderer, font, "Username", panel.x + 28, panel.y + 112, (SDL_Color){0, 155, 65, 255});
+    draw_text(renderer, font, username && username[0] ? username : "Unavailable", panel.x + 126, panel.y + 112,
+              (SDL_Color){0, 255, 90, 255});
+    draw_text(renderer, font, "Password", panel.x + 28, panel.y + 148, (SDL_Color){0, 155, 65, 255});
+    ANALYSIS_draw_transmit_text_field(renderer, font, password_rect, Global_Analysis_Transmit_Password, 1, 1,
+                                      Global_Analysis_Transmit_Password_Cursor);
+
+    if (Global_Analysis_Transmit_Auth_Status[0]) {
+
+        draw_text(renderer, font, Global_Analysis_Transmit_Auth_Status, panel.x + 28, panel.y + 230,
+                  (SDL_Color){255, 75, 55, 255});
+
+    }
+
+    draw_filled_rect(renderer, authorize_rect,
+                     point_in_rect(mouse_x, mouse_y, authorize_rect) ? (SDL_Color){0, 50, 20, 255}
+                                                                     : (SDL_Color){8, 18, 10, 255});
+    draw_outline_rect(renderer, authorize_rect,
+                      point_in_rect(mouse_x, mouse_y, authorize_rect) ? (SDL_Color){0, 255, 90, 255}
+                                                                      : (SDL_Color){120, 120, 120, 255});
+    ANALYSIS_draw_centered_button_text(renderer, font, authorize_rect, "Transmit", (SDL_Color){0, 255, 90, 255});
+
+    draw_filled_rect(renderer, cancel_rect,
+                     point_in_rect(mouse_x, mouse_y, cancel_rect) ? (SDL_Color){34, 34, 34, 255}
+                                                                  : (SDL_Color){12, 12, 12, 255});
+    draw_outline_rect(renderer, cancel_rect,
+                      point_in_rect(mouse_x, mouse_y, cancel_rect) ? (SDL_Color){230, 230, 230, 255}
+                                                                   : (SDL_Color){130, 130, 130, 255});
+    ANALYSIS_draw_centered_button_text(renderer, font, cancel_rect, "Cancel", (SDL_Color){200, 200, 200, 255});
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
+static void ANALYSIS_draw_transmit_config_prompt(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws explicit frequency, sample-rate, bandwidth, gain, and repeat fields
+        Returns: No value
+    */
+
+    static const char *labels[ANALYSIS_TRANSMIT_FIELD_COUNT] = {
+        "Frequency (Hz)", "Sample Rate (Sps)", "Bandwidth (Hz)", "Transmission Power / TX Gain (0-47 dB)",
+        "Repeat after first transmission (0-100; 0 = transmit once)"};
+    SDL_Rect panel;
+    SDL_Rect fields[ANALYSIS_TRANSMIT_FIELD_COUNT];
+    SDL_Rect transmit_rect;
+    SDL_Rect cancel_rect;
+    int mouse_x = 0;
+    int mouse_y = 0;
+    const char *file = ANALYSIS_selected_file_name();
+    char file_label[420];
+
+    if (!renderer || !font || !Global_Analysis_Transmit_Config_Prompt_Open) {
+
+        return;
+
+    }
+
+    ANALYSIS_get_transmit_config_rects(win_w, win_h, &panel, fields, &transmit_rect, &cancel_rect);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+    snprintf(file_label, sizeof(file_label), "File: %.380s", file ? file : "No recording selected");
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, (SDL_Rect){0, 0, win_w, win_h}, (SDL_Color){0, 0, 0, 175});
+    draw_filled_rect(renderer, panel, (SDL_Color){0, 8, 3, 250});
+    draw_outline_rect(renderer, panel, (SDL_Color){0, 255, 90, 255});
+    draw_filled_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, (SDL_Color){0, 24, 8, 245});
+    draw_outline_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, (SDL_Color){0, 160, 60, 230});
+
+    draw_text(renderer, font, "Transmit IQ Recording", panel.x + 24, panel.y + 18, (SDL_Color){0, 255, 90, 255});
+    ANALYSIS_draw_wrapped_text_limited(renderer, font, file_label, panel.x + 28, panel.y + 66, panel.w - 56, 19, 3,
+                                       (SDL_Color){220, 220, 220, 255});
+
+    for (int i = 0; i < ANALYSIS_TRANSMIT_FIELD_COUNT; i++) {
+        char live_conversion[96];
+
+        draw_text(renderer, font, labels[i], fields[i].x, fields[i].y - 22, (SDL_Color){0, 155, 65, 255});
+
+        ANALYSIS_format_transmit_live_conversion(i, live_conversion, sizeof(live_conversion));
+
+        if (live_conversion[0] != '\0') {
+
+            int conversion_w = 0;
+            int conversion_h = 0;
+
+            (void)TTF_SizeUTF8(font, live_conversion, &conversion_w, &conversion_h);
+            draw_text(renderer, font, live_conversion, fields[i].x + fields[i].w - conversion_w, fields[i].y - 22,
+                      (SDL_Color){0, 170, 255, 255});
+
+        }
+
+        ANALYSIS_draw_transmit_text_field(renderer, font, fields[i], Global_Analysis_Transmit_Field_Text[i],
+                                          Global_Analysis_Transmit_Config_Active_Field == i, 0,
+                                          Global_Analysis_Transmit_Field_Cursor[i]);
+    }
+
+    if (Global_Analysis_Transmit_Config_Status[0]) {
+
+        SDL_Color status_color = (SDL_Color){255, 85, 65, 255};
+        draw_text(renderer, font, Global_Analysis_Transmit_Config_Status, panel.x + 28, panel.y + panel.h - 82,
+                  status_color);
+
+    }
+
+    draw_filled_rect(renderer, transmit_rect,
+                     point_in_rect(mouse_x, mouse_y, transmit_rect) ? (SDL_Color){0, 50, 20, 255}
+                                                                    : (SDL_Color){8, 18, 10, 255});
+    draw_outline_rect(renderer, transmit_rect,
+                      point_in_rect(mouse_x, mouse_y, transmit_rect) ? (SDL_Color){0, 255, 90, 255}
+                                                                     : (SDL_Color){120, 120, 120, 255});
+    ANALYSIS_draw_centered_button_text(renderer, font, transmit_rect, "Transmit", (SDL_Color){0, 255, 90, 255});
+
+    draw_filled_rect(renderer, cancel_rect,
+                     point_in_rect(mouse_x, mouse_y, cancel_rect) ? (SDL_Color){34, 34, 34, 255}
+                                                                  : (SDL_Color){12, 12, 12, 255});
+    draw_outline_rect(renderer, cancel_rect,
+                      point_in_rect(mouse_x, mouse_y, cancel_rect) ? (SDL_Color){230, 230, 230, 255}
+                                                                   : (SDL_Color){130, 130, 130, 255});
+    ANALYSIS_draw_centered_button_text(renderer, font, cancel_rect, "Cancel", (SDL_Color){200, 200, 200, 255});
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
+static void ANALYSIS_draw_animated_transmit_waves(SDL_Renderer *renderer, int center_x, int center_y) {
+    /*
+        Purpose: Draws expanding blue radio waves during active transmission
+        Returns: No value
+    */
+
+    double phase = fmod((double)SDL_GetTicks64() / 1200.0, 1.0);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    for (int ring = 0; ring < 3; ring++) {
+        double ring_phase = fmod(phase + ((double)ring / 3.0), 1.0);
+        double radius = 20.0 + (ring_phase * 82.0);
+        Uint8 alpha = (Uint8)(235.0 * (1.0 - ring_phase));
+
+        SDL_SetRenderDrawColor(renderer, 0, 170, 255, alpha);
+
+        for (int side = -1; side <= 1; side += 2) {
+            int previous_x = center_x + (int)(side * radius * cos(-0.72));
+            int previous_y = center_y + (int)(radius * sin(-0.72));
+
+            for (int segment = 1; segment <= 18; segment++) {
+                double angle = -0.72 + (1.44 * (double)segment / 18.0);
+                int x = center_x + (int)(side * radius * cos(angle));
+                int y = center_y + (int)(radius * sin(angle));
+
+                SDL_RenderDrawLine(renderer, previous_x, previous_y, x, y);
+                previous_x = x;
+                previous_y = y;
+            }
+        }
+    }
+}
+
+static void ANALYSIS_draw_transmit_progress_prompt(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the active HackRF transmission animation and progress
+        Returns: No value
+    */
+
+    SDL_Rect panel;
+    SDL_Rect abort_rect;
+    SDL_Rect tower_rect;
+    SDL_Rect progress_track;
+    SDL_Rect progress_fill;
+    int mouse_x = 0;
+    int mouse_y = 0;
+    char percent_text[64];
+
+    ANALYSIS_update_transmission_state();
+
+    if (!renderer || !font || !Global_Analysis_Transmit_Progress_Prompt_Open) {
+
+        return;
+
+    }
+
+    ANALYSIS_get_transmit_progress_rects(win_w, win_h, &panel, &abort_rect);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+    tower_rect = (SDL_Rect){panel.x + (panel.w / 2) - 30, panel.y + 88, 60, 86};
+    progress_track = (SDL_Rect){panel.x + 44, panel.y + 226, panel.w - 88, 20};
+    progress_fill = progress_track;
+    progress_fill.w = (int)((double)progress_track.w * Global_Analysis_Transmit_Progress);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, (SDL_Rect){0, 0, win_w, win_h}, (SDL_Color){0, 0, 0, 185});
+    draw_filled_rect(renderer, panel, (SDL_Color){0, 8, 3, 250});
+    draw_outline_rect(renderer, panel, (SDL_Color){0, 170, 255, 255});
+    draw_filled_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, (SDL_Color){0, 20, 30, 245});
+    draw_outline_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, (SDL_Color){0, 170, 255, 230});
+    draw_text(renderer, font, "Transmission in Progress", panel.x + 24, panel.y + 18, (SDL_Color){0, 190, 255, 255});
+
+    ANALYSIS_draw_transmit_shape(renderer, tower_rect, (SDL_Color){0, 210, 255, 255});
+    ANALYSIS_draw_animated_transmit_waves(renderer, panel.x + (panel.w / 2), panel.y + 127);
+
+    draw_filled_rect(renderer, progress_track, (SDL_Color){6, 24, 30, 255});
+    draw_outline_rect(renderer, progress_track, (SDL_Color){0, 120, 180, 255});
+
+    if (progress_fill.w > 0) {
+
+        draw_filled_rect(renderer, progress_fill, (SDL_Color){0, 150, 230, 255});
+
+    }
+
+    snprintf(percent_text, sizeof(percent_text), "%.1f%%", Global_Analysis_Transmit_Progress * 100.0);
+    draw_text(renderer, font, percent_text, panel.x + (panel.w / 2) - 24, panel.y + 258,
+              (SDL_Color){210, 245, 255, 255});
+    draw_text(renderer, font, "Streaming signed complex16 IQ samples to HackRF One...", panel.x + 44, panel.y + 292,
+              (SDL_Color){180, 220, 235, 255});
+
+    draw_filled_rect(renderer, abort_rect,
+                     point_in_rect(mouse_x, mouse_y, abort_rect) ? (SDL_Color){55, 20, 20, 255}
+                                                                 : (SDL_Color){20, 10, 10, 255});
+    draw_outline_rect(renderer, abort_rect,
+                      point_in_rect(mouse_x, mouse_y, abort_rect) ? (SDL_Color){255, 90, 75, 255}
+                                                                  : (SDL_Color){150, 70, 65, 255});
+    ANALYSIS_draw_centered_button_text(renderer, font, abort_rect, "Abort", (SDL_Color){255, 110, 90, 255});
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
+static void ANALYSIS_close_transmit_result(void) {
+    /*
+        Purpose: Closes and acknowledges the transmission result prompt
+        Returns: No value
+    */
+
+    Global_Analysis_Transmit_Result_Prompt_Open = 0;
+    Global_Analysis_Transmit_Result_Message[0] = '\0';
+    RETROSPECTRUM_acknowledge_transmission_result();
+}
+
+static void ANALYSIS_draw_transmit_result_prompt(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the final transmission success or failure prompt
+        Returns: No value
+    */
+
+    SDL_Rect panel;
+    SDL_Rect close_rect;
+    int mouse_x = 0;
+    int mouse_y = 0;
+    SDL_Color result_color;
+
+    ANALYSIS_update_transmission_state();
+
+    if (!renderer || !font || !Global_Analysis_Transmit_Result_Prompt_Open) {
+
+        return;
+
+    }
+
+    ANALYSIS_get_transmit_result_rects(win_w, win_h, &panel, &close_rect);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+    result_color =
+        Global_Analysis_Transmit_Result_Succeeded ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){255, 85, 65, 255};
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, (SDL_Rect){0, 0, win_w, win_h}, (SDL_Color){0, 0, 0, 185});
+    draw_filled_rect(renderer, panel, (SDL_Color){0, 8, 3, 250});
+    draw_outline_rect(renderer, panel, result_color);
+    draw_filled_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, (SDL_Color){0, 24, 8, 245});
+    draw_outline_rect(renderer, (SDL_Rect){panel.x, panel.y, panel.w, 54}, result_color);
+    draw_text(renderer, font,
+              Global_Analysis_Transmit_Result_Succeeded ? "Transmission Succeeded" : "Transmission Ended", panel.x + 24,
+              panel.y + 18, result_color);
+    draw_text(renderer, font,
+              Global_Analysis_Transmit_Result_Message[0]
+                  ? Global_Analysis_Transmit_Result_Message
+                  : (Global_Analysis_Transmit_Result_Succeeded ? "Transmission succeeded."
+                                                               : "Transmission did not complete."),
+              panel.x + 28, panel.y + 96, (SDL_Color){225, 235, 225, 255});
+
+    draw_filled_rect(renderer, close_rect,
+                     point_in_rect(mouse_x, mouse_y, close_rect) ? (SDL_Color){34, 34, 34, 255}
+                                                                 : (SDL_Color){12, 12, 12, 255});
+    draw_outline_rect(renderer, close_rect,
+                      point_in_rect(mouse_x, mouse_y, close_rect) ? (SDL_Color){230, 230, 230, 255}
+                                                                  : (SDL_Color){130, 130, 130, 255});
+    ANALYSIS_draw_centered_button_text(renderer, font, close_rect, "Close", (SDL_Color){210, 210, 210, 255});
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+}
+
+static void ANALYSIS_handle_transmit_auth_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles password authorization prompt input and cursor movement
+        Returns: No value
+    */
+
+    if (!event || !Global_Analysis_Transmit_Auth_Prompt_Open) {
+
+        return;
+
+    }
+
+    if (event->type == SDL_TEXTINPUT) {
+
+        ANALYSIS_transmit_insert_text(Global_Analysis_Transmit_Password, sizeof(Global_Analysis_Transmit_Password),
+                                      &Global_Analysis_Transmit_Password_Cursor, event->text.text, 0);
+        Global_Analysis_Transmit_Auth_Status[0] = '\0';
+        return;
+
+    }
+
+    if (event->type == SDL_KEYDOWN) {
+
+        SDL_Keycode key = event->key.keysym.sym;
+
+        if (key == SDLK_ESCAPE) {
+
+            ANALYSIS_close_transmit_prompts();
+            return;
+
+        }
+
+        if (key == SDLK_LEFT) {
+
+            Global_Analysis_Transmit_Password_Cursor--;
+            ANALYSIS_transmit_clamp_cursor(Global_Analysis_Transmit_Password,
+                                           &Global_Analysis_Transmit_Password_Cursor);
+            return;
+
+        }
+
+        if (key == SDLK_RIGHT) {
+
+            Global_Analysis_Transmit_Password_Cursor++;
+            ANALYSIS_transmit_clamp_cursor(Global_Analysis_Transmit_Password,
+                                           &Global_Analysis_Transmit_Password_Cursor);
+            return;
+
+        }
+
+        if (key == SDLK_HOME) {
+
+            Global_Analysis_Transmit_Password_Cursor = 0;
+            return;
+
+        }
+
+        if (key == SDLK_END) {
+
+            Global_Analysis_Transmit_Password_Cursor = (int)strlen(Global_Analysis_Transmit_Password);
+            return;
+
+        }
+
+        if (key == SDLK_BACKSPACE) {
+
+            ANALYSIS_transmit_backspace(Global_Analysis_Transmit_Password, &Global_Analysis_Transmit_Password_Cursor);
+            Global_Analysis_Transmit_Auth_Status[0] = '\0';
+            return;
+
+        }
+
+        if (key == SDLK_DELETE) {
+
+            ANALYSIS_transmit_delete(Global_Analysis_Transmit_Password, &Global_Analysis_Transmit_Password_Cursor);
+            Global_Analysis_Transmit_Auth_Status[0] = '\0';
+            return;
+
+        }
+
+        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
+            ANALYSIS_authorize_transmission();
+            return;
+
+        }
+
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
+        SDL_Rect panel;
+        SDL_Rect password_rect;
+        SDL_Rect authorize_rect;
+        SDL_Rect cancel_rect;
+
+        ANALYSIS_get_transmit_auth_rects(win_w, win_h, &panel, &password_rect, &authorize_rect, &cancel_rect);
+
+        if (point_in_rect(event->button.x, event->button.y, password_rect)) {
+
+            Global_Analysis_Transmit_Password_Cursor = (int)strlen(Global_Analysis_Transmit_Password);
+            return;
+
+        }
+
+        if (point_in_rect(event->button.x, event->button.y, authorize_rect)) {
+
+            ANALYSIS_authorize_transmission();
+            return;
+
+        }
+
+        if (point_in_rect(event->button.x, event->button.y, cancel_rect)) {
+
+            ANALYSIS_close_transmit_prompts();
+            return;
+
+        }
+
+        (void)panel;
+
+    }
+}
+
+static void ANALYSIS_handle_transmit_config_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles explicit transmission settings and field cursor movement
+        Returns: No value
+    */
+
+    char *destination;
+    int *cursor;
+
+    if (!event || !Global_Analysis_Transmit_Config_Prompt_Open) {
+
+        return;
+
+    }
+
+    destination = Global_Analysis_Transmit_Field_Text[Global_Analysis_Transmit_Config_Active_Field];
+    cursor = &Global_Analysis_Transmit_Field_Cursor[Global_Analysis_Transmit_Config_Active_Field];
+
+    if (event->type == SDL_TEXTINPUT) {
+
+        ANALYSIS_transmit_insert_text(destination, ANALYSIS_TRANSMIT_TEXT_MAX, cursor, event->text.text, 1);
+        Global_Analysis_Transmit_Config_Status[0] = '\0';
+        return;
+
+    }
+
+    if (event->type == SDL_KEYDOWN) {
+
+        SDL_Keycode key = event->key.keysym.sym;
+
+        if (key == SDLK_ESCAPE) {
+
+            ANALYSIS_close_transmit_prompts();
+            return;
+
+        }
+
+        if (key == SDLK_TAB) {
+
+            int direction = (event->key.keysym.mod & KMOD_SHIFT) ? -1 : 1;
+
+            Global_Analysis_Transmit_Config_Active_Field += direction;
+
+            if (Global_Analysis_Transmit_Config_Active_Field < 0) {
+
+                Global_Analysis_Transmit_Config_Active_Field = ANALYSIS_TRANSMIT_FIELD_COUNT - 1;
+
+            }
+
+            if (Global_Analysis_Transmit_Config_Active_Field >= ANALYSIS_TRANSMIT_FIELD_COUNT) {
+
+                Global_Analysis_Transmit_Config_Active_Field = 0;
+
+            }
+            return;
+
+        }
+
+        if (key == SDLK_LEFT) {
+
+            (*cursor)--;
+            ANALYSIS_transmit_clamp_cursor(destination, cursor);
+            return;
+
+        }
+
+        if (key == SDLK_RIGHT) {
+
+            (*cursor)++;
+            ANALYSIS_transmit_clamp_cursor(destination, cursor);
+            return;
+
+        }
+
+        if (key == SDLK_HOME) {
+
+            *cursor = 0;
+            return;
+
+        }
+
+        if (key == SDLK_END) {
+
+            *cursor = (int)strlen(destination);
+            return;
+
+        }
+
+        if (key == SDLK_BACKSPACE) {
+
+            ANALYSIS_transmit_backspace(destination, cursor);
+            Global_Analysis_Transmit_Config_Status[0] = '\0';
+            return;
+
+        }
+
+        if (key == SDLK_DELETE) {
+
+            ANALYSIS_transmit_delete(destination, cursor);
+            Global_Analysis_Transmit_Config_Status[0] = '\0';
+            return;
+
+        }
+
+        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
+            ANALYSIS_submit_transmission_settings(0);
+            return;
+
+        }
+
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
+        SDL_Rect panel;
+        SDL_Rect fields[ANALYSIS_TRANSMIT_FIELD_COUNT];
+        SDL_Rect transmit_rect;
+        SDL_Rect cancel_rect;
+
+        ANALYSIS_get_transmit_config_rects(win_w, win_h, &panel, fields, &transmit_rect, &cancel_rect);
+
+        for (int i = 0; i < ANALYSIS_TRANSMIT_FIELD_COUNT; i++) {
+
+            if (point_in_rect(event->button.x, event->button.y, fields[i])) {
+
+                Global_Analysis_Transmit_Config_Active_Field = i;
+                Global_Analysis_Transmit_Field_Cursor[i] = (int)strlen(Global_Analysis_Transmit_Field_Text[i]);
+                return;
+
+            }
+        }
+
+        if (point_in_rect(event->button.x, event->button.y, transmit_rect)) {
+
+            ANALYSIS_submit_transmission_settings(0);
+            return;
+
+        }
+
+        if (point_in_rect(event->button.x, event->button.y, cancel_rect)) {
+
+            ANALYSIS_close_transmit_prompts();
+            return;
+
+        }
+
+        (void)panel;
+
+    }
+}
+
+static void ANALYSIS_handle_transmit_progress_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles cancellation of an active transmission
+        Returns: No value
+    */
+
+    if (!event || !Global_Analysis_Transmit_Progress_Prompt_Open) {
+
+        return;
+
+    }
+
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+
+        RETROSPECTRUM_cancel_file_transmission();
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Canceling transmission...");
+        return;
+
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
+        SDL_Rect panel;
+        SDL_Rect abort_rect;
+
+        ANALYSIS_get_transmit_progress_rects(win_w, win_h, &panel, &abort_rect);
+
+        if (point_in_rect(event->button.x, event->button.y, abort_rect)) {
+
+            RETROSPECTRUM_cancel_file_transmission();
+            snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Canceling transmission...");
+
+        }
+
+        (void)panel;
+
+    }
+}
+
+static void ANALYSIS_handle_transmit_result_event(SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles dismissal of the transmission result prompt
+        Returns: No value
+    */
+
+    if (!event || !Global_Analysis_Transmit_Result_Prompt_Open) {
+
+        return;
+
+    }
+
+    if (event->type == SDL_KEYDOWN && (event->key.keysym.sym == SDLK_ESCAPE || event->key.keysym.sym == SDLK_RETURN ||
+                                       event->key.keysym.sym == SDLK_KP_ENTER)) {
+
+        ANALYSIS_close_transmit_result();
+        return;
+
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
+        SDL_Rect panel;
+        SDL_Rect close_rect;
+
+        ANALYSIS_get_transmit_result_rects(win_w, win_h, &panel, &close_rect);
+
+        if (point_in_rect(event->button.x, event->button.y, close_rect)) {
+
+            ANALYSIS_close_transmit_result();
+
+        }
+
+        (void)panel;
+
+    }
 }
 
 static void ANALYSIS_get_multithread_prompt_rects(int win_w, int win_h, SDL_Rect *panel_rect, SDL_Rect *action_rect,
@@ -6476,9 +8147,39 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
     */
 
     if (!event || (!ANALYSIS_signal_menu_available() && !Global_Analysis_Delete_Confirm_Open &&
-                   !Global_Analysis_Multithread_Prompt_Open)) {
+                   !Global_Analysis_Multithread_Prompt_Open && !Global_Analysis_Transmit_Auth_Prompt_Open &&
+                   !Global_Analysis_Transmit_Config_Prompt_Open && !Global_Analysis_Transmit_Progress_Prompt_Open &&
+                   !Global_Analysis_Transmit_Result_Prompt_Open)) {
 
         return 0;
+
+    }
+
+    if (Global_Analysis_Transmit_Result_Prompt_Open) {
+
+        ANALYSIS_handle_transmit_result_event(event, win_w, win_h);
+        return 1;
+
+    }
+
+    if (Global_Analysis_Transmit_Progress_Prompt_Open) {
+
+        ANALYSIS_handle_transmit_progress_event(event, win_w, win_h);
+        return 1;
+
+    }
+
+    if (Global_Analysis_Transmit_Auth_Prompt_Open) {
+
+        ANALYSIS_handle_transmit_auth_event(event, win_w, win_h);
+        return 1;
+
+    }
+
+    if (Global_Analysis_Transmit_Config_Prompt_Open) {
+
+        ANALYSIS_handle_transmit_config_event(event, win_w, win_h);
+        return 1;
 
     }
 
@@ -6502,10 +8203,12 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
 
             SDL_Rect icon_rect;
             SDL_Rect thread_rect;
+            SDL_Rect transmit_rect;
             SDL_Rect trash_rect;
 
             ANALYSIS_get_signal_icon_rect(win_w, win_h, &icon_rect);
             ANALYSIS_get_multithread_rect(win_w, win_h, &thread_rect);
+            ANALYSIS_get_transmit_rect(win_w, win_h, &transmit_rect);
             ANALYSIS_get_signal_trash_rect(win_w, win_h, &trash_rect);
 
             if (point_in_rect(event->button.x, event->button.y, trash_rect)) {
@@ -6521,6 +8224,23 @@ static int ANALYSIS_handle_signal_menu_event(SDL_Event *event, int win_w, int wi
                 Global_Analysis_Signal_Menu_Open = 0;
                 Global_Analysis_Signal_Active_Field = ANALYSIS_SIGNAL_FIELD_NONE;
                 ANALYSIS_signal_clear_file_selection();
+                return 1;
+
+            }
+
+            if (point_in_rect(event->button.x, event->button.y, transmit_rect)) {
+
+                if (Global_Analysis_Loaded_Index != Global_Analysis_Selected || Global_Analysis_Path[0] == '\0') {
+
+                    ANALYSIS_open_selected_recording();
+
+                }
+
+                if (Global_Analysis_Path[0] != '\0') {
+
+                    ANALYSIS_open_transmit_config_prompt();
+
+                }
                 return 1;
 
             }
@@ -7193,6 +8913,7 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
 
     ANALYSIS_draw_signal_trash_icon(renderer, font, win_w, win_h);
     ANALYSIS_draw_multithread_icon(renderer, font, win_w, win_h);
+    ANALYSIS_draw_transmit_icon(renderer, font, win_w, win_h);
     ANALYSIS_draw_signal_settings_icon(renderer, font, win_w, win_h);
     ANALYSIS_draw_signal_menu(renderer, font, win_w, win_h);
     ANALYSIS_draw_delete_confirm_menu(renderer, font, win_w, win_h);
@@ -7201,6 +8922,10 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
     ANALYSIS_draw_noise_filter_overlay(renderer, font, win_w, win_h);
     ANALYSIS_draw_crop_button(renderer, font, win_w, win_h);
     ANALYSIS_draw_multithread_prompt(renderer, font, win_w, win_h);
+    ANALYSIS_draw_transmit_auth_prompt(renderer, font, win_w, win_h);
+    ANALYSIS_draw_transmit_config_prompt(renderer, font, win_w, win_h);
+    ANALYSIS_draw_transmit_progress_prompt(renderer, font, win_w, win_h);
+    ANALYSIS_draw_transmit_result_prompt(renderer, font, win_w, win_h);
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
@@ -8495,6 +10220,7 @@ void ANALYSIS_enter_mode(const char *record_dir, uint64_t fallback_center_hz, ui
 
     Global_Analysis_Mode = 1;
     Global_Analysis_Multithread_Prompt_Open = 0;
+    ANALYSIS_close_transmit_prompts();
 
     if (Global_Analysis_Workspaces_Initialized) {
 
@@ -8547,7 +10273,8 @@ int ANALYSIS_is_text_entry_active(void) {
     */
 
     return (Global_Analysis_Signal_Menu_Open && Global_Analysis_Signal_Active_Field != ANALYSIS_SIGNAL_FIELD_NONE) ||
-           (Global_Analysis_File_Search_Open && Global_Analysis_File_Search_Active);
+           (Global_Analysis_File_Search_Open && Global_Analysis_File_Search_Active) ||
+           Global_Analysis_Transmit_Auth_Prompt_Open || Global_Analysis_Transmit_Config_Prompt_Open;
 }
 
 int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixels, int tex_w, int tex_h,
