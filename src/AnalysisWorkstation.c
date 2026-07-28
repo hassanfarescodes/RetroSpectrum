@@ -32,6 +32,7 @@
 
 #include "AnalysisWorkstation.h"
 #include "GUIs.h"
+#include "SecureFunctions.h"
 
 /* Kept here so this source also builds when older headers omit the new API. */
 const char *AUTH_get_current_username(void);
@@ -744,11 +745,12 @@ static int ANALYSIS_open_selected_recording(void) {
 
     snprintf(path, sizeof(path), "%s/%s", Global_Analysis_Record_Dir, Global_Analysis_Files[Global_Analysis_Selected]);
 
-    FILE *fp = fopen(path, "rb");
+    FILE *fp = NULL;
+    size_t iq_count = 0;
 
-    if (!fp) {
+    if (!sec_fopen_complex16(path, &fp, &iq_count)) {
 
-        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to open %.180s",
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Invalid or unreadable IQ file: %.180s",
                  Global_Analysis_Files[Global_Analysis_Selected]);
         ANALYSIS_clear_loaded_file();
         Global_Analysis_Loading = 0;
@@ -756,40 +758,12 @@ static int ANALYSIS_open_selected_recording(void) {
 
     }
 
-    if (fseek(fp, 0, SEEK_END) != 0) {
-
-        fclose(fp);
-        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to seek recording");
-        ANALYSIS_clear_loaded_file();
-        Global_Analysis_Loading = 0;
-        return 0;
-
-    }
-
-    long bytes = ftell(fp);
     fclose(fp);
-
-    if (bytes <= 0) {
-
-        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Recording is empty");
-        ANALYSIS_clear_loaded_file();
-        Global_Analysis_Loading = 0;
-        return 0;
-
-    }
-
-    size_t count_i16 = (size_t)bytes / sizeof(int16_t);
-
-    if (count_i16 % 2) {
-
-        count_i16--;
-
-    }
 
     snprintf(Global_Analysis_Path, sizeof(Global_Analysis_Path), "%s", path);
 
     Global_Analysis_Loaded_Index = Global_Analysis_Selected;
-    Global_Analysis_IQ_Count = count_i16 / 2;
+    Global_Analysis_IQ_Count = iq_count;
     Global_Analysis_View_Start = 0;
     Global_Analysis_View_Len = Global_Analysis_IQ_Count;
 
@@ -4198,7 +4172,11 @@ static void ANALYSIS_signal_append_text(const char *src) {
 
     }
 
-    strncat(dst, src, ANALYSIS_SIGNAL_TEXT_MAX - used - 1);
+    if (!sec_strcat(dst, ANALYSIS_SIGNAL_TEXT_MAX, src)) {
+
+        return;
+
+    }
 
     ANALYSIS_signal_refresh_filename_if_auto();
 }
@@ -5247,7 +5225,7 @@ static void ANALYSIS_transmit_clamp_cursor(const char *text, int *cursor) {
 }
 
 static void ANALYSIS_transmit_insert_text(char *destination, size_t capacity, int *cursor, const char *source,
-                                          int digits_only) {
+                                          int numeric_mode) {
     /*
         Purpose: Inserts text at a transmission field cursor
         Returns: No value
@@ -5270,9 +5248,13 @@ static void ANALYSIS_transmit_insert_text(char *destination, size_t capacity, in
 
         }
 
-        if (digits_only && !isdigit((unsigned char)*p)) {
+        if (numeric_mode != 0 && !isdigit((unsigned char)*p)) {
 
-            continue;
+            if (!(numeric_mode == 2 && *p == '-' && *cursor == 0 && destination[0] != '-')) {
+
+                continue;
+
+            }
 
         }
 
@@ -5538,16 +5520,50 @@ static int ANALYSIS_parse_transmit_integer(int field, const char *label, uint64_
     return 1;
 }
 
+static int ANALYSIS_parse_transmit_signed_integer(int field, const char *label, int64_t minimum, int64_t maximum,
+                                                  int64_t *value) {
+    /*
+        Purpose: Parses and validates a signed integer transmission field
+        Returns: Validation status
+    */
+
+    char *end = NULL;
+    long long parsed;
+    const char *text;
+
+    if (field < 0 || field >= ANALYSIS_TRANSMIT_FIELD_COUNT || !value) {
+
+        return 0;
+
+    }
+
+    text = Global_Analysis_Transmit_Field_Text[field];
+    errno = 0;
+    parsed = strtoll(text, &end, 10);
+
+    if (errno != 0 || !end || end == text || *end != '\0' || parsed < minimum || parsed > maximum) {
+
+        snprintf(Global_Analysis_Transmit_Config_Status, sizeof(Global_Analysis_Transmit_Config_Status),
+                 "%s must be from %lld to %lld.", label, (long long)minimum, (long long)maximum);
+        Global_Analysis_Transmit_Config_Active_Field = field;
+        return 0;
+
+    }
+
+    *value = (int64_t)parsed;
+    return 1;
+}
+
 static void ANALYSIS_submit_transmission_settings(int password_verified) {
     /*
-        Purpose: Validates explicit RF settings, then requests password confirmation or starts HackRF TX
+        Purpose: Validates explicit RF settings, then requests password confirmation or starts SoapySDR TX
         Returns: No value
     */
 
     uint64_t frequency_hz = 0;
     uint64_t sample_rate_sps = 0;
     uint64_t bandwidth_hz = 0;
-    uint64_t gain_db = 0;
+    int64_t gain_db = 0;
     uint64_t repeat_count = 0;
     char error[256] = "";
 
@@ -5561,13 +5577,13 @@ static void ANALYSIS_submit_transmission_settings(int password_verified) {
 
     }
 
-    if (!ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_FREQUENCY, "Frequency", 1000000ULL, 6000000000ULL,
+    if (!ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_FREQUENCY, "Frequency", 1ULL, 1000000000000ULL,
                                          &frequency_hz) ||
-        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE, "Sample rate", 2000000ULL, 20000000ULL,
+        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_SAMPLE_RATE, "Sample rate", 1000ULL, UINT32_MAX,
                                          &sample_rate_sps) ||
-        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_BANDWIDTH, "Bandwidth", 1000000ULL, 20000000ULL,
+        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_BANDWIDTH, "Bandwidth", 0ULL, UINT32_MAX,
                                          &bandwidth_hz) ||
-        !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_GAIN, "TX gain", 0ULL, 47ULL, &gain_db) ||
+        !ANALYSIS_parse_transmit_signed_integer(ANALYSIS_TRANSMIT_FIELD_GAIN, "TX gain", -200, 200, &gain_db) ||
         !ANALYSIS_parse_transmit_integer(ANALYSIS_TRANSMIT_FIELD_REPEAT, "Repeat count", 0ULL, 100ULL, &repeat_count)) {
 
         if (password_verified) {
@@ -5608,7 +5624,7 @@ static void ANALYSIS_submit_transmission_settings(int password_verified) {
                                                sizeof(error))) {
 
         snprintf(Global_Analysis_Transmit_Config_Status, sizeof(Global_Analysis_Transmit_Config_Status), "%s",
-                 error[0] ? error : "Unable to start HackRF transmission.");
+                 error[0] ? error : "Unable to start SoapySDR transmission.");
         Global_Analysis_Transmit_Auth_Prompt_Open = 0;
         Global_Analysis_Transmit_Config_Prompt_Open = 1;
         return;
@@ -5624,7 +5640,7 @@ static void ANALYSIS_submit_transmission_settings(int password_verified) {
 
 static void ANALYSIS_update_transmission_state(void) {
     /*
-        Purpose: Synchronizes the Analysis UI with the asynchronous HackRF TX state
+        Purpose: Synchronizes the Analysis UI with the asynchronous SoapySDR TX state
         Returns: No value
     */
 
@@ -5728,7 +5744,7 @@ static void ANALYSIS_draw_transmit_config_prompt(SDL_Renderer *renderer, TTF_Fon
     */
 
     static const char *labels[ANALYSIS_TRANSMIT_FIELD_COUNT] = {
-        "Frequency (Hz)", "Sample Rate (Sps)", "Bandwidth (Hz)", "Transmission Power / TX Gain (0-47 dB)",
+        "Frequency (Hz)", "Sample Rate (Sps)", "Bandwidth (Hz)", "TX Gain (device-clamped dB)",
         "Repeat after first transmission (0-100; 0 = transmit once)"};
     SDL_Rect panel;
     SDL_Rect fields[ANALYSIS_TRANSMIT_FIELD_COUNT];
@@ -5845,7 +5861,7 @@ static void ANALYSIS_draw_animated_transmit_waves(SDL_Renderer *renderer, int ce
 
 static void ANALYSIS_draw_transmit_progress_prompt(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
     /*
-        Purpose: Draws the active HackRF transmission animation and progress
+        Purpose: Draws the active SoapySDR transmission animation and progress
         Returns: No value
     */
 
@@ -5896,8 +5912,8 @@ static void ANALYSIS_draw_transmit_progress_prompt(SDL_Renderer *renderer, TTF_F
     snprintf(percent_text, sizeof(percent_text), "%.1f%%", Global_Analysis_Transmit_Progress * 100.0);
     draw_text(renderer, font, percent_text, panel.x + (panel.w / 2) - 24, panel.y + 258,
               (SDL_Color){210, 245, 255, 255});
-    draw_text(renderer, font, "Streaming signed complex16 IQ samples to HackRF One...", panel.x + 44, panel.y + 292,
-              (SDL_Color){180, 220, 235, 255});
+    draw_text(renderer, font, "Streaming signed complex16 IQ samples to the connected SDR...", panel.x + 44,
+              panel.y + 292, (SDL_Color){180, 220, 235, 255});
 
     draw_filled_rect(renderer, abort_rect,
                      point_in_rect(mouse_x, mouse_y, abort_rect) ? (SDL_Color){55, 20, 20, 255}
@@ -6115,7 +6131,9 @@ static void ANALYSIS_handle_transmit_config_event(SDL_Event *event, int win_w, i
 
     if (event->type == SDL_TEXTINPUT) {
 
-        ANALYSIS_transmit_insert_text(destination, ANALYSIS_TRANSMIT_TEXT_MAX, cursor, event->text.text, 1);
+        int numeric_mode = Global_Analysis_Transmit_Config_Active_Field == ANALYSIS_TRANSMIT_FIELD_GAIN ? 2 : 1;
+
+        ANALYSIS_transmit_insert_text(destination, ANALYSIS_TRANSMIT_TEXT_MAX, cursor, event->text.text, numeric_mode);
         Global_Analysis_Transmit_Config_Status[0] = '\0';
         return;
 
@@ -6953,28 +6971,31 @@ static int ANALYSIS_signal_parse_double_field(int index, const char *label, doub
 
     }
 
-    char *end = NULL;
-    double value = strtod(text, &end);
+    char cleaned[ANALYSIS_SIGNAL_TEXT_MAX];
 
-    if (end == text) {
+    if (!sec_strcpy(cleaned, sizeof(cleaned), text)) {
 
-        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s must be numeric", label);
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s is too long", label);
         return 0;
 
     }
 
-    while (*end == ' ' || *end == '\t') {
-        end++;
+    size_t cleaned_len = strlen(cleaned);
+
+    while (cleaned_len > 0 && (cleaned[cleaned_len - 1] == ' ' || cleaned[cleaned_len - 1] == '\t')) {
+        cleaned[--cleaned_len] = '\0';
     }
 
-    if (*end != '\0') {
+    double value = 0.0;
+
+    if (!sec_str_to_double(cleaned, &value)) {
 
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s has invalid characters", label);
         return 0;
 
     }
 
-    if (!isfinite(value) || value < min_value || value > max_value) {
+    if (!sec_str_to_double_bound(cleaned, min_value, max_value, &value)) {
 
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "%s is out of range", label);
         return 0;
@@ -7212,10 +7233,16 @@ static int ANALYSIS_signal_copy_crop(const char *src_path, const char *dst_path,
 
     }
 
-    FILE *src = fopen(src_path, "rb");
+    FILE *src = NULL;
+    size_t source_iq_count = 0;
 
-    if (!src) {
+    if (!sec_fopen_complex16(src_path, &src, &source_iq_count) || end_sample > source_iq_count) {
 
+        if (src) {
+
+            fclose(src);
+
+        }
         return 0;
 
     }
@@ -7656,10 +7683,16 @@ static int ANALYSIS_copy_crop_with_optional_noise(const char *src_path, const ch
 
     }
 
-    FILE *src = fopen(src_path, "rb");
+    FILE *src = NULL;
+    size_t source_iq_count = 0;
 
-    if (!src) {
+    if (!sec_fopen_complex16(src_path, &src, &source_iq_count) || end_sample > source_iq_count) {
 
+        if (src) {
+
+            fclose(src);
+
+        }
         return 0;
 
     }
@@ -7743,10 +7776,16 @@ static int ANALYSIS_process_crop_frequency_and_noise(const char *src_path, const
 
     }
 
-    FILE *src = fopen(src_path, "rb");
+    FILE *src = NULL;
+    size_t source_iq_count = 0;
 
-    if (!src) {
+    if (!sec_fopen_complex16(src_path, &src, &source_iq_count) || end_sample > source_iq_count) {
 
+        if (src) {
+
+            fclose(src);
+
+        }
         return 0;
 
     }
@@ -9233,11 +9272,20 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
     }
     Global_Analysis_Render_W = render_w;
 
-    FILE *fp = fopen(Global_Analysis_Path, "rb");
+    FILE *fp = NULL;
+    size_t validated_iq_count = 0;
 
-    if (!fp) {
+    if (!sec_fopen_complex16(Global_Analysis_Path, &fp, &validated_iq_count)) {
 
         snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Failed to reopen selected recording");
+        return;
+
+    }
+
+    if (validated_iq_count != Global_Analysis_IQ_Count) {
+
+        fclose(fp);
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Selected recording changed on disk");
         return;
 
     }
@@ -9394,11 +9442,11 @@ void ANALYSIS_render_workstation_data(uint32_t *pixels, int tex_w, int tex_h) {
 
         }
 
-        filter_mag = calloc((size_t)render_w, sizeof(double));
-        filter_re = calloc((size_t)render_w, sizeof(double));
-        filter_im = calloc((size_t)render_w, sizeof(double));
-        filter_td_phase = calloc((size_t)render_w, sizeof(double));
-        filter_td_inst_freq = calloc((size_t)render_w, sizeof(double));
+        filter_mag = sec_calloc_array((size_t)render_w, sizeof(double), ANALYSIS_MAX_RENDER_W);
+        filter_re = sec_calloc_array((size_t)render_w, sizeof(double), ANALYSIS_MAX_RENDER_W);
+        filter_im = sec_calloc_array((size_t)render_w, sizeof(double), ANALYSIS_MAX_RENDER_W);
+        filter_td_phase = sec_calloc_array((size_t)render_w, sizeof(double), ANALYSIS_MAX_RENDER_W);
+        filter_td_inst_freq = sec_calloc_array((size_t)render_w, sizeof(double), ANALYSIS_MAX_RENDER_W);
 
         if (!filter_mag || !filter_re || !filter_im || !filter_td_phase || !filter_td_inst_freq) {
 

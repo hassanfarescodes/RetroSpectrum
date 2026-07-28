@@ -404,7 +404,7 @@ void draw_control_panel(SDL_Renderer *renderer, TTF_Font *font, int win_w, Type_
     draw_input_box(renderer, font, fps_box, active == FIELD_FPS);
     draw_input_box(renderer, font, rows_box, active == FIELD_ROWS);
 
-    draw_checkbox(renderer, font, amp_box, "Amplify", Global_Amp_Enable);
+    draw_checkbox(renderer, font, amp_box, "AGC / Amp", Global_Amp_Enable);
     draw_checkbox(renderer, font, dc_box, "DC Correction", Global_DC_Enable);
     draw_button(renderer, font, sel_button, "Selector", Global_Selector.enabled, 0);
     draw_button(renderer, font, rec_button, "RECORD", Global_Rec, 1);

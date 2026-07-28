@@ -43,16 +43,17 @@ SRCS := \
 	$(SRC_DIR)/AnalysisWorkstation.c \
 	$(SRC_DIR)/ClassificationWorkstation.c \
 	$(SRC_DIR)/CaseManagementWorkstation.c \
-	$(SRC_DIR)/DecodeWorkstation.c
+	$(SRC_DIR)/DecodeWorkstation.c \
+	$(SRC_DIR)/SecureFunctions.c
 
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-CPPFLAGS := -I$(INC_DIR) $(shell pkg-config --cflags openssl sqlcipher)
+CPPFLAGS := -I$(INC_DIR) $(shell pkg-config --cflags openssl sqlcipher SoapySDR)
 CFLAGS  := -Wall -Wextra -Wformat=2 -Wformat-security -O2 -std=c11 \
            -fstack-protector-strong -D_FORTIFY_SOURCE=3 -fPIE -fno-common
 LDFLAGS := -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack
-LDLIBS  := -lhackrf -lfftw3 -lSDL2 -lSDL2_ttf -lSDL2_image -largon2 \
-           $(shell pkg-config --libs openssl sqlcipher) -lm -lpthread
+LDLIBS  := -lfftw3 -lSDL2 -lSDL2_ttf -lSDL2_image -largon2 \
+           $(shell pkg-config --libs openssl sqlcipher SoapySDR) -lm -lpthread
 
 MAP_SRC := $(SRC_DIR)/world_map.bin
 MAP_DST := $(BUILD_DIR)/world_map.bin

@@ -23,21 +23,24 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <float.h>
 #include <math.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
-// HackRF Library
-#include <libhackrf/hackrf.h>
+// Vendor-neutral SDR hardware abstraction
+#include <SoapySDR/Device.h>
 
 // FFT Library
 #include <fftw3.h>
@@ -56,6 +59,7 @@
 
 // Responsible for startup authentication
 #include "AuthScreen.h"
+#include "SecureFunctions.h"
 #include "SecureNetwork.h"
 #include "ServerIdentity.h"
 
@@ -204,13 +208,29 @@ static int Global_Waterfall_FPS = DEFAULT_WATERFALL_FPS;
 static int Global_Rows_Per_Frame = DEFAULT_ROWS_PER_FRAME;
 static int Global_Rec_Acc_Count = 0;
 static int Global_Rec_Decimation = 1;
-static int Global_Radio_Running = 0;
-static int Global_HackRF_Library_Initialized = 0;
-static int Global_HackRF_Connected = 0;
-static hackrf_device *Global_HackRF_Device = NULL;
+static atomic_int Global_Radio_Running = 0;
+static atomic_int Global_SDR_RX_Stop_Requested = 0;
+static atomic_int Global_SDR_RX_Failed = 0;
+static atomic_int Global_SDR_RX_Error_Code = 0;
+static int Global_SDR_Connected = 0;
+static int Global_SDR_Supports_TX = 0;
+static int Global_SDR_Has_AGC = 0;
+static int Global_SDR_RX_Thread_Created = 0;
+static pthread_t Global_SDR_RX_Thread;
+typedef enum { SDR_STREAM_FORMAT_NONE = 0, SDR_STREAM_FORMAT_CS16, SDR_STREAM_FORMAT_CF32 } Type_SDR_Stream_Format;
+
+static SoapySDRDevice *Global_SDR_Device = NULL;
+static SoapySDRStream *Global_SDR_RX_Stream = NULL;
+static Type_SDR_Stream_Format Global_SDR_RX_Format = SDR_STREAM_FORMAT_NONE;
+static char Global_SDR_Driver[64] = "";
+static char Global_SDR_Hardware[128] = "";
+static char Global_SDR_Gain_A[64] = "";
+static char Global_SDR_Gain_B[64] = "";
+static char Global_SDR_Amp_Gain[64] = "";
 
 #define RETROSPECTRUM_TX_MAX_REPEATS 100U
 #define RETROSPECTRUM_TX_CONVERT_CHUNK 8192U
+#define RETROSPECTRUM_SDR_STREAM_TIMEOUT_US 100000L
 
 typedef struct {
     pthread_mutex_t lock;
@@ -232,6 +252,10 @@ typedef struct {
     int callback_failed;
     int result_ready;
     int result_succeeded;
+    int thread_created;
+    pthread_t thread;
+    SoapySDRStream *stream;
+    Type_SDR_Stream_Format stream_format;
     uint64_t saved_center_frequency_hz;
     uint32_t saved_sample_rate_hz;
     uint32_t saved_display_span_hz;
@@ -241,8 +265,13 @@ typedef struct {
     char result_message[256];
 } Type_Transmit_State;
 
-static Type_Transmit_State Global_Transmit_State = {
-    .lock = PTHREAD_MUTEX_INITIALIZER, .file = NULL, .active = 0, .result_ready = 0};
+static Type_Transmit_State Global_Transmit_State = {.lock = PTHREAD_MUTEX_INITIALIZER,
+                                                    .file = NULL,
+                                                    .stream = NULL,
+                                                    .stream_format = SDR_STREAM_FORMAT_NONE,
+                                                    .active = 0,
+                                                    .thread_created = 0,
+                                                    .result_ready = 0};
 
 static int Global_Cached_Recording = 0;
 static char Global_Record_Dir[512] = DEFAULT_RECORD_DIR;
@@ -326,16 +355,16 @@ static void draw_cubic_cable(SDL_Renderer *renderer, int x0, int y0, int x1, int
     }
 }
 
-static void draw_hackrf_disconnected(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+static void draw_sdr_disconnected(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
     /*
-        Purpose: Draws the HackRF disconnected indicator
+        Purpose: Draws the generic SDR disconnected indicator
         Returns: No value
     */
 
     const SDL_Color red = {255, 48, 48, 255};
     const SDL_Color dark_red = {145, 18, 18, 255};
     const SDL_Color dim_red = {90, 12, 12, 255};
-    const char *label = "HackRF One Not Connected";
+    const char *label = "No SoapySDR Device Connected";
     int label_w = 0;
     int label_h = 0;
     int center_x = win_w / 2;
@@ -1558,14 +1587,420 @@ static int ring_read_block(Type_RingBuf *r, fftw_complex *in, double *window) {
 
 // RX Helper
 
-static int rx_callback(hackrf_transfer *transfer) {
+static int sdr_name_equals(const char *left, const char *right) {
     /*
-        Purpose: Receives HackRF samples and routes them to cache, display, and recording paths
-        Returns: Callback status
+        Purpose: Compares SoapySDR capability names without case sensitivity
+        Returns: Equality status
     */
 
-    const int8_t *buf = (const int8_t *)transfer->buffer;
-    int sample_count = transfer->valid_length / 2;
+    return left && right && strcasecmp(left, right) == 0;
+}
+
+static double sdr_nearest_supported_value(SoapySDRRange *ranges, size_t range_count, double requested) {
+    /*
+        Purpose: Clamps a requested value to the nearest value in a SoapySDR range list
+        Returns: Nearest supported value
+    */
+
+    double nearest = requested;
+    double nearest_distance = DBL_MAX;
+
+    if (!ranges || range_count == 0 || !isfinite(requested)) {
+
+        return requested;
+
+    }
+
+    for (size_t index = 0; index < range_count; index++) {
+        double candidate = requested;
+
+        if (candidate < ranges[index].minimum) {
+
+            candidate = ranges[index].minimum;
+
+        }
+
+        if (candidate > ranges[index].maximum) {
+
+            candidate = ranges[index].maximum;
+
+        }
+
+        if (ranges[index].step > 0.0 && ranges[index].maximum > ranges[index].minimum) {
+
+            double step_count = round((candidate - ranges[index].minimum) / ranges[index].step);
+            candidate = ranges[index].minimum + step_count * ranges[index].step;
+
+            if (candidate < ranges[index].minimum) {
+
+                candidate = ranges[index].minimum;
+
+            }
+
+            if (candidate > ranges[index].maximum) {
+
+                candidate = ranges[index].maximum;
+
+            }
+
+        }
+
+        double distance = fabs(candidate - requested);
+
+        if (distance < nearest_distance) {
+
+            nearest = candidate;
+            nearest_distance = distance;
+
+        }
+    }
+
+    return nearest;
+}
+
+static double sdr_clamp_frequency(SoapySDRDevice *dev, int direction, size_t channel, double requested) {
+    /*
+        Purpose: Clamps a frequency to the connected SDR channel ranges
+        Returns: Nearest supported frequency
+    */
+
+    size_t range_count = 0;
+    SoapySDRRange *ranges = SoapySDRDevice_getFrequencyRange(dev, direction, channel, &range_count);
+    double value = sdr_nearest_supported_value(ranges, range_count, requested);
+
+    SoapySDR_free(ranges);
+    return value;
+}
+
+static double sdr_clamp_sample_rate(SoapySDRDevice *dev, int direction, size_t channel, double requested) {
+    /*
+        Purpose: Clamps a sample rate to the connected SDR channel ranges
+        Returns: Nearest supported sample rate
+    */
+
+    size_t range_count = 0;
+    SoapySDRRange *ranges = SoapySDRDevice_getSampleRateRange(dev, direction, channel, &range_count);
+    double value = sdr_nearest_supported_value(ranges, range_count, requested);
+
+    SoapySDR_free(ranges);
+    return value;
+}
+
+static double sdr_clamp_bandwidth(SoapySDRDevice *dev, int direction, size_t channel, double requested) {
+    /*
+        Purpose: Clamps a baseband bandwidth to the connected SDR channel ranges
+        Returns: Nearest supported bandwidth
+    */
+
+    size_t range_count = 0;
+    SoapySDRRange *ranges = SoapySDRDevice_getBandwidthRange(dev, direction, channel, &range_count);
+    double value = sdr_nearest_supported_value(ranges, range_count, requested);
+
+    SoapySDR_free(ranges);
+    return value;
+}
+
+static double sdr_clamp_gain(SoapySDRDevice *dev, int direction, size_t channel, const char *name, double requested) {
+    /*
+        Purpose: Clamps an overall or named gain to the connected SDR gain range
+        Returns: Nearest supported gain
+    */
+
+    SoapySDRRange range = name && name[0] ? SoapySDRDevice_getGainElementRange(dev, direction, channel, name)
+                                          : SoapySDRDevice_getGainRange(dev, direction, channel);
+
+    if (isfinite(range.minimum) && requested < range.minimum) {
+
+        requested = range.minimum;
+
+    }
+
+    if (isfinite(range.maximum) && requested > range.maximum) {
+
+        requested = range.maximum;
+
+    }
+
+    if (range.step > 0.0 && isfinite(range.minimum)) {
+
+        requested = range.minimum + round((requested - range.minimum) / range.step) * range.step;
+
+        if (requested < range.minimum) {
+
+            requested = range.minimum;
+
+        }
+
+        if (requested > range.maximum) {
+
+            requested = range.maximum;
+
+        }
+
+    }
+
+    return requested;
+}
+
+static void sdr_copy_identity(SoapySDRDevice *dev) {
+    /*
+        Purpose: Caches the connected SoapySDR driver and hardware names
+        Returns: No value
+    */
+
+    char *driver = SoapySDRDevice_getDriverKey(dev);
+    char *hardware = SoapySDRDevice_getHardwareKey(dev);
+
+    snprintf(Global_SDR_Driver, sizeof(Global_SDR_Driver), "%s", driver && driver[0] ? driver : "unknown");
+    snprintf(Global_SDR_Hardware, sizeof(Global_SDR_Hardware), "%s",
+             hardware && hardware[0] ? hardware : "Generic SDR");
+
+    SoapySDR_free(driver);
+    SoapySDR_free(hardware);
+}
+
+static void sdr_discover_gain_controls(SoapySDRDevice *dev) {
+    /*
+        Purpose: Maps the first useful SoapySDR RX gain stages to the two existing gain fields
+        Returns: No value
+    */
+
+    size_t gain_count = 0;
+    char **gains = NULL;
+
+    Global_SDR_Gain_A[0] = '\0';
+    Global_SDR_Gain_B[0] = '\0';
+    Global_SDR_Amp_Gain[0] = '\0';
+    Global_SDR_Has_AGC = SoapySDRDevice_hasGainMode(dev, SOAPY_SDR_RX, 0) ? 1 : 0;
+
+    gains = SoapySDRDevice_listGains(dev, SOAPY_SDR_RX, 0, &gain_count);
+
+    for (size_t index = 0; index < gain_count; index++) {
+
+        if (sdr_name_equals(gains[index], "AMP")) {
+
+            snprintf(Global_SDR_Amp_Gain, sizeof(Global_SDR_Amp_Gain), "%s", gains[index]);
+
+        }
+
+        else if (sdr_name_equals(gains[index], "LNA")) {
+
+            snprintf(Global_SDR_Gain_A, sizeof(Global_SDR_Gain_A), "%s", gains[index]);
+
+        }
+
+        else if (sdr_name_equals(gains[index], "VGA")) {
+
+            snprintf(Global_SDR_Gain_B, sizeof(Global_SDR_Gain_B), "%s", gains[index]);
+
+        }
+    }
+
+    for (size_t index = 0; index < gain_count; index++) {
+
+        if (sdr_name_equals(gains[index], "AMP")) {
+
+            continue;
+
+        }
+
+        if (Global_SDR_Gain_A[0] == '\0') {
+
+            snprintf(Global_SDR_Gain_A, sizeof(Global_SDR_Gain_A), "%s", gains[index]);
+            continue;
+
+        }
+
+        if (Global_SDR_Gain_B[0] == '\0' && !sdr_name_equals(gains[index], Global_SDR_Gain_A)) {
+
+            snprintf(Global_SDR_Gain_B, sizeof(Global_SDR_Gain_B), "%s", gains[index]);
+            break;
+
+        }
+    }
+
+    SoapySDRStrings_clear(&gains, gain_count);
+}
+
+static int sdr_channel_has_gain_controls(SoapySDRDevice *dev, int direction, size_t channel) {
+    /*
+        Purpose: Reports whether a SoapySDR channel exposes gain controls
+        Returns: Nonzero when one or more gain elements are available
+    */
+
+    size_t gain_count = 0;
+    char **gains = SoapySDRDevice_listGains(dev, direction, channel, &gain_count);
+
+    SoapySDRStrings_clear(&gains, gain_count);
+    return gain_count > 0 ? 1 : 0;
+}
+
+static int sdr_apply_rx_gain_controls(SoapySDRDevice *dev, int gain_a, int gain_b, int agc_or_amp) {
+    /*
+        Purpose: Applies generic SoapySDR AGC, named gain stages, or overall gain
+        Returns: Apply status
+    */
+
+    if (Global_SDR_Has_AGC) {
+
+        if (SoapySDRDevice_setGainMode(dev, SOAPY_SDR_RX, 0, agc_or_amp ? true : false) != 0) {
+
+            return 0;
+
+        }
+
+        if (agc_or_amp) {
+
+            Global_Amp_Enable = 1;
+            return 1;
+
+        }
+
+    }
+
+    int named_gain_used = 0;
+    int named_gain_ok = 1;
+
+    if (Global_SDR_Gain_A[0]) {
+
+        double value = sdr_clamp_gain(dev, SOAPY_SDR_RX, 0, Global_SDR_Gain_A, (double)gain_a);
+
+        named_gain_used = 1;
+
+        if (SoapySDRDevice_setGainElement(dev, SOAPY_SDR_RX, 0, Global_SDR_Gain_A, value) != 0) {
+
+            named_gain_ok = 0;
+
+        }
+
+        else {
+
+            Global_LNA_Gain = (int)lrint(SoapySDRDevice_getGainElement(dev, SOAPY_SDR_RX, 0, Global_SDR_Gain_A));
+
+        }
+
+    }
+
+    if (Global_SDR_Gain_B[0]) {
+
+        double value = sdr_clamp_gain(dev, SOAPY_SDR_RX, 0, Global_SDR_Gain_B, (double)gain_b);
+
+        named_gain_used = 1;
+
+        if (SoapySDRDevice_setGainElement(dev, SOAPY_SDR_RX, 0, Global_SDR_Gain_B, value) != 0) {
+
+            named_gain_ok = 0;
+
+        }
+
+        else {
+
+            Global_VGA_Gain = (int)lrint(SoapySDRDevice_getGainElement(dev, SOAPY_SDR_RX, 0, Global_SDR_Gain_B));
+
+        }
+
+    }
+
+    if (!named_gain_used || !named_gain_ok) {
+
+        double overall = sdr_clamp_gain(dev, SOAPY_SDR_RX, 0, NULL, (double)(gain_a + gain_b));
+
+        if (SoapySDRDevice_setGain(dev, SOAPY_SDR_RX, 0, overall) == 0) {
+
+            Global_LNA_Gain = (int)lrint(SoapySDRDevice_getGain(dev, SOAPY_SDR_RX, 0));
+            Global_VGA_Gain = 0;
+
+        }
+
+        else if (named_gain_used) {
+
+            return 0;
+
+        }
+
+    }
+
+    if (!Global_SDR_Has_AGC && Global_SDR_Amp_Gain[0]) {
+
+        SoapySDRRange range = SoapySDRDevice_getGainElementRange(dev, SOAPY_SDR_RX, 0, Global_SDR_Amp_Gain);
+        double amp_value = agc_or_amp ? range.maximum : range.minimum;
+
+        if (SoapySDRDevice_setGainElement(dev, SOAPY_SDR_RX, 0, Global_SDR_Amp_Gain, amp_value) != 0) {
+
+            return 0;
+
+        }
+
+    }
+
+    Global_Amp_Enable = agc_or_amp ? 1 : 0;
+    return 1;
+}
+
+static SoapySDRDevice *sdr_open_selected_device(void) {
+    /*
+        Purpose: Opens a SoapySDR device selected by environment arguments or the first RX-capable device
+        Returns: Device handle or NULL
+    */
+
+    const char *explicit_args = getenv("RETROSPECTRUM_SOAPY_ARGS");
+
+    if (explicit_args && explicit_args[0]) {
+
+        SoapySDRDevice *selected = SoapySDRDevice_makeStrArgs(explicit_args);
+
+        if (selected && SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) > 0) {
+
+            return selected;
+
+        }
+
+        if (selected) {
+
+            (void)SoapySDRDevice_unmake(selected);
+
+        }
+
+        return NULL;
+
+    }
+
+    size_t device_count = 0;
+    SoapySDRKwargs *devices = SoapySDRDevice_enumerate(NULL, &device_count);
+    SoapySDRDevice *selected = NULL;
+
+    for (size_t index = 0; index < device_count; index++) {
+        selected = SoapySDRDevice_make(&devices[index]);
+
+        if (selected && SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) > 0) {
+
+            break;
+
+        }
+
+        if (selected) {
+
+            (void)SoapySDRDevice_unmake(selected);
+            selected = NULL;
+
+        }
+    }
+
+    SoapySDRKwargsList_clear(devices, device_count);
+    return selected;
+}
+
+static void process_rx_samples(const void *buffer, size_t sample_count, Type_SDR_Stream_Format format) {
+    /*
+        Purpose: Normalizes CS16 or CF32 IQ and routes samples to cache, display, and recording paths
+        Returns: No value
+    */
+
+    if (!buffer || sample_count == 0 || (format != SDR_STREAM_FORMAT_CS16 && format != SDR_STREAM_FORMAT_CF32)) {
+
+        return;
+
+    }
 
     if (sample_count > MAX_TRANSFER_SAMPLES) {
 
@@ -1573,13 +2008,40 @@ static int rx_callback(hackrf_transfer *transfer) {
 
     }
 
-    // Convert signed HackRF IQ once
+    const int16_t *samples_cs16 = format == SDR_STREAM_FORMAT_CS16 ? (const int16_t *)buffer : NULL;
+    const float *samples_cf32 = format == SDR_STREAM_FORMAT_CF32 ? (const float *)buffer : NULL;
 
     pthread_mutex_lock(&Global_Pre_Cache.lock);
 
-    for (int n = 0; n < sample_count; n++) {
-        float I = (float)buf[2 * n] / 128.0f;
-        float Q = (float)buf[2 * n + 1] / 128.0f;
+    for (size_t sample = 0; sample < sample_count; sample++) {
+        float I;
+        float Q;
+
+        if (samples_cs16) {
+
+            I = (float)samples_cs16[2U * sample] / 32768.0f;
+            Q = (float)samples_cs16[2U * sample + 1U] / 32768.0f;
+
+        }
+
+        else {
+
+            I = samples_cf32[2U * sample];
+            Q = samples_cf32[2U * sample + 1U];
+
+        }
+
+        if (!isfinite(I)) {
+
+            I = 0.0f;
+
+        }
+
+        if (!isfinite(Q)) {
+
+            Q = 0.0f;
+
+        }
 
         if (Global_DC_Enable) {
 
@@ -1593,27 +2055,21 @@ static int rx_callback(hackrf_transfer *transfer) {
 
         }
 
-        temp_I[n] = I;
-        temp_Q[n] = Q;
+        temp_I[sample] = I;
+        temp_Q[sample] = Q;
 
         pre_cache_write(&Global_Pre_Cache, I, Q);
     }
 
     pthread_mutex_unlock(&Global_Pre_Cache.lock);
 
-    // Waterfall ring buffer
-    // Lock only around ring_buf writes
-
     pthread_mutex_lock(&ring_buf.lock);
 
-    for (int n = 0; n < sample_count; n++) {
-        ring_write_sample(&ring_buf, temp_I[n], temp_Q[n]);
+    for (size_t sample = 0; sample < sample_count; sample++) {
+        ring_write_sample(&ring_buf, temp_I[sample], temp_Q[sample]);
     }
 
     pthread_mutex_unlock(&ring_buf.lock);
-
-    // Recorder path
-    // No ring_buf.lock here
 
     int rec_enabled = 0;
 
@@ -1623,17 +2079,79 @@ static int rx_callback(hackrf_transfer *transfer) {
 
     if (rec_enabled) {
 
-        size_t pushed = rec_queue_push_block(&Global_Rec_Queue, temp_I, temp_Q, (size_t)sample_count);
+        size_t pushed = rec_queue_push_block(&Global_Rec_Queue, temp_I, temp_Q, sample_count);
 
-        if (pushed < (size_t)sample_count) {
+        if (pushed < sample_count) {
 
             Global_Rec_Queue.overflow = 1;
 
         }
 
     }
+}
 
-    return 0;
+static void *sdr_rx_thread_main(void *unused) {
+    /*
+        Purpose: Reads CS16 or CF32 samples from the active SoapySDR RX stream
+        Returns: NULL
+    */
+
+    (void)unused;
+
+    size_t capacity = SoapySDRDevice_getStreamMTU(Global_SDR_Device, Global_SDR_RX_Stream);
+
+    if (capacity == 0 || capacity > MAX_TRANSFER_SAMPLES) {
+
+        capacity = MAX_TRANSFER_SAMPLES;
+
+    }
+
+    size_t element_size = Global_SDR_RX_Format == SDR_STREAM_FORMAT_CF32 ? sizeof(float) * 2U : sizeof(int16_t) * 2U;
+
+    void *samples = sec_calloc_array(capacity, element_size, MAX_TRANSFER_SAMPLES);
+
+    if (!samples) {
+
+        atomic_store(&Global_SDR_RX_Error_Code, SOAPY_SDR_STREAM_ERROR);
+        atomic_store(&Global_SDR_RX_Failed, 1);
+        atomic_store(&Global_Radio_Running, 0);
+        return NULL;
+
+    }
+
+    while (!atomic_load(&Global_SDR_RX_Stop_Requested)) {
+        void *buffers[1] = {samples};
+        int flags = 0;
+        long long time_ns = 0;
+        int received = SoapySDRDevice_readStream(Global_SDR_Device, Global_SDR_RX_Stream, buffers, capacity, &flags,
+                                                 &time_ns, RETROSPECTRUM_SDR_STREAM_TIMEOUT_US);
+
+        if (received > 0) {
+
+            process_rx_samples(samples, (size_t)received, Global_SDR_RX_Format);
+            continue;
+
+        }
+
+        if (received == SOAPY_SDR_TIMEOUT || received == SOAPY_SDR_OVERFLOW || received == SOAPY_SDR_CORRUPTION) {
+
+            continue;
+
+        }
+
+        if (!atomic_load(&Global_SDR_RX_Stop_Requested)) {
+
+            atomic_store(&Global_SDR_RX_Error_Code, received);
+            atomic_store(&Global_SDR_RX_Failed, 1);
+
+        }
+
+        break;
+    }
+
+    free(samples);
+    atomic_store(&Global_Radio_Running, 0);
+    return NULL;
 }
 
 // Graphics Helper
@@ -1667,17 +2185,7 @@ static int parse_positive_double(const char *s, double *out) {
 
     }
 
-    char *end = NULL;
-    double v = strtod(s, &end);
-
-    if (end == s || *end != '\0' || v <= 0.0) {
-
-        return 0;
-
-    }
-
-    *out = v;
-    return 1;
+    return sec_str_to_double_bound(s, DBL_TRUE_MIN, DBL_MAX, out) ? 1 : 0;
 }
 
 static int parse_nonnegative_int(const char *s, int *out) {
@@ -1692,59 +2200,51 @@ static int parse_nonnegative_int(const char *s, int *out) {
 
     }
 
-    char *end = NULL;
-    long v = strtol(s, &end, 10);
-
-    if (end == s || *end != '\0' || v < 0 || v > 100000) {
-
-        return 0;
-
-    }
-
-    *out = (int)v;
-    return 1;
+    return sec_str_to_int_bound(s, 0, 100000, out) ? 1 : 0;
 }
 
 // Normalization Helpers
 
 static int normalize_lna_gain(int gain) {
     /*
-        Purpose: Normalizes HackRF LNA gain to a valid step
+        Purpose: Bounds the first generic SDR gain field before device-specific clamping
         Returns: Gain value
     */
 
-    if (gain < 0) {
+    if (gain < -200) {
 
-        gain = 0;
+        gain = -200;
+
+    }
+
+    if (gain > 200) {
+
+        gain = 200;
 
     }
 
-    if (gain > 40) {
-
-        gain = 40;
-
-    }
-    return (gain / 8) * 8;
+    return gain;
 }
 
 static int normalize_vga_gain(int gain) {
     /*
-        Purpose: Normalizes HackRF VGA gain to a valid step
+        Purpose: Bounds the second generic SDR gain field before device-specific clamping
         Returns: Gain value
     */
 
-    if (gain < 0) {
+    if (gain < -200) {
 
-        gain = 0;
+        gain = -200;
+
+    }
+
+    if (gain > 200) {
+
+        gain = 200;
 
     }
 
-    if (gain > 62) {
-
-        gain = 62;
-
-    }
-    return (gain / 2) * 2;
+    return gain;
 }
 
 static int normalize_fps(int fps) {
@@ -1789,57 +2289,111 @@ static int normalize_rows_per_frame(int rows) {
 
 // Radio Helpers
 
-static int stop_radio(hackrf_device *dev) {
+static int stop_radio(SoapySDRDevice *dev) {
     /*
-        Purpose: Stops HackRF receive mode when active
+        Purpose: Stops and closes the active SoapySDR receive stream
         Returns: Stop status
     */
 
-    if (!dev) {
+    int success = 1;
 
-        Global_Radio_Running = 0;
-        return 1;
+    atomic_store(&Global_SDR_RX_Stop_Requested, 1);
 
-    }
+    if (Global_SDR_RX_Thread_Created) {
 
-    if (Global_Radio_Running) {
+        if (pthread_join(Global_SDR_RX_Thread, NULL) != 0) {
 
-        if (hackrf_stop_rx(dev) != HACKRF_SUCCESS) {
-
-            Global_Radio_Running = 0;
-            return 0;
+            success = 0;
 
         }
-        Global_Radio_Running = 0;
+
+        Global_SDR_RX_Thread_Created = 0;
 
     }
 
-    return 1;
+    if (dev && Global_SDR_RX_Stream) {
+
+        int deactivate_result = SoapySDRDevice_deactivateStream(dev, Global_SDR_RX_Stream, 0, 0);
+
+        if (deactivate_result != 0 && deactivate_result != SOAPY_SDR_NOT_SUPPORTED) {
+
+            success = 0;
+
+        }
+
+        if (SoapySDRDevice_closeStream(dev, Global_SDR_RX_Stream) != 0) {
+
+            success = 0;
+
+        }
+
+        Global_SDR_RX_Stream = NULL;
+
+    }
+
+    Global_SDR_RX_Format = SDR_STREAM_FORMAT_NONE;
+    atomic_store(&Global_Radio_Running, 0);
+    return success;
 }
 
-static int start_radio(hackrf_device *dev) {
+static int start_radio(SoapySDRDevice *dev) {
     /*
-        Purpose: Starts HackRF receive mode when inactive
+        Purpose: Creates and starts a CS16 or CF32 SoapySDR receive stream
         Returns: Start status
     */
 
-    if (!dev) {
+    if (!dev || atomic_load(&Global_Radio_Running)) {
 
+        return dev ? 1 : 0;
+
+    }
+
+    size_t channel = 0;
+
+    Global_SDR_RX_Format = SDR_STREAM_FORMAT_CS16;
+    Global_SDR_RX_Stream = SoapySDRDevice_setupStream(dev, SOAPY_SDR_RX, "CS16", &channel, 1, NULL);
+
+    if (!Global_SDR_RX_Stream) {
+
+        Global_SDR_RX_Format = SDR_STREAM_FORMAT_CF32;
+        Global_SDR_RX_Stream = SoapySDRDevice_setupStream(dev, SOAPY_SDR_RX, "CF32", &channel, 1, NULL);
+
+    }
+
+    if (!Global_SDR_RX_Stream) {
+
+        Global_SDR_RX_Format = SDR_STREAM_FORMAT_NONE;
         return 0;
 
     }
 
-    if (!Global_Radio_Running) {
+    if (SoapySDRDevice_activateStream(dev, Global_SDR_RX_Stream, 0, 0, 0) != 0) {
 
-        if (hackrf_start_rx(dev, rx_callback, NULL) != HACKRF_SUCCESS) {
-
-            return 0;
-
-        }
-        Global_Radio_Running = 1;
+        (void)SoapySDRDevice_closeStream(dev, Global_SDR_RX_Stream);
+        Global_SDR_RX_Stream = NULL;
+        Global_SDR_RX_Format = SDR_STREAM_FORMAT_NONE;
+        return 0;
 
     }
 
+    atomic_store(&Global_SDR_RX_Stop_Requested, 0);
+    atomic_store(&Global_SDR_RX_Failed, 0);
+    atomic_store(&Global_SDR_RX_Error_Code, 0);
+    atomic_store(&Global_Radio_Running, 1);
+
+    if (pthread_create(&Global_SDR_RX_Thread, NULL, sdr_rx_thread_main, NULL) != 0) {
+
+        atomic_store(&Global_Radio_Running, 0);
+        atomic_store(&Global_SDR_RX_Stop_Requested, 1);
+        (void)SoapySDRDevice_deactivateStream(dev, Global_SDR_RX_Stream, 0, 0);
+        (void)SoapySDRDevice_closeStream(dev, Global_SDR_RX_Stream);
+        Global_SDR_RX_Stream = NULL;
+        Global_SDR_RX_Format = SDR_STREAM_FORMAT_NONE;
+        return 0;
+
+    }
+
+    Global_SDR_RX_Thread_Created = 1;
     return 1;
 }
 
@@ -1872,14 +2426,14 @@ double recommended_antenna_length_inches(uint64_t freq_hz) {
     return quarter_wave_m * 39.37007874;
 }
 
-static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz, uint32_t Sample_Rate_Hz,
+static int apply_radio_settings(SoapySDRDevice *dev, uint64_t Center_Hz, uint32_t Sample_Rate_Hz,
                                 uint32_t Display_Span_Hz, int LNA_Gain, int VGA_Gain, int Amp_Enable) {
     /*
-        Purpose: Applies center frequency, sample rate, display span, gain, and amp settings
+        Purpose: Applies generic SoapySDR RX frequency, rate, bandwidth, gain, and AGC/amp settings
         Returns: Apply status
     */
 
-    if (!dev) {
+    if (!dev || SoapySDRDevice_getNumChannels(dev, SOAPY_SDR_RX) == 0) {
 
         return 0;
 
@@ -1899,50 +2453,56 @@ static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz, uint32_t
 
     ring_clear(&ring_buf);
 
-    if (hackrf_set_sample_rate(dev, Sample_Rate_Hz) != HACKRF_SUCCESS) {
+    double requested_rate = sdr_clamp_sample_rate(dev, SOAPY_SDR_RX, 0, (double)Sample_Rate_Hz);
+    double requested_frequency = sdr_clamp_frequency(dev, SOAPY_SDR_RX, 0, (double)Center_Hz);
+
+    if (!isfinite(requested_rate) || requested_rate < 1000.0 ||
+        SoapySDRDevice_setSampleRate(dev, SOAPY_SDR_RX, 0, requested_rate) != 0) {
 
         return 0;
 
     }
 
-    if (hackrf_set_freq(dev, Center_Hz) != HACKRF_SUCCESS) {
+    if (!isfinite(requested_frequency) || requested_frequency <= 0.0 ||
+        SoapySDRDevice_setFrequency(dev, SOAPY_SDR_RX, 0, requested_frequency, NULL) != 0) {
 
         return 0;
 
     }
 
-    uint32_t filter_bw = hackrf_compute_baseband_filter_bw_round_down_lt(Sample_Rate_Hz);
+    double requested_bandwidth = sdr_clamp_bandwidth(dev, SOAPY_SDR_RX, 0, requested_rate);
 
-    if (filter_bw > 0) {
+    if (isfinite(requested_bandwidth) && requested_bandwidth > 0.0) {
 
-        hackrf_set_baseband_filter_bandwidth(dev, filter_bw);
+        (void)SoapySDRDevice_setBandwidth(dev, SOAPY_SDR_RX, 0, requested_bandwidth);
 
     }
 
     LNA_Gain = normalize_lna_gain(LNA_Gain);
     VGA_Gain = normalize_vga_gain(VGA_Gain);
 
-    if (hackrf_set_lna_gain(dev, (uint32_t)LNA_Gain) != HACKRF_SUCCESS) {
+    if (!sdr_apply_rx_gain_controls(dev, LNA_Gain, VGA_Gain, Amp_Enable)) {
 
         return 0;
 
     }
 
-    if (hackrf_set_vga_gain(dev, (uint32_t)VGA_Gain) != HACKRF_SUCCESS) {
+    double actual_rate = SoapySDRDevice_getSampleRate(dev, SOAPY_SDR_RX, 0);
+    double actual_frequency = SoapySDRDevice_getFrequency(dev, SOAPY_SDR_RX, 0);
+
+    if (!isfinite(actual_rate) || actual_rate < 1000.0 || actual_rate > (double)UINT32_MAX ||
+        !isfinite(actual_frequency) || actual_frequency <= 0.0 || actual_frequency > (double)UINT64_MAX) {
 
         return 0;
 
     }
 
-    if (hackrf_set_amp_enable(dev, (uint8_t)(Amp_Enable ? 1 : 0)) != HACKRF_SUCCESS) {
+    uint32_t actual_rate_hz = (uint32_t)llround(actual_rate);
+    uint64_t actual_frequency_hz = (uint64_t)llround(actual_frequency);
 
-        return 0;
+    if (Display_Span_Hz > actual_rate_hz) {
 
-    }
-
-    if (Display_Span_Hz > Sample_Rate_Hz) {
-
-        Display_Span_Hz = Sample_Rate_Hz;
+        Display_Span_Hz = actual_rate_hz;
 
     }
 
@@ -1952,12 +2512,9 @@ static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz, uint32_t
 
     }
 
-    Global_Center_Freq_Hz = Center_Hz;
-    Global_Sample_Rate_Hz = Sample_Rate_Hz;
+    Global_Center_Freq_Hz = actual_frequency_hz;
+    Global_Sample_Rate_Hz = actual_rate_hz;
     Global_Display_Span_Hz = Display_Span_Hz;
-    Global_LNA_Gain = LNA_Gain;
-    Global_VGA_Gain = VGA_Gain;
-    Global_Amp_Enable = Amp_Enable ? 1 : 0;
 
     if (!pre_cache_resize(&Global_Pre_Cache, Global_Sample_Rate_Hz)) {
 
@@ -1976,101 +2533,148 @@ static int apply_radio_settings(hackrf_device *dev, uint64_t Center_Hz, uint32_t
     return start_radio(dev);
 }
 
-static int retrospectrum_tx_callback(hackrf_transfer *transfer) {
+static void *retrospectrum_tx_thread_main(void *context) {
     /*
-        Purpose: Converts signed 16-bit interleaved IQ samples to HackRF signed 8-bit IQ data
-        Returns: Zero while streaming and nonzero when the stream must stop
+        Purpose: Streams signed CS16 IQ samples through a blocking SoapySDR TX stream
+        Returns: NULL
     */
 
-    Type_Transmit_State *state;
-    int16_t input[RETROSPECTRUM_TX_CONVERT_CHUNK];
-    size_t output_offset = 0;
-    size_t output_length;
+    Type_Transmit_State *state = context ? (Type_Transmit_State *)context : &Global_Transmit_State;
+    int16_t input[RETROSPECTRUM_TX_CONVERT_CHUNK * 2U];
+    float converted_cf32[RETROSPECTRUM_TX_CONVERT_CHUNK * 2U];
+    int consecutive_stream_errors = 0;
 
-    if (!transfer || !transfer->buffer || transfer->valid_length <= 0) {
+    for (;;) {
+        FILE *file = NULL;
+        int cancel_requested = 0;
 
-        return -1;
-
-    }
-
-    state = transfer->tx_ctx ? (Type_Transmit_State *)transfer->tx_ctx : &Global_Transmit_State;
-    output_length = (size_t)transfer->valid_length;
-
-    pthread_mutex_lock(&state->lock);
-
-    if (!state->active || !state->file || state->cancel_requested || state->callback_finish_armed) {
-
-        memset(transfer->buffer, 0, output_length);
-        state->callback_done = 1;
+        pthread_mutex_lock(&state->lock);
+        file = state->file;
+        cancel_requested = state->cancel_requested;
         pthread_mutex_unlock(&state->lock);
-        return -1;
 
-    }
+        if (!file || cancel_requested) {
 
-    while (output_offset < output_length) {
-        size_t wanted = output_length - output_offset;
-
-        if (wanted > RETROSPECTRUM_TX_CONVERT_CHUNK) {
-
-            wanted = RETROSPECTRUM_TX_CONVERT_CHUNK;
+            break;
 
         }
 
-        size_t got = fread(input, sizeof(int16_t), wanted, state->file);
+        size_t got_values = fread(input, sizeof(int16_t), RETROSPECTRUM_TX_CONVERT_CHUNK * 2U, file);
 
-        for (size_t i = 0; i < got; i++) {
-            int sample = (int)(input[i] / 256);
+        if (got_values > 0) {
 
-            if (sample < -127) {
+            size_t iq_count = got_values / 2U;
+            size_t iq_offset = 0;
 
-                sample = -127;
+            if (state->stream_format == SDR_STREAM_FORMAT_CF32) {
 
-            }
-
-            if (sample > 127) {
-
-                sample = 127;
+                for (size_t value = 0; value < iq_count * 2U; value++) {
+                    converted_cf32[value] = (float)input[value] / 32768.0f;
+                }
 
             }
 
-            transfer->buffer[output_offset + i] = (uint8_t)(int8_t)sample;
+            while (iq_offset < iq_count) {
+                pthread_mutex_lock(&state->lock);
+                cancel_requested = state->cancel_requested;
+                pthread_mutex_unlock(&state->lock);
+
+                if (cancel_requested) {
+
+                    break;
+
+                }
+
+                const void *stream_buffer = state->stream_format == SDR_STREAM_FORMAT_CF32
+                                                ? (const void *)(converted_cf32 + iq_offset * 2U)
+                                                : (const void *)(input + iq_offset * 2U);
+                const void *buffers[1] = {stream_buffer};
+                int flags = 0;
+                int written =
+                    SoapySDRDevice_writeStream(Global_SDR_Device, state->stream, buffers, iq_count - iq_offset, &flags,
+                                               0, RETROSPECTRUM_SDR_STREAM_TIMEOUT_US);
+
+                if (written > 0) {
+
+                    iq_offset += (size_t)written;
+                    consecutive_stream_errors = 0;
+
+                    pthread_mutex_lock(&state->lock);
+                    state->bytes_consumed += (uint64_t)written * (sizeof(int16_t) * 2U);
+                    pthread_mutex_unlock(&state->lock);
+                    continue;
+
+                }
+
+                if (written == SOAPY_SDR_TIMEOUT || written == SOAPY_SDR_UNDERFLOW) {
+
+                    consecutive_stream_errors++;
+
+                    if (consecutive_stream_errors < 5) {
+
+                        continue;
+
+                    }
+
+                }
+
+                pthread_mutex_lock(&state->lock);
+                state->callback_failed = 1;
+                snprintf(state->result_message, sizeof(state->result_message), "SoapySDR transmission failed: %s",
+                         SoapySDR_errToStr(written));
+                pthread_mutex_unlock(&state->lock);
+                break;
+            }
+
+            pthread_mutex_lock(&state->lock);
+            int failed = state->callback_failed;
+            cancel_requested = state->cancel_requested;
+            pthread_mutex_unlock(&state->lock);
+
+            if (failed || cancel_requested) {
+
+                break;
+
+            }
+
         }
 
-        output_offset += got;
-        state->bytes_consumed += (uint64_t)got * sizeof(int16_t);
-
-        if (got == wanted) {
+        if (got_values == RETROSPECTRUM_TX_CONVERT_CHUNK * 2U) {
 
             continue;
 
         }
 
-        if (ferror(state->file)) {
+        if (ferror(file)) {
 
-            clearerr(state->file);
+            clearerr(file);
+
+            pthread_mutex_lock(&state->lock);
             state->callback_failed = 1;
-            state->callback_finish_armed = 1;
             snprintf(state->result_message, sizeof(state->result_message),
                      "Transmission failed while reading the IQ file.");
-            memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+            pthread_mutex_unlock(&state->lock);
             break;
 
         }
 
-        if (feof(state->file)) {
+        if (feof(file)) {
+
+            pthread_mutex_lock(&state->lock);
 
             if (state->current_pass + 1U < state->total_passes) {
 
                 state->current_pass++;
-                clearerr(state->file);
+                pthread_mutex_unlock(&state->lock);
+                clearerr(file);
 
-                if (fseek(state->file, 0, SEEK_SET) != 0) {
+                if (fseek(file, 0, SEEK_SET) != 0) {
 
+                    pthread_mutex_lock(&state->lock);
                     state->callback_failed = 1;
-                    state->callback_finish_armed = 1;
                     snprintf(state->result_message, sizeof(state->result_message),
                              "Transmission failed while rewinding the IQ file.");
-                    memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+                    pthread_mutex_unlock(&state->lock);
                     break;
 
                 }
@@ -2080,22 +2684,35 @@ static int retrospectrum_tx_callback(hackrf_transfer *transfer) {
             }
 
             state->bytes_consumed = state->file_size_bytes * (uint64_t)state->total_passes;
-            state->callback_finish_armed = 1;
-            memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+            pthread_mutex_unlock(&state->lock);
             break;
 
         }
 
+        pthread_mutex_lock(&state->lock);
         state->callback_failed = 1;
-        state->callback_finish_armed = 1;
         snprintf(state->result_message, sizeof(state->result_message),
                  "Transmission stopped because the IQ file returned no data.");
-        memset(transfer->buffer + output_offset, 0, output_length - output_offset);
+        pthread_mutex_unlock(&state->lock);
         break;
     }
 
+    if (state->stream) {
+
+        (void)SoapySDRDevice_deactivateStream(Global_SDR_Device, state->stream, 0, 0);
+        (void)SoapySDRDevice_closeStream(Global_SDR_Device, state->stream);
+
+        pthread_mutex_lock(&state->lock);
+        state->stream = NULL;
+        state->stream_format = SDR_STREAM_FORMAT_NONE;
+        pthread_mutex_unlock(&state->lock);
+
+    }
+
+    pthread_mutex_lock(&state->lock);
+    state->callback_done = 1;
     pthread_mutex_unlock(&state->lock);
-    return 0;
+    return NULL;
 }
 
 static void retrospectrum_close_transmit_file_locked(Type_Transmit_State *state) {
@@ -2116,32 +2733,32 @@ static int retrospectrum_restore_receive_settings(uint64_t center_frequency_hz, 
                                                   uint32_t display_span_hz, int lna_gain, int vga_gain,
                                                   int amp_enable) {
     /*
-        Purpose: Restores the HackRF receive configuration after transmission
+        Purpose: Restores the SoapySDR receive configuration after transmission
         Returns: Restore status
     */
 
-    if (!Global_HackRF_Device) {
+    if (!Global_SDR_Device) {
 
         return 0;
 
     }
 
-    if (!apply_radio_settings(Global_HackRF_Device, center_frequency_hz, sample_rate_hz, display_span_hz, lna_gain,
+    if (!apply_radio_settings(Global_SDR_Device, center_frequency_hz, sample_rate_hz, display_span_hz, lna_gain,
                               vga_gain, amp_enable)) {
 
-        Global_HackRF_Connected = 0;
-        Global_Radio_Running = 0;
+        Global_SDR_Connected = 0;
+        atomic_store(&Global_Radio_Running, 0);
         return 0;
 
     }
 
-    Global_HackRF_Connected = 1;
+    Global_SDR_Connected = 1;
     return 1;
 }
 
 static void retrospectrum_finalize_transmission(int forced_cancel, int restore_receive) {
     /*
-        Purpose: Stops TX, closes the IQ file, publishes a result, and optionally restores RX
+        Purpose: Joins TX, closes the IQ file, publishes a result, and optionally restores RX
         Returns: No value
     */
 
@@ -2152,9 +2769,7 @@ static void retrospectrum_finalize_transmission(int forced_cancel, int restore_r
     int saved_lna_gain;
     int saved_vga_gain;
     int saved_amp_enable;
-    int failed;
-    int canceled;
-    char callback_message[256];
+    int thread_created;
 
     pthread_mutex_lock(&state->lock);
 
@@ -2177,20 +2792,27 @@ static void retrospectrum_finalize_transmission(int forced_cancel, int restore_r
     saved_lna_gain = state->saved_lna_gain;
     saved_vga_gain = state->saved_vga_gain;
     saved_amp_enable = state->saved_amp_enable;
-    failed = state->callback_failed;
-    canceled = state->cancel_requested;
-    snprintf(callback_message, sizeof(callback_message), "%s", state->result_message);
+    thread_created = state->thread_created;
     pthread_mutex_unlock(&state->lock);
 
-    if (Global_HackRF_Device) {
+    if (thread_created) {
 
-        (void)hackrf_stop_tx(Global_HackRF_Device);
+        (void)pthread_join(state->thread, NULL);
 
     }
 
     pthread_mutex_lock(&state->lock);
+
+    int failed = state->callback_failed;
+    int canceled = state->cancel_requested;
+    char worker_message[256];
+
+    snprintf(worker_message, sizeof(worker_message), "%s", state->result_message);
+
     retrospectrum_close_transmit_file_locked(state);
     state->active = 0;
+    state->stream_format = SDR_STREAM_FORMAT_NONE;
+    state->thread_created = 0;
     state->callback_done = 0;
     state->callback_finish_armed = 0;
     state->result_ready = restore_receive ? 1 : 0;
@@ -2205,7 +2827,7 @@ static void retrospectrum_finalize_transmission(int forced_cancel, int restore_r
     else if (failed) {
 
         snprintf(state->result_message, sizeof(state->result_message), "%s",
-                 callback_message[0] ? callback_message : "Transmission failed.");
+                 worker_message[0] ? worker_message : "Transmission failed.");
 
     }
 
@@ -2224,7 +2846,7 @@ static void retrospectrum_finalize_transmission(int forced_cancel, int restore_r
         pthread_mutex_lock(&state->lock);
         state->result_succeeded = 0;
         snprintf(state->result_message, sizeof(state->result_message),
-                 "Transmission ended, but the HackRF receive configuration could not be restored.");
+                 "Transmission ended, but the SoapySDR receive configuration could not be restored.");
         pthread_mutex_unlock(&state->lock);
 
     }
@@ -2232,7 +2854,7 @@ static void retrospectrum_finalize_transmission(int forced_cancel, int restore_r
 
 static void retrospectrum_pump_transmission(void) {
     /*
-        Purpose: Finalizes a completed asynchronous HackRF transmission on the main thread
+        Purpose: Finalizes a completed asynchronous SoapySDR transmission on the main thread
         Returns: No value
     */
 
@@ -2253,15 +2875,22 @@ int RETROSPECTRUM_start_file_transmission(const char *path, uint64_t center_freq
                                           uint32_t bandwidth_hz, int tx_gain_db, unsigned int repeat_count, char *error,
                                           size_t error_size) {
     /*
-        Purpose: Starts asynchronous HackRF transmission of a signed complex16 IQ file
+        Purpose: Starts asynchronous SoapySDR transmission of a signed complex16 IQ file
         Returns: Start status
     */
 
     Type_Transmit_State *state = &Global_Transmit_State;
     FILE *file = NULL;
-    long file_size = 0;
-    uint32_t actual_bandwidth_hz;
-    int start_result;
+    size_t iq_count = 0;
+    uint64_t file_size = 0;
+    SoapySDRStream *tx_stream = NULL;
+    Type_SDR_Stream_Format tx_stream_format = SDR_STREAM_FORMAT_NONE;
+    uint64_t saved_center_frequency_hz = Global_Center_Freq_Hz;
+    uint32_t saved_sample_rate_hz = Global_Sample_Rate_Hz;
+    uint32_t saved_display_span_hz = Global_Display_Span_Hz;
+    int saved_lna_gain = Global_LNA_Gain;
+    int saved_vga_gain = Global_VGA_Gain;
+    int saved_amp_enable = Global_Amp_Enable;
 
     if (error && error_size > 0) {
 
@@ -2276,61 +2905,67 @@ int RETROSPECTRUM_start_file_transmission(const char *path, uint64_t center_freq
             snprintf(error, error_size, "Select an IQ recording before transmitting.");
 
         }
+
         return 0;
 
     }
 
-    if (!Global_HackRF_Connected || !Global_HackRF_Device) {
+    if (!Global_SDR_Connected || !Global_SDR_Device) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "HackRF One is not connected.");
+            snprintf(error, error_size, "No SoapySDR device is connected.");
 
         }
+
         return 0;
 
     }
 
-    if (center_frequency_hz < 1000000ULL || center_frequency_hz > 6000000000ULL) {
+    if (!Global_SDR_Supports_TX) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "Frequency must be from 1000000 to 6000000000 Hz.");
+            snprintf(error, error_size, "The connected SDR does not expose a transmit channel.");
 
         }
+
         return 0;
 
     }
 
-    if (sample_rate_hz < 2000000U || sample_rate_hz > 20000000U) {
+    if (center_frequency_hz == 0 || sample_rate_hz < 1000U) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "Sample rate must be from 2000000 to 20000000 Sps.");
+            snprintf(error, error_size, "Frequency must be positive and sample rate must be at least 1000 Sps.");
 
         }
+
         return 0;
 
     }
 
-    if (bandwidth_hz < 1000000U || bandwidth_hz > sample_rate_hz) {
+    if (bandwidth_hz > sample_rate_hz) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "Bandwidth must be from 1000000 Hz through the sample rate.");
+            snprintf(error, error_size, "Bandwidth cannot exceed the sample rate.");
 
         }
+
         return 0;
 
     }
 
-    if (tx_gain_db < 0 || tx_gain_db > 47) {
+    if (tx_gain_db < -200 || tx_gain_db > 200) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "TX gain must be from 0 to 47 dB.");
+            snprintf(error, error_size, "TX gain must be from -200 through 200 dB before device clamping.");
 
         }
+
         return 0;
 
     }
@@ -2342,68 +2977,33 @@ int RETROSPECTRUM_start_file_transmission(const char *path, uint64_t center_freq
             snprintf(error, error_size, "Repeat count must be from 0 to %u.", RETROSPECTRUM_TX_MAX_REPEATS);
 
         }
+
         return 0;
 
     }
 
-    actual_bandwidth_hz =
-        hackrf_compute_baseband_filter_bw_round_down_lt(bandwidth_hz < UINT32_MAX ? bandwidth_hz + 1U : bandwidth_hz);
-
-    if (actual_bandwidth_hz == 0 || actual_bandwidth_hz > sample_rate_hz) {
+    if (!sec_fopen_complex16(path, &file, &iq_count)) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "The requested bandwidth is not supported by HackRF.");
+            snprintf(error, error_size,
+                     "The selected IQ file must be a readable .complex16, .c16, or .iq16 file containing complete "
+                     "interleaved int16 I/Q pairs.");
 
         }
+
         return 0;
 
     }
 
-    file = fopen(path, "rb");
-
-    if (!file) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to open the selected IQ file: %s", strerror(errno));
-
-        }
-        return 0;
-
-    }
-
-    if (fseek(file, 0, SEEK_END) != 0 || (file_size = ftell(file)) <= 0 || fseek(file, 0, SEEK_SET) != 0) {
-
-        fclose(file);
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "The selected IQ file is empty or unreadable.");
-
-        }
-        return 0;
-
-    }
-
-    if (((uint64_t)file_size % (sizeof(int16_t) * 2U)) != 0U) {
-
-        fclose(file);
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "The IQ file must contain complete interleaved int16 I/Q pairs.");
-
-        }
-        return 0;
-
-    }
+    file_size = (uint64_t)iq_count * (sizeof(int16_t) * 2U);
 
     pthread_mutex_lock(&state->lock);
+    int already_active = state->active;
+    pthread_mutex_unlock(&state->lock);
 
-    if (state->active) {
+    if (already_active) {
 
-        pthread_mutex_unlock(&state->lock);
         fclose(file);
 
         if (error && error_size > 0) {
@@ -2411,18 +3011,148 @@ int RETROSPECTRUM_start_file_transmission(const char *path, uint64_t center_freq
             snprintf(error, error_size, "Another transmission is already active.");
 
         }
+
         return 0;
 
     }
 
+    if (Global_Rec) {
+
+        stop_recording();
+
+    }
+
+    if (!stop_radio(Global_SDR_Device)) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to stop the SoapySDR receive stream.");
+
+        }
+
+        goto start_failed;
+
+    }
+
+    double tx_rate = sdr_clamp_sample_rate(Global_SDR_Device, SOAPY_SDR_TX, 0, (double)sample_rate_hz);
+    double tx_frequency = sdr_clamp_frequency(Global_SDR_Device, SOAPY_SDR_TX, 0, (double)center_frequency_hz);
+
+    if (SoapySDRDevice_setSampleRate(Global_SDR_Device, SOAPY_SDR_TX, 0, tx_rate) != 0) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "The connected SDR rejected the TX sample rate: %s",
+                     SoapySDRDevice_lastError());
+
+        }
+
+        goto start_failed;
+
+    }
+
+    if (SoapySDRDevice_setFrequency(Global_SDR_Device, SOAPY_SDR_TX, 0, tx_frequency, NULL) != 0) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "The connected SDR rejected the TX frequency: %s", SoapySDRDevice_lastError());
+
+        }
+
+        goto start_failed;
+
+    }
+
+    uint32_t actual_bandwidth_hz = 0;
+
+    if (bandwidth_hz > 0) {
+
+        double tx_bandwidth = sdr_clamp_bandwidth(Global_SDR_Device, SOAPY_SDR_TX, 0, (double)bandwidth_hz);
+
+        if (tx_bandwidth > 0.0 && SoapySDRDevice_setBandwidth(Global_SDR_Device, SOAPY_SDR_TX, 0, tx_bandwidth) == 0) {
+
+            double actual_bandwidth = SoapySDRDevice_getBandwidth(Global_SDR_Device, SOAPY_SDR_TX, 0);
+
+            if (isfinite(actual_bandwidth) && actual_bandwidth > 0.0 && actual_bandwidth <= (double)UINT32_MAX) {
+
+                actual_bandwidth_hz = (uint32_t)llround(actual_bandwidth);
+
+            }
+
+        }
+
+    }
+
+    int tx_gain_applied = sdr_channel_has_gain_controls(Global_SDR_Device, SOAPY_SDR_TX, 0);
+
+    if (tx_gain_applied) {
+
+        double tx_gain = sdr_clamp_gain(Global_SDR_Device, SOAPY_SDR_TX, 0, NULL, (double)tx_gain_db);
+
+        if (SoapySDRDevice_setGain(Global_SDR_Device, SOAPY_SDR_TX, 0, tx_gain) != 0) {
+
+            if (error && error_size > 0) {
+
+                snprintf(error, error_size, "The connected SDR rejected the TX gain: %s", SoapySDRDevice_lastError());
+
+            }
+
+            goto start_failed;
+
+        }
+
+    }
+
+    size_t channel = 0;
+
+    tx_stream_format = SDR_STREAM_FORMAT_CS16;
+    tx_stream = SoapySDRDevice_setupStream(Global_SDR_Device, SOAPY_SDR_TX, "CS16", &channel, 1, NULL);
+
+    if (!tx_stream) {
+
+        tx_stream_format = SDR_STREAM_FORMAT_CF32;
+        tx_stream = SoapySDRDevice_setupStream(Global_SDR_Device, SOAPY_SDR_TX, "CF32", &channel, 1, NULL);
+
+    }
+
+    if (!tx_stream) {
+
+        tx_stream_format = SDR_STREAM_FORMAT_NONE;
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to create a CS16 or CF32 SoapySDR transmit stream: %s",
+                     SoapySDRDevice_lastError());
+
+        }
+
+        goto start_failed;
+
+    }
+
+    if (SoapySDRDevice_activateStream(Global_SDR_Device, tx_stream, 0, 0, 0) != 0) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to activate the SoapySDR transmit stream: %s",
+                     SoapySDRDevice_lastError());
+
+        }
+
+        goto start_failed;
+
+    }
+
+    pthread_mutex_lock(&state->lock);
     state->file = file;
-    state->file_size_bytes = (uint64_t)file_size;
+    state->stream = tx_stream;
+    state->stream_format = tx_stream_format;
+    state->file_size_bytes = file_size;
     state->bytes_consumed = 0;
-    state->center_frequency_hz = center_frequency_hz;
-    state->sample_rate_hz = sample_rate_hz;
+    state->center_frequency_hz = (uint64_t)llround(SoapySDRDevice_getFrequency(Global_SDR_Device, SOAPY_SDR_TX, 0));
+    state->sample_rate_hz = (uint32_t)llround(SoapySDRDevice_getSampleRate(Global_SDR_Device, SOAPY_SDR_TX, 0));
     state->requested_bandwidth_hz = bandwidth_hz;
     state->actual_bandwidth_hz = actual_bandwidth_hz;
-    state->tx_gain_db = tx_gain_db;
+    state->tx_gain_db = tx_gain_applied ? (int)lrint(SoapySDRDevice_getGain(Global_SDR_Device, SOAPY_SDR_TX, 0)) : 0;
     state->repeat_count = repeat_count;
     state->total_passes = repeat_count + 1U;
     state->current_pass = 0;
@@ -2433,113 +3163,63 @@ int RETROSPECTRUM_start_file_transmission(const char *path, uint64_t center_freq
     state->callback_failed = 0;
     state->result_ready = 0;
     state->result_succeeded = 0;
-    state->saved_center_frequency_hz = Global_Center_Freq_Hz;
-    state->saved_sample_rate_hz = Global_Sample_Rate_Hz;
-    state->saved_display_span_hz = Global_Display_Span_Hz;
-    state->saved_lna_gain = Global_LNA_Gain;
-    state->saved_vga_gain = Global_VGA_Gain;
-    state->saved_amp_enable = Global_Amp_Enable;
+    state->thread_created = 0;
+    state->saved_center_frequency_hz = saved_center_frequency_hz;
+    state->saved_sample_rate_hz = saved_sample_rate_hz;
+    state->saved_display_span_hz = saved_display_span_hz;
+    state->saved_lna_gain = saved_lna_gain;
+    state->saved_vga_gain = saved_vga_gain;
+    state->saved_amp_enable = saved_amp_enable;
     state->result_message[0] = '\0';
     pthread_mutex_unlock(&state->lock);
 
-    if (Global_Rec) {
-
-        stop_recording();
-
-    }
-
-    if (!stop_radio(Global_HackRF_Device)) {
+    if (pthread_create(&state->thread, NULL, retrospectrum_tx_thread_main, state) != 0) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "Unable to stop HackRF receive mode.");
+            snprintf(error, error_size, "Unable to create the SoapySDR transmit worker thread.");
 
         }
-        goto start_failed;
+
+        goto active_start_failed;
 
     }
 
-    if (hackrf_set_sample_rate(Global_HackRF_Device, (double)sample_rate_hz) != HACKRF_SUCCESS) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "HackRF rejected the sample rate.");
-
-        }
-        goto start_failed;
-
-    }
-
-    if (hackrf_set_freq(Global_HackRF_Device, center_frequency_hz) != HACKRF_SUCCESS) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "HackRF rejected the transmit frequency.");
-
-        }
-        goto start_failed;
-
-    }
-
-    if (hackrf_set_baseband_filter_bandwidth(Global_HackRF_Device, actual_bandwidth_hz) != HACKRF_SUCCESS) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "HackRF rejected the baseband bandwidth.");
-
-        }
-        goto start_failed;
-
-    }
-
-    if (hackrf_set_amp_enable(Global_HackRF_Device, 0) != HACKRF_SUCCESS) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to disable the HackRF RF amplifier before TX.");
-
-        }
-        goto start_failed;
-
-    }
-
-    if (hackrf_set_txvga_gain(Global_HackRF_Device, (uint32_t)tx_gain_db) != HACKRF_SUCCESS) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "HackRF rejected the TX gain.");
-
-        }
-        goto start_failed;
-
-    }
-
-    start_result = hackrf_start_tx(Global_HackRF_Device, retrospectrum_tx_callback, state);
-
-    if (start_result != HACKRF_SUCCESS) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to start HackRF transmission (%d).", start_result);
-
-        }
-        goto start_failed;
-
-    }
-
+    pthread_mutex_lock(&state->lock);
+    state->thread_created = 1;
+    pthread_mutex_unlock(&state->lock);
     return 1;
 
-start_failed:
+active_start_failed:
     pthread_mutex_lock(&state->lock);
-    retrospectrum_close_transmit_file_locked(state);
     state->active = 0;
-    state->callback_done = 0;
-    state->callback_finish_armed = 0;
+    state->stream = NULL;
+    state->stream_format = SDR_STREAM_FORMAT_NONE;
+    retrospectrum_close_transmit_file_locked(state);
     pthread_mutex_unlock(&state->lock);
 
-    (void)retrospectrum_restore_receive_settings(state->saved_center_frequency_hz, state->saved_sample_rate_hz,
-                                                 state->saved_display_span_hz, state->saved_lna_gain,
-                                                 state->saved_vga_gain, state->saved_amp_enable);
+    (void)SoapySDRDevice_deactivateStream(Global_SDR_Device, tx_stream, 0, 0);
+    (void)SoapySDRDevice_closeStream(Global_SDR_Device, tx_stream);
+    tx_stream = NULL;
+    file = NULL;
+
+start_failed:
+
+    if (tx_stream) {
+
+        (void)SoapySDRDevice_deactivateStream(Global_SDR_Device, tx_stream, 0, 0);
+        (void)SoapySDRDevice_closeStream(Global_SDR_Device, tx_stream);
+
+    }
+
+    if (file) {
+
+        fclose(file);
+
+    }
+
+    (void)retrospectrum_restore_receive_settings(saved_center_frequency_hz, saved_sample_rate_hz, saved_display_span_hz,
+                                                 saved_lna_gain, saved_vga_gain, saved_amp_enable);
     return 0;
 }
 
@@ -2635,7 +3315,7 @@ void RETROSPECTRUM_acknowledge_transmission_result(void) {
 
 static int RETROSPECTRUM_transmission_is_active(void) {
     /*
-        Purpose: Reports whether HackRF is currently in asynchronous TX mode
+        Purpose: Reports whether SoapySDR is currently in asynchronous TX mode
         Returns: Active status
     */
 
@@ -2647,7 +3327,7 @@ static int RETROSPECTRUM_transmission_is_active(void) {
     return active;
 }
 
-static int apply_from_inputs(hackrf_device *dev, Type_Input_Box *freq_box, Type_Input_Box *sr_box,
+static int apply_from_inputs(SoapySDRDevice *dev, Type_Input_Box *freq_box, Type_Input_Box *sr_box,
                              Type_Input_Box *display_box, Type_Input_Box *lna_box, Type_Input_Box *vga_box,
                              Type_Input_Box *fps_box, Type_Input_Box *rows_box, uint32_t *waterfall_pixels, int tex_w,
                              int tex_h) {
@@ -2679,13 +3359,13 @@ static int apply_from_inputs(hackrf_device *dev, Type_Input_Box *freq_box, Type_
 
     }
 
-    if (!parse_nonnegative_int(lna_box->text, &lna)) {
+    if (!sec_str_to_int_bound(lna_box->text, -200, 200, &lna)) {
 
         return 0;
 
     }
 
-    if (!parse_nonnegative_int(vga_box->text, &vga)) {
+    if (!sec_str_to_int_bound(vga_box->text, -200, 200, &vga)) {
 
         return 0;
 
@@ -2703,11 +3383,23 @@ static int apply_from_inputs(hackrf_device *dev, Type_Input_Box *freq_box, Type_
 
     }
 
-    uint64_t center_hz = (uint64_t)(freq_mhz * 1e6);
-    uint32_t sample_rate_hz = (uint32_t)(sr_msps * 1e6);
-    uint32_t display_span_hz = (uint32_t)(display_mhz * 1e6);
+    double center_hz_value = freq_mhz * 1e6;
+    double sample_rate_value = sr_msps * 1e6;
+    double display_span_value = display_mhz * 1e6;
 
-    if (sample_rate_hz < 2000000 || sample_rate_hz > 20000000) {
+    if (!isfinite(center_hz_value) || center_hz_value <= 0.0 || center_hz_value > (double)UINT64_MAX ||
+        !isfinite(sample_rate_value) || sample_rate_value < 1000.0 || sample_rate_value > (double)UINT32_MAX ||
+        !isfinite(display_span_value) || display_span_value < 1000.0 || display_span_value > (double)UINT32_MAX) {
+
+        return 0;
+
+    }
+
+    uint64_t center_hz = (uint64_t)llround(center_hz_value);
+    uint32_t sample_rate_hz = (uint32_t)llround(sample_rate_value);
+    uint32_t display_span_hz = (uint32_t)llround(display_span_value);
+
+    if (sample_rate_hz < 1000) {
 
         return 0;
 
@@ -4436,44 +5128,36 @@ int main(int argc, char **argv) {
 
     }
 
-    hackrf_device *dev = NULL;
+    SoapySDRDevice *dev = sdr_open_selected_device();
 
-    int hackrf_init_result = hackrf_init();
+    if (dev) {
 
-    if (hackrf_init_result == HACKRF_SUCCESS) {
+        Global_SDR_Device = dev;
+        Global_SDR_Supports_TX = SoapySDRDevice_getNumChannels(dev, SOAPY_SDR_TX) > 0 ? 1 : 0;
 
-        Global_HackRF_Library_Initialized = 1;
+        sdr_copy_identity(dev);
+        sdr_discover_gain_controls(dev);
 
-        int hackrf_open_result = hackrf_open(&dev);
+        if (apply_radio_settings(dev, Global_Center_Freq_Hz, Global_Sample_Rate_Hz, Global_Display_Span_Hz,
+                                 Global_LNA_Gain, Global_VGA_Gain, Global_Amp_Enable)) {
 
-        if (hackrf_open_result == HACKRF_SUCCESS && dev) {
+            Global_SDR_Connected = 1;
 
-            Global_HackRF_Device = dev;
-
-            if (apply_radio_settings(dev, Global_Center_Freq_Hz, Global_Sample_Rate_Hz, Global_Display_Span_Hz,
-                                     Global_LNA_Gain, Global_VGA_Gain, Global_Amp_Enable)) {
-
-                Global_HackRF_Connected = 1;
-
-            }
-
-            else {
-
-                fprintf(stderr, "HackRF One detected but initial configuration failed; SDR tab disabled.\n");
-                stop_radio(dev);
-                hackrf_close(dev);
-                dev = NULL;
-                Global_HackRF_Device = NULL;
-
-            }
+            fprintf(stderr, "SoapySDR connected: %s (driver=%s, TX=%s)\n", Global_SDR_Hardware, Global_SDR_Driver,
+                    Global_SDR_Supports_TX ? "yes" : "no");
 
         }
 
         else {
 
-            fprintf(stderr, "HackRF One not connected; SDR tab disabled.\n");
+            fprintf(stderr, "A SoapySDR device was detected but initial configuration failed: %s\n",
+                    SoapySDRDevice_lastError());
+
+            (void)stop_radio(dev);
+            (void)SoapySDRDevice_unmake(dev);
             dev = NULL;
-            Global_HackRF_Device = NULL;
+            Global_SDR_Device = NULL;
+            Global_SDR_Connected = 0;
 
         }
 
@@ -4481,7 +5165,8 @@ int main(int argc, char **argv) {
 
     else {
 
-        fprintf(stderr, "HackRF library initialization failed; SDR tab disabled.\n");
+        fprintf(stderr, "No RX-capable SoapySDR device was found. "
+                        "Set RETROSPECTRUM_SOAPY_ARGS to select a driver or serial.\n");
 
     }
 
@@ -4497,17 +5182,11 @@ int main(int argc, char **argv) {
 
         if (dev) {
 
-            stop_radio(dev);
-            hackrf_close(dev);
+            (void)stop_radio(dev);
+            (void)SoapySDRDevice_unmake(dev);
             dev = NULL;
-            Global_HackRF_Device = NULL;
-
-        }
-
-        if (Global_HackRF_Library_Initialized) {
-
-            hackrf_exit();
-            Global_HackRF_Library_Initialized = 0;
+            Global_SDR_Device = NULL;
+            Global_SDR_Connected = 0;
 
         }
         return 1;
@@ -4526,17 +5205,11 @@ int main(int argc, char **argv) {
 
         if (dev) {
 
-            stop_radio(dev);
-            hackrf_close(dev);
+            (void)stop_radio(dev);
+            (void)SoapySDRDevice_unmake(dev);
             dev = NULL;
-            Global_HackRF_Device = NULL;
-
-        }
-
-        if (Global_HackRF_Library_Initialized) {
-
-            hackrf_exit();
-            Global_HackRF_Library_Initialized = 0;
+            Global_SDR_Device = NULL;
+            Global_SDR_Connected = 0;
 
         }
         return 1;
@@ -4682,10 +5355,10 @@ int main(int argc, char **argv) {
     Type_Input_Box display_box = {.label = "Display MHz", .id = FIELD_DISPLAY};
     snprintf(display_box.text, sizeof(display_box.text), "%.3f", Global_Display_Span_Hz / 1e6);
 
-    Type_Input_Box lna_box = {.label = "LNA", .id = FIELD_LNA};
+    Type_Input_Box lna_box = {.label = Global_SDR_Gain_A[0] ? Global_SDR_Gain_A : "Gain A", .id = FIELD_LNA};
     snprintf(lna_box.text, sizeof(lna_box.text), "%d", Global_LNA_Gain);
 
-    Type_Input_Box vga_box = {.label = "VGA", .id = FIELD_VGA};
+    Type_Input_Box vga_box = {.label = Global_SDR_Gain_B[0] ? Global_SDR_Gain_B : "Gain B", .id = FIELD_VGA};
     snprintf(vga_box.text, sizeof(vga_box.text), "%d", Global_VGA_Gain);
 
     Type_Input_Box fps_box = {.label = "FPS", .id = FIELD_FPS};
@@ -4701,7 +5374,7 @@ int main(int argc, char **argv) {
                              &rows_box);
 
     uint64_t next_waterfall_ms = SDL_GetTicks64();
-    uint64_t next_hackrf_health_ms = SDL_GetTicks64() + 1000;
+    uint64_t next_sdr_health_ms = SDL_GetTicks64() + 1000;
     uint64_t next_server_connection_check_ms = SDL_GetTicks64() + SERVER_CONNECTION_CHECK_MS;
 
     while (Global_Running) {
@@ -5405,7 +6078,7 @@ int main(int argc, char **argv) {
 
                 }
 
-                if (!Global_HackRF_Connected && !dashboard.enabled && !Global_Analysis_Mode &&
+                if (!Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode &&
                     !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
                     active = FIELD_NONE;
@@ -5553,8 +6226,8 @@ int main(int argc, char **argv) {
 
             }
 
-            if (!Global_HackRF_Connected && !dashboard.enabled && !Global_Analysis_Mode &&
-                !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode) {
+            if (!Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
+                !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
                 active = FIELD_NONE;
                 continue;
@@ -5777,12 +6450,11 @@ int main(int argc, char **argv) {
 
         retrospectrum_pump_transmission();
 
-        if (Global_HackRF_Connected && dev && !RETROSPECTRUM_transmission_is_active() &&
-            now_ms >= next_hackrf_health_ms) {
+        if (Global_SDR_Connected && dev && !RETROSPECTRUM_transmission_is_active() && now_ms >= next_sdr_health_ms) {
 
-            int streaming_state = hackrf_is_streaming(dev);
+            if (atomic_load(&Global_SDR_RX_Failed)) {
 
-            if (streaming_state != HACKRF_TRUE) {
+                int stream_error = atomic_load(&Global_SDR_RX_Error_Code);
 
                 if (Global_Rec) {
 
@@ -5790,23 +6462,24 @@ int main(int argc, char **argv) {
 
                 }
 
-                Global_HackRF_Connected = 0;
-                Global_Radio_Running = 0;
+                (void)stop_radio(dev);
+
+                Global_SDR_Connected = 0;
                 Global_Selector.enabled = 0;
                 Global_Selector.dragging = 0;
                 Global_Selector.resizing_left = 0;
                 Global_Selector.resizing_right = 0;
                 active = FIELD_NONE;
 
-                hackrf_close(dev);
+                (void)SoapySDRDevice_unmake(dev);
                 dev = NULL;
-                Global_HackRF_Device = NULL;
+                Global_SDR_Device = NULL;
 
-                fprintf(stderr, "HackRF One disconnected; SDR tab disabled.\n");
+                fprintf(stderr, "SoapySDR receive stream stopped: %s\n", SoapySDR_errToStr(stream_error));
 
             }
 
-            next_hackrf_health_ms = now_ms + 1000;
+            next_sdr_health_ms = now_ms + 1000;
 
         }
 
@@ -5818,7 +6491,7 @@ int main(int argc, char **argv) {
 
         }
 
-        if (Global_HackRF_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
+        if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
             !Global_Decode_Mode && !Global_CaseManagement_Mode && now_ms >= next_waterfall_ms) {
 
             int rows_drawn = 0;
@@ -5852,7 +6525,7 @@ int main(int argc, char **argv) {
 
         }
 
-        if (Global_HackRF_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
+        if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
             !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
             Type_Input_Box draw_freq_box;
@@ -5990,7 +6663,7 @@ int main(int argc, char **argv) {
 
         }
 
-        else if (Global_HackRF_Connected) {
+        else if (Global_SDR_Connected) {
 
             SDL_RenderCopy(renderer, waterfall_texture, NULL, &waterfall_rect);
             draw_selection_overlay(renderer, waterfall_rect);
@@ -6002,11 +6675,11 @@ int main(int argc, char **argv) {
 
         else {
 
-            draw_hackrf_disconnected(renderer, font_medium, win_w, station_win_h);
+            draw_sdr_disconnected(renderer, font_medium, win_w, station_win_h);
 
         }
 
-        if (Global_HackRF_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
+        if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
             !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
             int status_w = 0;
@@ -6024,7 +6697,7 @@ int main(int argc, char **argv) {
 
         }
 
-        if (Global_HackRF_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
+        if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
             !Global_Decode_Mode && !Global_CaseManagement_Mode) {
 
             draw_antenna_recommendation(renderer, font_small, win_w, station_win_h);
@@ -6074,23 +6747,11 @@ int main(int argc, char **argv) {
 
     if (dev) {
 
-        if (Global_Radio_Running) {
-
-            hackrf_stop_rx(dev);
-            Global_Radio_Running = 0;
-
-        }
-
-        hackrf_close(dev);
+        (void)stop_radio(dev);
+        (void)SoapySDRDevice_unmake(dev);
         dev = NULL;
-        Global_HackRF_Device = NULL;
-
-    }
-
-    if (Global_HackRF_Library_Initialized) {
-
-        hackrf_exit();
-        Global_HackRF_Library_Initialized = 0;
+        Global_SDR_Device = NULL;
+        Global_SDR_Connected = 0;
 
     }
 
