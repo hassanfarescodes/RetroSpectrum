@@ -58,7 +58,7 @@ extern void SDL_free(void *mem);
 #define CASE_MGMT_STATUS_OPTION_H 28
 #define CASE_MGMT_CALENDAR_H 250
 #define CASE_MGMT_SOURCE_MAX_FILES 512
-#define CASE_MGMT_SOURCE_VISIBLE 18
+#define CASE_MGMT_SOURCE_VISIBLE 14
 #define CASE_MGMT_CASE_MAX_VISIBLE 6
 #define CASE_MGMT_CASE_OPTION_H 30
 #define CASE_MGMT_COUNTRY_MAX_VISIBLE 6
@@ -5816,18 +5816,177 @@ static void case_clamp_source_scroll(void) {
     }
 }
 
+static void case_source_short_text(TTF_Font *font, const char *src, char *dst, size_t dst_size, int max_px) {
+    /*
+        Purpose: Shortens source filenames by rendered width
+        Returns: No value
+    */
+
+    if (!dst || dst_size == 0) {
+
+        return;
+
+    }
+
+    if (!src) {
+
+        src = "";
+
+    }
+
+    size_t copy_len = strlen(src);
+
+    if (copy_len >= dst_size) {
+
+        copy_len = dst_size - 1;
+
+    }
+
+    memcpy(dst, src, copy_len);
+    dst[copy_len] = '\0';
+
+    if (!font || max_px <= 0) {
+
+        return;
+
+    }
+
+    int text_w = 0;
+    int text_h = 0;
+
+    if (TTF_SizeText(font, dst, &text_w, &text_h) != 0 || text_w <= max_px) {
+
+        return;
+
+    }
+
+    size_t len = strlen(dst);
+
+    while (len > 4) {
+        len--;
+        dst[len] = '\0';
+
+        if (len >= 3) {
+
+            dst[len - 3] = '.';
+            dst[len - 2] = '.';
+            dst[len - 1] = '.';
+            dst[len] = '\0';
+
+        }
+
+        if (TTF_SizeText(font, dst, &text_w, &text_h) != 0 || text_w <= max_px) {
+
+            return;
+
+        }
+
+        if (len >= 3) {
+
+            dst[len - 3] = '\0';
+
+        }
+    }
+
+    snprintf(dst, dst_size, "...");
+}
+
+static void case_draw_source_modal_button(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect,
+                                          const char *label, int hovered) {
+    /*
+        Purpose: Draws an Analysis-style source-search modal button
+        Returns: No value
+    */
+
+    SDL_Color fill = hovered ? (SDL_Color){0, 44, 16, 255} : (SDL_Color){0, 8, 3, 255};
+    SDL_Color border = hovered ? Case_Border_Hi : Case_Border;
+    SDL_Color text = hovered ? (SDL_Color){235, 255, 240, 255} : Case_Text;
+
+    if (hovered) {
+
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_Rect glow = {rect.x - 4, rect.y - 4, rect.w + 8, rect.h + 8};
+        draw_filled_rect(renderer, glow, (SDL_Color){0, 255, 90, 38});
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    }
+
+    draw_filled_rect(renderer, rect, fill);
+    draw_outline_rect(renderer, rect, border);
+    case_draw_text_centered(renderer, font, label, rect, text);
+}
+
+static void case_close_source_file_search_menu(void) {
+    /*
+        Purpose: Closes the source-file search menu
+        Returns: No value
+    */
+
+    Global_Case_Source_Popup_Open = 0;
+    Global_Case_Source_Search_Active = 0;
+    Global_Case_Source_Hover = -1;
+}
+
+static void case_open_source_file_search_menu(void) {
+    /*
+        Purpose: Opens the source-file search menu using Analysis-style behavior
+        Returns: No value
+    */
+
+    case_scan_source_files();
+    Global_Case_Source_Popup_Open = 1;
+    Global_Case_Source_Search_Active = 1;
+    Global_Case_Source_Hover = -1;
+    Global_Case_Source_Search[0] = '\0';
+    Global_Case_Source_Search_Cursor = 0;
+    Global_Case_Source_Scroll = 0;
+    Global_Case_Status_Dropdown_Open = 0;
+    Global_Case_Case_Dropdown_Open = 0;
+    Global_Case_Country_Dropdown_Open = 0;
+    Global_Case_User_Dropdown_Open = 0;
+    Global_Case_Calendar_Open = 0;
+    Global_Case_Description_Popup_Open = 0;
+    Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
+
+    case_set_status("Source filename search menu opened", Case_Text);
+}
+
+static void case_source_file_search_select_index(int source_index) {
+    /*
+        Purpose: Selects one source filename from the filtered search results
+        Returns: No value
+    */
+
+    if (source_index < 0 || source_index >= Global_Case_Source_File_Count) {
+
+        return;
+
+    }
+
+    char *source = case_selected_field_text(CASE_MGMT_FIELD_SOURCE_FILE);
+
+    if (source) {
+
+        case_push_undo_state();
+        case_copy_text(source, CASE_MGMT_SOURCE_FILE_MAX, Global_Case_Source_Files[source_index]);
+        Global_Case_Field_Cursor[CASE_MGMT_FIELD_SOURCE_FILE] = (int)strlen(source);
+
+    }
+
+    case_close_source_file_search_menu();
+    case_set_status("Source file selected", Case_Text);
+}
+
 static int case_handle_source_popup_click(int mx, int my, int win_w, int win_h) {
     /*
-        Purpose: Handles the source popup click
+        Purpose: Handles the Analysis-style source filename search click
         Returns: Handling status
     */
 
     SDL_Rect popup = case_source_popup_rect(win_w, win_h);
     SDL_Rect close_btn = {popup.x + popup.w - 86, popup.y + 14, 68, 30};
     SDL_Rect search = case_source_search_rect(popup);
-    SDL_Rect current_rect = {popup.x + 18, popup.y + 62, popup.w - 36, 42};
     SDL_Rect list = {popup.x + 18, popup.y + 124, popup.w - 36, popup.h - 164};
-    (void)current_rect;
 
     if (!Global_Case_Source_Popup_Open) {
 
@@ -5835,18 +5994,9 @@ static int case_handle_source_popup_click(int mx, int my, int win_w, int win_h) 
 
     }
 
-    if (!case_point_in_rect(mx, my, popup)) {
+    if (!case_point_in_rect(mx, my, popup) || case_point_in_rect(mx, my, close_btn)) {
 
-        Global_Case_Source_Popup_Open = 0;
-        Global_Case_Source_Search_Active = 0;
-        return 1;
-
-    }
-
-    if (case_point_in_rect(mx, my, close_btn)) {
-
-        Global_Case_Source_Popup_Open = 0;
-        Global_Case_Source_Search_Active = 0;
+        case_close_source_file_search_menu();
         return 1;
 
     }
@@ -5854,7 +6004,6 @@ static int case_handle_source_popup_click(int mx, int my, int win_w, int win_h) 
     if (case_point_in_rect(mx, my, search)) {
 
         Global_Case_Source_Search_Active = 1;
-        Global_Case_Source_Search_Cursor = (int)strlen(Global_Case_Source_Search);
         return 1;
 
     }
@@ -5863,27 +6012,35 @@ static int case_handle_source_popup_click(int mx, int my, int win_w, int win_h) 
 
     if (case_point_in_rect(mx, my, list) && Global_Case_Source_File_Count > 0) {
 
-        int row = (my - list.y) / CASE_MGMT_SOURCE_ROW_H;
-        int filtered_index = Global_Case_Source_Scroll + row;
-        int source_index = case_source_filtered_index_at(filtered_index);
-        int max_visible = list.h / CASE_MGMT_SOURCE_ROW_H;
+        int row = (my - list.y - 4) / CASE_MGMT_FILE_SEARCH_ROW_H;
+        int visible = list.h / CASE_MGMT_FILE_SEARCH_ROW_H;
 
-        if (row >= 0 && row < max_visible && source_index >= 0 && source_index < Global_Case_Source_File_Count) {
+        if (visible < 1) {
 
-            char *source = case_selected_field_text(CASE_MGMT_FIELD_SOURCE_FILE);
-
-            if (source) {
-
-                case_copy_text(source, CASE_MGMT_SOURCE_FILE_MAX, Global_Case_Source_Files[source_index]);
-                Global_Case_Field_Cursor[CASE_MGMT_FIELD_SOURCE_FILE] = (int)strlen(source);
-
-            }
-            Global_Case_Source_Popup_Open = 0;
-            Global_Case_Source_Search_Active = 0;
-            case_set_status("Source file selected", Case_Text);
-            return 1;
+            visible = 1;
 
         }
+
+        if (visible > 14) {
+
+            visible = 14;
+
+        }
+
+        if (row >= 0 && row < visible) {
+
+            int filtered_index = Global_Case_Source_Scroll + row;
+            int source_index = case_source_filtered_index_at(filtered_index);
+
+            if (source_index >= 0) {
+
+                case_source_file_search_select_index(source_index);
+
+            }
+
+        }
+
+        return 1;
 
     }
 
@@ -8463,38 +8620,46 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h) {
 
     if (Global_Case_Source_Popup_Open) {
 
-        if (event->type == SDL_TEXTINPUT && Global_Case_Source_Search_Active) {
+        if (event->type == SDL_TEXTINPUT) {
 
-            size_t len = strlen(Global_Case_Source_Search);
-            const char *src = event->text.text;
-            while (*src && len + 1 < sizeof(Global_Case_Source_Search)) {
-                char c = *src++;
+            if (Global_Case_Source_Search_Active) {
 
-                if (c >= 32 && c <= 126) {
+                size_t len = strlen(Global_Case_Source_Search);
+                const char *src = event->text.text;
 
-                    int cursor = Global_Case_Source_Search_Cursor;
+                while (*src && len + 1 < sizeof(Global_Case_Source_Search)) {
+                    char c = *src++;
 
-                    if (cursor < 0) {
+                    if (c >= 32 && c <= 126) {
 
-                        cursor = 0;
+                        int cursor = Global_Case_Source_Search_Cursor;
+
+                        if (cursor < 0) {
+
+                            cursor = 0;
+
+                        }
+
+                        if (cursor > (int)len) {
+
+                            cursor = (int)len;
+
+                        }
+
+                        memmove(Global_Case_Source_Search + cursor + 1, Global_Case_Source_Search + cursor,
+                                len - (size_t)cursor + 1);
+                        Global_Case_Source_Search[cursor] = c;
+                        Global_Case_Source_Search_Cursor = cursor + 1;
+                        len++;
 
                     }
-
-                    if (cursor > (int)len) {
-
-                        cursor = (int)len;
-
-                    }
-                    memmove(Global_Case_Source_Search + cursor + 1, Global_Case_Source_Search + cursor,
-                            len - (size_t)cursor + 1);
-                    Global_Case_Source_Search[cursor] = c;
-                    Global_Case_Source_Search_Cursor = cursor + 1;
-                    len++;
-
                 }
+
+                Global_Case_Source_Scroll = 0;
+                case_clamp_source_scroll();
+
             }
-            Global_Case_Source_Scroll = 0;
-            case_clamp_source_scroll();
+
             return 1;
 
         }
@@ -8502,104 +8667,118 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h) {
         if (event->type == SDL_KEYDOWN) {
 
             SDL_Keycode key = event->key.keysym.sym;
+            int len = (int)strlen(Global_Case_Source_Search);
 
-            if (Global_Case_Source_Search_Active) {
+            if (key == SDLK_ESCAPE) {
 
-                int len = (int)strlen(Global_Case_Source_Search);
-
-                if (key == SDLK_ESCAPE) {
-
-                    Global_Case_Source_Search_Active = 0;
-                    return 1;
-
-                }
-
-                if (key == SDLK_BACKSPACE) {
-
-                    int cursor = Global_Case_Source_Search_Cursor;
-
-                    if (cursor > 0 && len > 0) {
-
-                        if (cursor > len) {
-
-                            cursor = len;
-
-                        }
-                        memmove(Global_Case_Source_Search + cursor - 1, Global_Case_Source_Search + cursor,
-                                len - cursor + 1);
-                        Global_Case_Source_Search_Cursor = cursor - 1;
-                        Global_Case_Source_Scroll = 0;
-
-                    }
-                    case_clamp_source_scroll();
-                    return 1;
-
-                }
-
-                if (key == SDLK_DELETE) {
-
-                    int cursor = Global_Case_Source_Search_Cursor;
-
-                    if (cursor < 0) {
-
-                        cursor = 0;
-
-                    }
-
-                    if (cursor < len) {
-
-                        memmove(Global_Case_Source_Search + cursor, Global_Case_Source_Search + cursor + 1,
-                                len - cursor);
-                        Global_Case_Source_Scroll = 0;
-
-                    }
-                    case_clamp_source_scroll();
-                    return 1;
-
-                }
-
-                if (key == SDLK_LEFT) {
-
-                    if (Global_Case_Source_Search_Cursor > 0) {
-
-                        Global_Case_Source_Search_Cursor--;
-
-                    }
-                    return 1;
-
-                }
-
-                if (key == SDLK_RIGHT) {
-
-                    if (Global_Case_Source_Search_Cursor < len) {
-
-                        Global_Case_Source_Search_Cursor++;
-
-                    }
-                    return 1;
-
-                }
-
-                if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
-
-                    Global_Case_Source_Search_Active = 0;
-                    return 1;
-
-                }
-
-            }
-
-            if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) {
-
-                Global_Case_Source_Popup_Open = 0;
-                Global_Case_Source_Search_Active = 0;
+                case_close_source_file_search_menu();
                 return 1;
 
             }
 
-            if (key == SDLK_r) {
+            if (key == SDLK_BACKSPACE) {
 
-                case_scan_source_files();
+                int cursor = Global_Case_Source_Search_Cursor;
+
+                if (cursor > 0 && len > 0) {
+
+                    if (cursor > len) {
+
+                        cursor = len;
+
+                    }
+
+                    memmove(Global_Case_Source_Search + cursor - 1, Global_Case_Source_Search + cursor,
+                            (size_t)(len - cursor + 1));
+                    Global_Case_Source_Search_Cursor = cursor - 1;
+                    Global_Case_Source_Scroll = 0;
+                    case_clamp_source_scroll();
+
+                }
+
+                return 1;
+
+            }
+
+            if (key == SDLK_DELETE) {
+
+                int cursor = Global_Case_Source_Search_Cursor;
+
+                if (cursor < 0) {
+
+                    cursor = 0;
+
+                }
+
+                if (cursor < len) {
+
+                    memmove(Global_Case_Source_Search + cursor, Global_Case_Source_Search + cursor + 1,
+                            (size_t)(len - cursor));
+                    Global_Case_Source_Scroll = 0;
+                    case_clamp_source_scroll();
+
+                }
+
+                return 1;
+
+            }
+
+            if (key == SDLK_LEFT) {
+
+                if (Global_Case_Source_Search_Cursor > 0) {
+
+                    Global_Case_Source_Search_Cursor--;
+
+                }
+
+                return 1;
+
+            }
+
+            if (key == SDLK_RIGHT) {
+
+                if (Global_Case_Source_Search_Cursor < len) {
+
+                    Global_Case_Source_Search_Cursor++;
+
+                }
+
+                return 1;
+
+            }
+
+            if (key == SDLK_HOME) {
+
+                Global_Case_Source_Search_Cursor = 0;
+                return 1;
+
+            }
+
+            if (key == SDLK_END) {
+
+                Global_Case_Source_Search_Cursor = len;
+                return 1;
+
+            }
+
+            if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+
+                int source_index = case_source_filtered_index_at(Global_Case_Source_Scroll);
+
+                if (source_index >= 0) {
+
+                    case_source_file_search_select_index(source_index);
+
+                }
+
+                return 1;
+
+            }
+
+            if (key == SDLK_DOWN) {
+
+                Global_Case_Source_Scroll++;
+                case_clamp_source_scroll();
                 return 1;
 
             }
@@ -8612,38 +8791,45 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h) {
 
             }
 
-            if (key == SDLK_DOWN) {
+            if (key == SDLK_r) {
 
-                Global_Case_Source_Scroll++;
+                case_scan_source_files();
                 case_clamp_source_scroll();
                 return 1;
 
             }
+
             return 1;
 
         }
 
         if (event->type == SDL_MOUSEWHEEL) {
 
-            Global_Case_Source_Scroll -= event->wheel.y;
-            case_clamp_source_scroll();
+            int mx = 0;
+            int my = 0;
+            SDL_Rect popup = case_source_popup_rect(win_w, win_h);
+            SDL_Rect list = {popup.x + 18, popup.y + 124, popup.w - 36, popup.h - 164};
+
+            case_get_adjusted_mouse_state(&mx, &my);
+
+            if (case_point_in_rect(mx, my, list)) {
+
+                Global_Case_Source_Scroll -= event->wheel.y * 3;
+                case_clamp_source_scroll();
+
+            }
+
             return 1;
 
         }
 
         if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
 
-            int mx = event->button.x;
-            int my = event->button.y;
-            return case_handle_source_popup_click(mx, my, win_w, win_h);
+            return case_handle_source_popup_click(event->button.x, event->button.y, win_w, win_h);
 
         }
 
-        if (event->type == SDL_MOUSEMOTION) {
-
-            return 1;
-
-        }
+        return 1;
 
     }
 
@@ -9530,8 +9716,7 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h) {
                         Global_Case_Case_Dropdown_Open = 0;
                         Global_Case_Country_Dropdown_Open = 0;
                         Global_Case_Calendar_Open = 0;
-                        case_scan_source_files();
-                        Global_Case_Source_Popup_Open = 1;
+                        case_open_source_file_search_menu();
                         return 1;
 
                     }
@@ -10931,11 +11116,11 @@ static void case_draw_description_box(SDL_Renderer *renderer, TTF_Font *font, SD
 
 static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
     /*
-        Purpose: Draws the source popup
+        Purpose: Draws the source-file selector using the Analysis filename-search interface
         Returns: No value
     */
 
-    if (!Global_Case_Source_Popup_Open) {
+    if (!renderer || !font || !Global_Case_Source_Popup_Open) {
 
         return;
 
@@ -10949,18 +11134,24 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
     int filtered_count = case_source_filtered_count();
     int mx = 0;
     int my = 0;
+
     case_get_adjusted_mouse_state(&mx, &my);
     case_clamp_source_scroll();
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_Rect dim = {0, 0, win_w, win_h};
+    draw_filled_rect(renderer, dim, (SDL_Color){0, 0, 0, 155});
 
     draw_filled_rect(renderer, popup, (SDL_Color){0, 8, 3, 252});
     draw_outline_rect(renderer, popup, Case_Border_Hi);
     SDL_Rect inner = {popup.x + 4, popup.y + 4, popup.w - 8, popup.h - 8};
     draw_outline_rect(renderer, inner, Case_Border);
 
-    draw_text(renderer, font, "SOURCE FILE", popup.x + 18, popup.y + 20, Case_Text);
-    case_draw_button(renderer, font, close_btn, "Close", 0, case_point_in_rect(mx, my, close_btn), 0);
+    draw_text(renderer, font, "SOURCE FILE SEARCH", popup.x + 18, popup.y + 20, Case_Text);
+    case_draw_source_modal_button(renderer, font, close_btn, "Close", case_point_in_rect(mx, my, close_btn));
 
-    draw_filled_rect(renderer, search, Global_Case_Source_Search_Active ? Case_Panel_2 : (SDL_Color){0, 5, 2, 255});
+    draw_filled_rect(renderer, search,
+                     Global_Case_Source_Search_Active ? (SDL_Color){0, 20, 8, 255} : (SDL_Color){0, 5, 2, 255});
     draw_outline_rect(renderer, search, Global_Case_Source_Search_Active ? Case_Border_Hi : Case_Border);
 
     if (Global_Case_Source_Search[0]) {
@@ -10994,38 +11185,35 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
             cursor = len;
 
         }
+
         snprintf(prefix, sizeof(prefix), "%.*s", cursor, Global_Case_Source_Search);
 
-        if (font && TTF_SizeText(font, prefix, &tw, &th) != 0) {
+        if (TTF_SizeText(font, prefix, &tw, &th) != 0) {
 
             tw = cursor * 8;
 
         }
+
         SDL_SetRenderDrawColor(renderer, Case_Blue.r, Case_Blue.g, Case_Blue.b, Case_Blue.a);
-        SDL_RenderDrawLine(renderer, search.x + 10 + tw, search.y + 6, search.x + 10 + tw, search.y + search.h - 6);
+        SDL_RenderDrawLine(renderer, search.x + 10 + tw, search.y + 6, search.x + 10 + tw,
+                           search.y + search.h - 6);
+        SDL_RenderDrawLine(renderer, search.x + 11 + tw, search.y + 6, search.x + 11 + tw,
+                           search.y + search.h - 6);
 
     }
 
     draw_text(renderer, font, "Currently selected", current_rect.x, current_rect.y - 18, Case_Muted);
-    draw_filled_rect(renderer, current_rect, Case_Panel_2);
+    draw_filled_rect(renderer, current_rect, (SDL_Color){0, 20, 8, 255});
     draw_outline_rect(renderer, current_rect, Case_Border_Hi);
+
     {
+        char short_name[CASE_MGMT_SOURCE_FILE_MAX];
         char *current_source = case_selected_field_text(CASE_MGMT_FIELD_SOURCE_FILE);
-        char current_text[CASE_MGMT_SOURCE_FILE_MAX + 32];
+        const char *current = current_source && current_source[0] ? current_source : "(none selected)";
 
-        if (current_source && current_source[0]) {
-
-            snprintf(current_text, sizeof(current_text), "%s", current_source);
-
-        }
-
-        else {
-
-            snprintf(current_text, sizeof(current_text), "(none selected)");
-
-        }
-        draw_text(renderer, font, current_text, current_rect.x + 10, current_rect.y + 12,
-                  current_source && current_source[0] ? Case_Text : Case_Muted);
+        case_source_short_text(font, current, short_name, sizeof(short_name), current_rect.w - 20);
+        draw_text(renderer, font, short_name, current_rect.x + 10, current_rect.y + 12,
+                  current[0] == '(' ? Case_Muted : Case_Text);
     }
 
     draw_filled_rect(renderer, list, (SDL_Color){0, 5, 2, 255});
@@ -11036,6 +11224,7 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
         char empty_msg[640];
         snprintf(empty_msg, sizeof(empty_msg), "No .complex16 files found in %s/", Global_Case_Record_Dir);
         draw_text(renderer, font, empty_msg, list.x + 12, list.y + 14, Case_Warn);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
         return;
 
     }
@@ -11043,15 +11232,16 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
     if (filtered_count <= 0) {
 
         draw_text(renderer, font, "No files match the search.", list.x + 12, list.y + 14, Case_Warn);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
         return;
 
     }
 
-    int visible = list.h / CASE_MGMT_SOURCE_ROW_H;
+    int visible = list.h / CASE_MGMT_FILE_SEARCH_ROW_H;
 
-    if (visible > CASE_MGMT_SOURCE_VISIBLE) {
+    if (visible > 14) {
 
-        visible = CASE_MGMT_SOURCE_VISIBLE;
+        visible = 14;
 
     }
 
@@ -11065,7 +11255,7 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
 
     if (case_point_in_rect(mx, my, list)) {
 
-        int row = (my - list.y) / CASE_MGMT_SOURCE_ROW_H;
+        int row = (my - list.y - 4) / CASE_MGMT_FILE_SEARCH_ROW_H;
         int filtered_index = Global_Case_Source_Scroll + row;
         int source_index = case_source_filtered_index_at(filtered_index);
 
@@ -11077,10 +11267,13 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
 
     }
 
+    char *selected_source = case_selected_field_text(CASE_MGMT_FIELD_SOURCE_FILE);
+
     for (int row = 0; row < visible; row++) {
         int filtered_index = Global_Case_Source_Scroll + row;
         int source_index = case_source_filtered_index_at(filtered_index);
-        SDL_Rect item = {list.x + 4, list.y + 4 + row * CASE_MGMT_SOURCE_ROW_H, list.w - 8, CASE_MGMT_SOURCE_ROW_H - 3};
+        SDL_Rect item = {list.x + 4, list.y + 4 + row * CASE_MGMT_FILE_SEARCH_ROW_H, list.w - 8,
+                         CASE_MGMT_FILE_SEARCH_ROW_H - 3};
 
         if (source_index < 0 || source_index >= Global_Case_Source_File_Count) {
 
@@ -11088,33 +11281,51 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
 
         }
 
-        if (source_index == Global_Case_Source_Hover) {
+        int hovered = source_index == Global_Case_Source_Hover;
+        int selected = selected_source && selected_source[0] &&
+                       strcmp(selected_source, Global_Case_Source_Files[source_index]) == 0;
+        char short_name[CASE_MGMT_SOURCE_FILE_MAX];
 
-            draw_filled_rect(renderer, item, Case_Panel_2);
+        if (hovered) {
+
+            draw_filled_rect(renderer, item, (SDL_Color){0, 44, 16, 255});
             SDL_Rect halo = {item.x - 2, item.y - 2, item.w + 4, item.h + 4};
             draw_outline_rect(renderer, halo, Case_Border_Hi);
 
         }
 
-        draw_outline_rect(renderer, item, source_index == Global_Case_Source_Hover ? Case_Border_Hi : Case_Border);
-        draw_text(renderer, font, Global_Case_Source_Files[source_index], item.x + 10, item.y + 7, Case_Text);
+        else if (selected) {
+
+            draw_filled_rect(renderer, item, (SDL_Color){15, 85, 45, 245});
+
+        }
+
+        draw_outline_rect(renderer, item, hovered ? Case_Border_Hi : selected ? (SDL_Color){0, 220, 80, 255}
+                                                                                  : (SDL_Color){0, 130, 55, 255});
+
+        case_source_short_text(font, Global_Case_Source_Files[source_index], short_name, sizeof(short_name),
+                               item.w - 20);
+        draw_text(renderer, font, short_name, item.x + 10, item.y + 8,
+                  hovered ? (SDL_Color){235, 255, 240, 255}
+                          : selected ? (SDL_Color){255, 255, 255, 255} : Case_Text);
     }
 
     char count_label[128];
 
     if (Global_Case_Source_Search[0]) {
 
-        snprintf(count_label, sizeof(count_label), "%d of %d source files", filtered_count,
-                 Global_Case_Source_File_Count);
+        snprintf(count_label, sizeof(count_label), "%d of %d files", filtered_count, Global_Case_Source_File_Count);
 
     }
 
     else {
 
-        snprintf(count_label, sizeof(count_label), "%d source files", Global_Case_Source_File_Count);
+        snprintf(count_label, sizeof(count_label), "%d files", Global_Case_Source_File_Count);
 
     }
+
     draw_text(renderer, font, count_label, popup.x + 18, popup.y + popup.h - 24, Case_Muted);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
 static void case_draw_description_popup(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {

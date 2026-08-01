@@ -81,6 +81,9 @@
 // Responsible for the CorrelationWorkstation
 #include "CorrelationWorkstation.h"
 
+/* Stops a background Compare All job only during logout or process shutdown. */
+void CORRELATION_shutdown(void);
+
 // Responsible for the Map Dashboard
 #include "MapDashboard.h"
 
@@ -6689,11 +6692,7 @@ int main(int argc, char **argv) {
 
             }
 
-            if (Global_Correlation_Mode) {
-
-                CORRELATION_exit_mode();
-
-            }
+            CORRELATION_shutdown();
 
             if (Global_Analysis_Mode) {
 
@@ -6834,6 +6833,7 @@ int main(int argc, char **argv) {
         SDL_Delay(1);
     }
 
+    CORRELATION_shutdown();
     SDL_StopTextInput();
     SECURE_NETWORK_stop_server();
     SERVER_IDENTITY_stop();
@@ -6841,12 +6841,6 @@ int main(int argc, char **argv) {
     if (Global_Decode_Mode) {
 
         DECODE_exit_mode();
-
-    }
-
-    if (Global_Correlation_Mode) {
-
-        CORRELATION_exit_mode();
 
     }
 

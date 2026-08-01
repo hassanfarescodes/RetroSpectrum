@@ -257,7 +257,8 @@ static unsigned char Global_Analysis_Noise_Column_Mask[ANALYSIS_MAX_RENDER_W];
 static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h);
 static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 static SDL_Rect ANALYSIS_clear_workspace_button_rect(int win_w, int win_h);
-static void ANALYSIS_draw_clear_workspace_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
+static void ANALYSIS_draw_clear_workspace_button(SDL_Renderer *renderer, TTF_Font *font,
+                                                 int win_w, int win_h);
 static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 static void ANALYSIS_update_noise_column_mask(int render_w);
 static void ANALYSIS_apply_noise_filter_to_rendered_lines(int render_w);
@@ -612,7 +613,8 @@ static void ANALYSIS_clear_current_workspace(void) {
     Global_Analysis_Load_Frame = 0;
     Global_Analysis_Dragging = 0;
     snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
-             "Workspace %d cleared and available for another signal", Global_Analysis_Active_Workspace + 1);
+             "Workspace %d cleared and available for another signal",
+             Global_Analysis_Active_Workspace + 1);
     ANALYSIS_save_workspace_state(Global_Analysis_Active_Workspace);
 }
 
@@ -811,6 +813,7 @@ static int ANALYSIS_open_selected_recording(void) {
     return 1;
 }
 
+
 static const char *ANALYSIS_path_file_name(const char *path) {
     /*
         Purpose: Returns the filename portion of an analysis recording path
@@ -853,7 +856,8 @@ static int ANALYSIS_workspace_is_empty(int index) {
 
     }
 
-    return Global_Analysis_Workspaces[index].path[0] == '\0' || Global_Analysis_Workspaces[index].iq_count == 0;
+    return Global_Analysis_Workspaces[index].path[0] == '\0' ||
+           Global_Analysis_Workspaces[index].iq_count == 0;
 }
 
 static int ANALYSIS_initialize_workspaces_for_export(void) {
@@ -900,8 +904,9 @@ int ANALYSIS_get_recording_workspace(const char *file_name) {
     }
 
     for (int i = 0; i < ANALYSIS_WORKSPACE_COUNT; i++) {
-        const char *path =
-            i == Global_Analysis_Active_Workspace ? Global_Analysis_Path : Global_Analysis_Workspaces[i].path;
+        const char *path = i == Global_Analysis_Active_Workspace
+                               ? Global_Analysis_Path
+                               : Global_Analysis_Workspaces[i].path;
 
         if (path[0] && strcmp(ANALYSIS_path_file_name(path), file_name) == 0) {
 
@@ -939,9 +944,12 @@ int ANALYSIS_get_available_workspace_count(void) {
     return available;
 }
 
-int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *file_name, uint64_t fallback_center_hz,
-                                           uint32_t fallback_rec_out_rate_hz, uint32_t fallback_sample_rate_hz,
-                                           int *workspace_number, char *error, size_t error_size) {
+int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *file_name,
+                                           uint64_t fallback_center_hz,
+                                           uint32_t fallback_rec_out_rate_hz,
+                                           uint32_t fallback_sample_rate_hz,
+                                           int *workspace_number, char *error,
+                                           size_t error_size) {
     /*
         Purpose: Loads a Correlation result into the first empty Analysis workspace
         Returns: Export status
@@ -976,7 +984,8 @@ int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *f
 
     }
 
-    ANALYSIS_set_context(record_dir, fallback_center_hz, fallback_rec_out_rate_hz, fallback_sample_rate_hz);
+    ANALYSIS_set_context(record_dir, fallback_center_hz, fallback_rec_out_rate_hz,
+                         fallback_sample_rate_hz);
 
     if (!ANALYSIS_initialize_workspaces_for_export()) {
 
@@ -1016,7 +1025,8 @@ int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *f
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "All five Analysis workspaces are occupied. Clear a workspace and try again.");
+            snprintf(error, error_size,
+                     "All five Analysis workspaces are occupied. Clear a workspace and try again.");
 
         }
         return 0;
@@ -1039,7 +1049,6 @@ int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *f
 
             }
         }
-
     }
 
     if (file_index >= 0) {
@@ -1052,8 +1061,8 @@ int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *f
 
     if (opened) {
 
-        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Exported from Correlation: %.180s",
-                 file_name);
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+                 "Exported from Correlation: %.180s", file_name);
         ANALYSIS_save_workspace_state(target_workspace);
 
     }
@@ -1939,44 +1948,49 @@ static void ANALYSIS_apply_column_selection(void) {
 
 static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h) {
     /*
-        Purpose: Computes the crop button rectangle
+        Purpose: Computes the compact Crop button rectangle on the left
         Returns: Computed rectangle
     */
 
     SDL_Rect list_rect;
     SDL_Rect spec_rect;
+    const int horizontal_margin = 4;
+    const int crop_width = 64; /* Tight around "Crop" while retaining padding. */
+    const int button_height = 24;
 
     ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
     (void)list_rect;
 
-    SDL_Rect rect = {spec_rect.x + spec_rect.w - 122, spec_rect.y - 30, 118, 24};
-
-    if (rect.x < spec_rect.x + 4) {
-
-        rect.x = spec_rect.x + 4;
-
-    }
-
-    return rect;
+    return (SDL_Rect){spec_rect.x + horizontal_margin,
+                      spec_rect.y - 30,
+                      crop_width,
+                      button_height};
 }
 
 static SDL_Rect ANALYSIS_clear_workspace_button_rect(int win_w, int win_h) {
     /*
-        Purpose: Computes the Clear Workspace button rectangle beside Crop
+        Purpose: Computes the padded Clear Workspace button rectangle on the right
         Returns: Computed rectangle
     */
 
     SDL_Rect list_rect;
     SDL_Rect spec_rect;
     SDL_Rect crop_rect = ANALYSIS_crop_button_rect(win_w, win_h);
-    SDL_Rect rect = {crop_rect.x - crop_rect.w - 8, crop_rect.y, crop_rect.w, crop_rect.h};
+    const int horizontal_margin = 4;
+    const int clear_workspace_width = 156; /* Extra text padding on both sides. */
+    SDL_Rect rect;
 
     ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
     (void)list_rect;
 
-    if (rect.x < spec_rect.x + 4) {
+    rect = (SDL_Rect){spec_rect.x + spec_rect.w - clear_workspace_width - horizontal_margin,
+                      crop_rect.y,
+                      clear_workspace_width,
+                      crop_rect.h};
 
-        rect.x = spec_rect.x + 4;
+    if (rect.x < spec_rect.x + horizontal_margin) {
+
+        rect.x = spec_rect.x + horizontal_margin;
 
     }
 
@@ -2015,7 +2029,8 @@ static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer, TTF_Font *font, in
     ANALYSIS_draw_centered_button_text(renderer, font, rect, "Crop", text);
 }
 
-static void ANALYSIS_draw_clear_workspace_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+static void ANALYSIS_draw_clear_workspace_button(SDL_Renderer *renderer, TTF_Font *font,
+                                                 int win_w, int win_h) {
     /*
         Purpose: Draws the green Clear Workspace button
         Returns: No value
@@ -2041,10 +2056,16 @@ static void ANALYSIS_draw_clear_workspace_button(SDL_Renderer *renderer, TTF_Fon
     hover = point_in_rect(mouse_x, mouse_y, rect);
     enabled = Global_Analysis_Path[0] != '\0' && Global_Analysis_IQ_Count > 0;
 
-    fill = enabled ? (hover ? (SDL_Color){0, 118, 42, 245} : (SDL_Color){0, 82, 30, 238}) : (SDL_Color){0, 30, 12, 210};
-    border =
-        enabled ? (hover ? (SDL_Color){70, 255, 130, 255} : (SDL_Color){0, 205, 82, 245}) : (SDL_Color){0, 78, 32, 220};
-    text = enabled ? (SDL_Color){240, 255, 245, 255} : (SDL_Color){90, 140, 105, 255};
+    fill = enabled
+               ? (hover ? (SDL_Color){0, 118, 42, 245}
+                        : (SDL_Color){0, 82, 30, 238})
+               : (SDL_Color){0, 30, 12, 210};
+    border = enabled
+                 ? (hover ? (SDL_Color){70, 255, 130, 255}
+                          : (SDL_Color){0, 205, 82, 245})
+                 : (SDL_Color){0, 78, 32, 220};
+    text = enabled ? (SDL_Color){240, 255, 245, 255}
+                   : (SDL_Color){90, 140, 105, 255};
 
     draw_filled_rect(renderer, rect, fill);
     draw_outline_rect(renderer, rect, border);
@@ -9155,11 +9176,43 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
 
         ANALYSIS_get_filter_label(filter_label, sizeof(filter_label));
 
-        SDL_Rect label_bg = {spec_rect.x + 4, spec_rect.y - 30, 430, 24};
+        int filter_label_width = 0;
+        int filter_label_height = 0;
+
+        if (!font || TTF_SizeUTF8(font,
+                                  filter_label,
+                                  &filter_label_width,
+                                  &filter_label_height) != 0) {
+
+            filter_label_width = 180;
+
+        }
+
+        const int filter_label_padding_left = 10;
+        const int filter_label_padding_right = 10;
+        const int filter_label_x_offset = 96;
+
+        SDL_Rect label_bg = {
+            spec_rect.x + filter_label_x_offset,
+            spec_rect.y - 30,
+            filter_label_width + filter_label_padding_left + filter_label_padding_right,
+            24
+        };
+
+        if (label_bg.w > spec_rect.w - filter_label_x_offset) {
+
+            label_bg.w = spec_rect.w - filter_label_x_offset;
+
+        }
 
         draw_filled_rect(renderer, label_bg, (SDL_Color){0, 0, 0, 210});
         draw_outline_rect(renderer, label_bg, (SDL_Color){0, 220, 80, 220});
-        draw_text(renderer, font, filter_label, label_bg.x + 7, label_bg.y + 5, (SDL_Color){0, 255, 90, 255});
+        draw_text(renderer,
+                  font,
+                  filter_label,
+                  label_bg.x + filter_label_padding_left,
+                  label_bg.y + 5,
+                  (SDL_Color){0, 255, 90, 255});
 
     }
 
@@ -10999,7 +11052,8 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
         ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
 
         SDL_Rect search_button = ANALYSIS_file_search_button_rect(win_w, win_h);
-        SDL_Rect clear_workspace_button = ANALYSIS_clear_workspace_button_rect(win_w, win_h);
+        SDL_Rect clear_workspace_button =
+            ANALYSIS_clear_workspace_button_rect(win_w, win_h);
         SDL_Rect crop_button = ANALYSIS_crop_button_rect(win_w, win_h);
 
         if (point_in_rect(x, y, search_button)) {
