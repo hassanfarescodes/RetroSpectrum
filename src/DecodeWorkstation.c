@@ -4201,7 +4201,7 @@ void DECODE_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, 
         }
         decode_short_text(font, selected, short_selected, sizeof(short_selected), file_panel.w - 520);
         snprintf(selected_line, sizeof(selected_line), "Selected: %s", short_selected);
-        draw_text(renderer, font, selected_line, file_panel.x + 12, file_panel.y + 42, Decode_Muted);
+        draw_text(renderer, font, selected_line, file_panel.x + 12, file_panel.y + 38, Decode_Muted); // 42
     }
 
     draw_filled_rect(renderer, file_list, (SDL_Color){0, 5, 2, 255});
@@ -4347,7 +4347,7 @@ void DECODE_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, 
 
             char line[512];
             char short_bits[256];
-            snprintf(line, sizeof(line), "Candidate: SPS %d | start bit %d | len %d | repeats %d",
+            snprintf(line, sizeof(line), "SPS %d | Start bit %d | Len %d | Repeats %d",
                      Global_Decode_Preamble_Candidate_SPS, Global_Decode_Preamble_Candidate_Start_Bit,
                      Global_Decode_Preamble_Candidate_Length, Global_Decode_Preamble_Candidate_Repeats);
             draw_text(renderer, font, line, candidate_box.x + 8, candidate_box.y + 10, Decode_Text);

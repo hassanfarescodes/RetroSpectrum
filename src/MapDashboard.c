@@ -29,6 +29,7 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 
+#include "CorrelationWorkstation.h"
 #include "DataStore.h"
 #include "GUIs.h"
 #include "MapDashboard.h"
@@ -84,7 +85,7 @@ static int Global_Dashboard_Case_Point_Count = 0;
 #define DASHBOARD_TOP_H RETROSPECTRUM_DASHBOARD_TAB_BAR_H
 #define DASHBOARD_TAB_H 42
 #define DASHBOARD_TAB_GAP 10
-#define DASHBOARD_TAB_COUNT 6
+#define DASHBOARD_TAB_COUNT 7
 #define DASHBOARD_CARD_H 0
 #define DASHBOARD_MIN_MAP_H 280
 
@@ -269,6 +270,11 @@ static void dashboard_make_tabs(int win_w, Type_Dashboard_Tab tabs[DASHBOARD_TAB
     tabs[5].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
     tabs[5].label = "CASE MANAGEMENT";
     tabs[5].event_id = DASHBOARD_EVENT_CASE_MANAGEMENT;
+
+    x += tab_w + DASHBOARD_TAB_GAP;
+    tabs[6].rect = (SDL_Rect){x, y, tab_w, DASHBOARD_TAB_H};
+    tabs[6].label = "CORRELATION";
+    tabs[6].event_id = RETROSPECTRUM_DASHBOARD_EVENT_CORRELATION;
 }
 
 void dashboard_draw_tab(SDL_Renderer *renderer, TTF_Font *font, Type_Dashboard_Tab tab, int active, int hovered) {
@@ -1944,6 +1950,12 @@ int dashboard_handle_top_tab_event(Type_Dashboard_State *dashboard, const SDL_Ev
 
             }
 
+            if (key == SDLK_7) {
+
+                return RETROSPECTRUM_DASHBOARD_EVENT_CORRELATION;
+
+            }
+
         }
 
         if (key == SDLK_F1) {
@@ -1979,6 +1991,12 @@ int dashboard_handle_top_tab_event(Type_Dashboard_State *dashboard, const SDL_Ev
         if (key == SDLK_F6) {
 
             return DASHBOARD_EVENT_CASE_MANAGEMENT;
+
+        }
+
+        if (key == SDLK_F7) {
+
+            return RETROSPECTRUM_DASHBOARD_EVENT_CORRELATION;
 
         }
 

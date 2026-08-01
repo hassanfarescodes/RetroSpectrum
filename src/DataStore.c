@@ -65,8 +65,8 @@ static int datastore_is_valid_kind(const char *kind) {
         Returns: Boolean status
     */
 
-    return kind &&
-           (strcmp(kind, DATASTORE_KIND_CASE_MANAGEMENT) == 0 || strcmp(kind, DATASTORE_KIND_CLASSIFICATION) == 0);
+    return kind && (strcmp(kind, DATASTORE_KIND_CASE_MANAGEMENT) == 0 ||
+                    strcmp(kind, DATASTORE_KIND_CLASSIFICATION) == 0 || strcmp(kind, "correlation") == 0);
 }
 
 static int datastore_make_directory(const char *path, mode_t mode) {

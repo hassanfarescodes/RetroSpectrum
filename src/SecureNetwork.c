@@ -1803,6 +1803,21 @@ int SECURE_NETWORK_authenticate(const char *username, const char *password, cons
 
     if (status == SECURE_NETWORK_STATUS_OK) {
 
+        /*
+            The 10-second socket timeout is only for connection and login.
+            Clear it after authentication so a temporarily slow request does not
+            get mistaken for a lost server connection and force a random logout.
+        */
+
+        if (Global_Secure_Client_Fd >= 0) {
+
+            struct timeval no_timeout = {0, 0};
+
+            setsockopt(Global_Secure_Client_Fd, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof(no_timeout));
+            setsockopt(Global_Secure_Client_Fd, SOL_SOCKET, SO_SNDTIMEO, &no_timeout, sizeof(no_timeout));
+
+        }
+
         Global_Secure_Client_Authenticated = 1;
         Global_Secure_Client_Connection_Lost = 0;
 

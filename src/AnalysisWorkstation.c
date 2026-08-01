@@ -256,6 +256,8 @@ static unsigned char Global_Analysis_Noise_Column_Mask[ANALYSIS_MAX_RENDER_W];
 
 static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h);
 static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
+static SDL_Rect ANALYSIS_clear_workspace_button_rect(int win_w, int win_h);
+static void ANALYSIS_draw_clear_workspace_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 static void ANALYSIS_draw_noise_filter_overlay(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 static void ANALYSIS_update_noise_column_mask(int render_w);
 static void ANALYSIS_apply_noise_filter_to_rendered_lines(int render_w);
@@ -599,6 +601,21 @@ static void ANALYSIS_clear_loaded_file(void) {
     Global_Analysis_Dirty = 1;
 }
 
+static void ANALYSIS_clear_current_workspace(void) {
+    /*
+        Purpose: Clears the active Analysis workspace so Correlation can reuse it
+        Returns: No value
+    */
+
+    ANALYSIS_clear_loaded_file();
+    Global_Analysis_Loading = 0;
+    Global_Analysis_Load_Frame = 0;
+    Global_Analysis_Dragging = 0;
+    snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status),
+             "Workspace %d cleared and available for another signal", Global_Analysis_Active_Workspace + 1);
+    ANALYSIS_save_workspace_state(Global_Analysis_Active_Workspace);
+}
+
 static void ANALYSIS_parse_recording_metadata(const char *name) {
     /*
         Purpose: Parses sample rate and center frequency from a recording filename
@@ -790,6 +807,276 @@ static int ANALYSIS_open_selected_recording(void) {
              Global_Analysis_Sample_Rate > 0.0 ? (double)Global_Analysis_IQ_Count / Global_Analysis_Sample_Rate : 0.0);
 
     Global_Analysis_Dirty = 1;
+
+    return 1;
+}
+
+static const char *ANALYSIS_path_file_name(const char *path) {
+    /*
+        Purpose: Returns the filename portion of an analysis recording path
+        Returns: Filename pointer
+    */
+
+    const char *slash;
+
+    if (!path) {
+
+        return "";
+
+    }
+
+    slash = strrchr(path, '/');
+    return slash ? slash + 1 : path;
+}
+
+static int ANALYSIS_workspace_is_empty(int index) {
+    /*
+        Purpose: Checks whether an Analysis workspace can accept an exported recording
+        Returns: Boolean status
+    */
+
+    if (index < 0 || index >= ANALYSIS_WORKSPACE_COUNT) {
+
+        return 0;
+
+    }
+
+    if (!Global_Analysis_Workspaces_Initialized) {
+
+        return 1;
+
+    }
+
+    if (index == Global_Analysis_Active_Workspace) {
+
+        return Global_Analysis_Path[0] == '\0' || Global_Analysis_IQ_Count == 0;
+
+    }
+
+    return Global_Analysis_Workspaces[index].path[0] == '\0' || Global_Analysis_Workspaces[index].iq_count == 0;
+}
+
+static int ANALYSIS_initialize_workspaces_for_export(void) {
+    /*
+        Purpose: Initializes Analysis workspaces when Correlation exports before Analysis was opened
+        Returns: Initialization status
+    */
+
+    int previous_mode;
+
+    if (Global_Analysis_Workspaces_Initialized) {
+
+        return 1;
+
+    }
+
+    previous_mode = Global_Analysis_Mode;
+    Global_Analysis_Active_Workspace = 0;
+
+    for (int i = 0; i < ANALYSIS_WORKSPACE_COUNT; i++) {
+        Global_Analysis_Active_Workspace = i;
+        ANALYSIS_clear_loaded_file();
+        (void)ANALYSIS_scan_recordings();
+        ANALYSIS_save_workspace_state(i);
+    }
+
+    Global_Analysis_Workspaces_Initialized = 1;
+    Global_Analysis_Active_Workspace = 0;
+    ANALYSIS_load_workspace_state(0);
+    Global_Analysis_Mode = previous_mode;
+    return 1;
+}
+
+int ANALYSIS_get_recording_workspace(const char *file_name) {
+    /*
+        Purpose: Finds the Analysis workspace currently holding a recording
+        Returns: One-based workspace number, or zero when not loaded
+    */
+
+    if (!file_name || !file_name[0] || !Global_Analysis_Workspaces_Initialized) {
+
+        return 0;
+
+    }
+
+    for (int i = 0; i < ANALYSIS_WORKSPACE_COUNT; i++) {
+        const char *path =
+            i == Global_Analysis_Active_Workspace ? Global_Analysis_Path : Global_Analysis_Workspaces[i].path;
+
+        if (path[0] && strcmp(ANALYSIS_path_file_name(path), file_name) == 0) {
+
+            return i + 1;
+
+        }
+    }
+
+    return 0;
+}
+
+int ANALYSIS_get_available_workspace_count(void) {
+    /*
+        Purpose: Counts Analysis workspaces available for Correlation exports
+        Returns: Empty workspace count
+    */
+
+    int available = 0;
+
+    if (!Global_Analysis_Workspaces_Initialized) {
+
+        return ANALYSIS_WORKSPACE_COUNT;
+
+    }
+
+    for (int i = 0; i < ANALYSIS_WORKSPACE_COUNT; i++) {
+
+        if (ANALYSIS_workspace_is_empty(i)) {
+
+            available++;
+
+        }
+    }
+
+    return available;
+}
+
+int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *file_name, uint64_t fallback_center_hz,
+                                           uint32_t fallback_rec_out_rate_hz, uint32_t fallback_sample_rate_hz,
+                                           int *workspace_number, char *error, size_t error_size) {
+    /*
+        Purpose: Loads a Correlation result into the first empty Analysis workspace
+        Returns: Export status
+    */
+
+    int existing_workspace;
+    int target_workspace = -1;
+    int original_workspace;
+    int file_index = -1;
+    int opened = 0;
+
+    if (workspace_number) {
+
+        *workspace_number = 0;
+
+    }
+
+    if (error && error_size > 0) {
+
+        error[0] = '\0';
+
+    }
+
+    if (!file_name || !file_name[0] || strchr(file_name, '/') || strchr(file_name, '\\')) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Invalid recording filename.");
+
+        }
+        return 0;
+
+    }
+
+    ANALYSIS_set_context(record_dir, fallback_center_hz, fallback_rec_out_rate_hz, fallback_sample_rate_hz);
+
+    if (!ANALYSIS_initialize_workspaces_for_export()) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to initialize Analysis workspaces.");
+
+        }
+        return 0;
+
+    }
+
+    existing_workspace = ANALYSIS_get_recording_workspace(file_name);
+
+    if (existing_workspace > 0) {
+
+        if (workspace_number) {
+
+            *workspace_number = existing_workspace;
+
+        }
+        return 1;
+
+    }
+
+    for (int i = 0; i < ANALYSIS_WORKSPACE_COUNT; i++) {
+
+        if (ANALYSIS_workspace_is_empty(i)) {
+
+            target_workspace = i;
+            break;
+
+        }
+    }
+
+    if (target_workspace < 0) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "All five Analysis workspaces are occupied. Clear a workspace and try again.");
+
+        }
+        return 0;
+
+    }
+
+    original_workspace = Global_Analysis_Active_Workspace;
+    ANALYSIS_save_workspace_state(original_workspace);
+    Global_Analysis_Active_Workspace = target_workspace;
+    ANALYSIS_load_workspace_state(target_workspace);
+
+    if (ANALYSIS_scan_recordings()) {
+
+        for (int i = 0; i < Global_Analysis_File_Count; i++) {
+
+            if (strcmp(Global_Analysis_Files[i], file_name) == 0) {
+
+                file_index = i;
+                break;
+
+            }
+        }
+
+    }
+
+    if (file_index >= 0) {
+
+        Global_Analysis_Selected = file_index;
+        Global_Analysis_List_Scroll = file_index > 2 ? file_index - 2 : 0;
+        opened = ANALYSIS_open_selected_recording();
+
+    }
+
+    if (opened) {
+
+        snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "Exported from Correlation: %.180s",
+                 file_name);
+        ANALYSIS_save_workspace_state(target_workspace);
+
+    }
+
+    Global_Analysis_Active_Workspace = original_workspace;
+    ANALYSIS_load_workspace_state(original_workspace);
+
+    if (!opened) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Unable to open %.180s in Analysis.", file_name);
+
+        }
+        return 0;
+
+    }
+
+    if (workspace_number) {
+
+        *workspace_number = target_workspace + 1;
+
+    }
 
     return 1;
 }
@@ -1662,7 +1949,30 @@ static SDL_Rect ANALYSIS_crop_button_rect(int win_w, int win_h) {
     ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
     (void)list_rect;
 
-    SDL_Rect rect = {spec_rect.x + spec_rect.w - 92, spec_rect.y - 30, 88, 24};
+    SDL_Rect rect = {spec_rect.x + spec_rect.w - 122, spec_rect.y - 30, 118, 24};
+
+    if (rect.x < spec_rect.x + 4) {
+
+        rect.x = spec_rect.x + 4;
+
+    }
+
+    return rect;
+}
+
+static SDL_Rect ANALYSIS_clear_workspace_button_rect(int win_w, int win_h) {
+    /*
+        Purpose: Computes the Clear Workspace button rectangle beside Crop
+        Returns: Computed rectangle
+    */
+
+    SDL_Rect list_rect;
+    SDL_Rect spec_rect;
+    SDL_Rect crop_rect = ANALYSIS_crop_button_rect(win_w, win_h);
+    SDL_Rect rect = {crop_rect.x - crop_rect.w - 8, crop_rect.y, crop_rect.w, crop_rect.h};
+
+    ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
+    (void)list_rect;
 
     if (rect.x < spec_rect.x + 4) {
 
@@ -1703,6 +2013,42 @@ static void ANALYSIS_draw_crop_button(SDL_Renderer *renderer, TTF_Font *font, in
     draw_filled_rect(renderer, rect, fill);
     draw_outline_rect(renderer, rect, border);
     ANALYSIS_draw_centered_button_text(renderer, font, rect, "Crop", text);
+}
+
+static void ANALYSIS_draw_clear_workspace_button(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the green Clear Workspace button
+        Returns: No value
+    */
+
+    SDL_Rect rect;
+    int mouse_x = 0;
+    int mouse_y = 0;
+    int hover;
+    int enabled;
+    SDL_Color fill;
+    SDL_Color border;
+    SDL_Color text;
+
+    if (!renderer || !font || !Global_Analysis_Mode) {
+
+        return;
+
+    }
+
+    rect = ANALYSIS_clear_workspace_button_rect(win_w, win_h);
+    ANALYSIS_get_adjusted_mouse_state(&mouse_x, &mouse_y);
+    hover = point_in_rect(mouse_x, mouse_y, rect);
+    enabled = Global_Analysis_Path[0] != '\0' && Global_Analysis_IQ_Count > 0;
+
+    fill = enabled ? (hover ? (SDL_Color){0, 118, 42, 245} : (SDL_Color){0, 82, 30, 238}) : (SDL_Color){0, 30, 12, 210};
+    border =
+        enabled ? (hover ? (SDL_Color){70, 255, 130, 255} : (SDL_Color){0, 205, 82, 245}) : (SDL_Color){0, 78, 32, 220};
+    text = enabled ? (SDL_Color){240, 255, 245, 255} : (SDL_Color){90, 140, 105, 255};
+
+    draw_filled_rect(renderer, rect, fill);
+    draw_outline_rect(renderer, rect, border);
+    ANALYSIS_draw_centered_button_text(renderer, font, rect, "Clear Workspace", text);
 }
 
 static int ANALYSIS_noise_graph_from_point(int x, int y, int win_w, int win_h, SDL_Rect *graph_rect) {
@@ -8959,6 +9305,7 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
     ANALYSIS_draw_file_search_popup(renderer, font, win_w, win_h);
 
     ANALYSIS_draw_noise_filter_overlay(renderer, font, win_w, win_h);
+    ANALYSIS_draw_clear_workspace_button(renderer, font, win_w, win_h);
     ANALYSIS_draw_crop_button(renderer, font, win_w, win_h);
     ANALYSIS_draw_multithread_prompt(renderer, font, win_w, win_h);
     ANALYSIS_draw_transmit_auth_prompt(renderer, font, win_w, win_h);
@@ -10652,11 +10999,23 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
         ANALYSIS_get_layout(win_w, win_h, &list_rect, &spec_rect);
 
         SDL_Rect search_button = ANALYSIS_file_search_button_rect(win_w, win_h);
+        SDL_Rect clear_workspace_button = ANALYSIS_clear_workspace_button_rect(win_w, win_h);
         SDL_Rect crop_button = ANALYSIS_crop_button_rect(win_w, win_h);
 
         if (point_in_rect(x, y, search_button)) {
 
             ANALYSIS_open_file_search_menu();
+            return ANALYSIS_EVENT_HANDLED;
+
+        }
+
+        if (point_in_rect(x, y, clear_workspace_button)) {
+
+            if (Global_Analysis_Path[0] != '\0' && Global_Analysis_IQ_Count > 0) {
+
+                ANALYSIS_clear_current_workspace();
+
+            }
             return ANALYSIS_EVENT_HANDLED;
 
         }

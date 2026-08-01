@@ -44,6 +44,7 @@ SRCS := \
 	$(SRC_DIR)/ClassificationWorkstation.c \
 	$(SRC_DIR)/CaseManagementWorkstation.c \
 	$(SRC_DIR)/DecodeWorkstation.c \
+	$(SRC_DIR)/CorrelationWorkstation.c \
 	$(SRC_DIR)/SecureFunctions.c
 
 OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)

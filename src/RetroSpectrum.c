@@ -78,6 +78,9 @@
 // Responsible for the DecodeWorkstation
 #include "DecodeWorkstation.h"
 
+// Responsible for the CorrelationWorkstation
+#include "CorrelationWorkstation.h"
+
 // Responsible for the Map Dashboard
 #include "MapDashboard.h"
 
@@ -154,8 +157,9 @@ int SECURE_NETWORK_remote_connection_lost(void);
 #define ANALYSIS_MAX_FILES 512
 #define ANALYSIS_FFT_SIZE 2048
 #define ANALYSIS_LIST_WIDTH 430
-/* ANALYSIS_MAX_RENDER_W is defined in include/GUIs.h so the extern arrays match
- */
+
+// ANALYSIS_MAX_RENDER_W is defined in include/GUIs.h so the extern arrays match
+
 #define ANALYSIS_MAX_CONST_POINTS 4096
 
 static volatile sig_atomic_t Global_Running = 1;
@@ -182,12 +186,6 @@ SDL_Color Global_Status_Color = {0, 255, 80, 255};
 
 Type_Selector Global_Selector = {
     .X0 = 0.40, .X1 = 0.60, .enabled = 0, .dragging = 0, .resizing_left = 0, .resizing_right = 0};
-
-/*
-
-        TYPE            VARIABLE                VALUE
-
-*/
 
 static FILE *Global_Rec_File = NULL;
 static uint32_t Global_Rec_BW_Hz = 0;
@@ -304,11 +302,8 @@ static int Global_Rec_Thread_Running = 0;
 
 static void handle_sigint(int sig) {
     /*
-
-    Purpose: Handles SIGINT shutdown requests
-
-    Return: No return
-
+        Purpose: Handles SIGINT shutdown requests
+        Return: No return
     */
 
     (void)sig;
@@ -5462,6 +5457,7 @@ int main(int argc, char **argv) {
                 (Global_Classification_Mode && CLASSIFICATION_is_text_entry_active()) ||
                 (Global_CaseManagement_Mode && CASE_MANAGEMENT_is_text_entry_active()) ||
                 (Global_Decode_Mode && DECODE_is_text_entry_active()) ||
+                (Global_Correlation_Mode && CORRELATION_is_text_entry_active()) ||
                 (Global_Analysis_Mode && ANALYSIS_is_text_entry_active());
 
             int top_tab_event = dashboard_handle_top_tab_event(&dashboard, &event, win_w, text_entry_active);
@@ -5469,6 +5465,12 @@ int main(int argc, char **argv) {
             if (top_tab_event != DASHBOARD_EVENT_NONE) {
 
                 if (top_tab_event == DASHBOARD_EVENT_MAP) {
+
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
+
+                    }
 
                     if (Global_Classification_Mode) {
 
@@ -5503,6 +5505,12 @@ int main(int argc, char **argv) {
 
                 else if (top_tab_event == DASHBOARD_EVENT_RETROSPECTRUM) {
 
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
+
+                    }
+
                     if (Global_Classification_Mode) {
 
                         CLASSIFICATION_exit_mode();
@@ -5536,6 +5544,12 @@ int main(int argc, char **argv) {
 
                 else if (top_tab_event == DASHBOARD_EVENT_ANALYSIS) {
 
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
+
+                    }
+
                     if (Global_Classification_Mode) {
 
                         CLASSIFICATION_exit_mode();
@@ -5567,6 +5581,12 @@ int main(int argc, char **argv) {
                 }
 
                 else if (top_tab_event == DASHBOARD_EVENT_CLASSIFICATION) {
+
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
+
+                    }
 
                     if (Global_CaseManagement_Mode) {
 
@@ -5601,6 +5621,12 @@ int main(int argc, char **argv) {
 
                 else if (top_tab_event == DASHBOARD_EVENT_DECODE) {
 
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
+
+                    }
+
                     if (Global_Classification_Mode) {
 
                         CLASSIFICATION_exit_mode();
@@ -5634,6 +5660,12 @@ int main(int argc, char **argv) {
 
                 else if (top_tab_event == DASHBOARD_EVENT_CASE_MANAGEMENT) {
 
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
+
+                    }
+
                     if (Global_Classification_Mode) {
 
                         CLASSIFICATION_exit_mode();
@@ -5662,6 +5694,46 @@ int main(int argc, char **argv) {
                     dashboard.enabled = 0;
                     dashboard.current_tab = DASHBOARD_EVENT_CASE_MANAGEMENT;
                     set_status("Case Management Workstation", (SDL_Color){0, 255, 80, 255});
+
+                }
+
+                else if (top_tab_event == RETROSPECTRUM_DASHBOARD_EVENT_CORRELATION) {
+
+                    if (Global_Classification_Mode) {
+
+                        CLASSIFICATION_exit_mode();
+
+                    }
+
+                    if (Global_CaseManagement_Mode) {
+
+                        CASE_MANAGEMENT_exit_mode();
+
+                    }
+
+                    if (Global_Decode_Mode) {
+
+                        DECODE_exit_mode();
+
+                    }
+
+                    if (Global_Analysis_Mode) {
+
+                        ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
+                        next_waterfall_ms = SDL_GetTicks64();
+
+                    }
+
+                    if (!Global_Correlation_Mode) {
+
+                        CORRELATION_enter_mode(Global_Record_Dir, Global_Center_Freq_Hz, Global_Rec_Out_Rate_Hz,
+                                               Global_Sample_Rate_Hz);
+
+                    }
+                    active = FIELD_NONE;
+                    dashboard.enabled = 0;
+                    dashboard.current_tab = RETROSPECTRUM_DASHBOARD_EVENT_CORRELATION;
+                    set_status("Correlation Workstation", (SDL_Color){0, 255, 80, 255});
 
                 }
                 continue;
@@ -5837,6 +5909,23 @@ int main(int argc, char **argv) {
 
             }
 
+            if (Global_Correlation_Mode) {
+
+                if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_d && (SDL_GetModState() & KMOD_CTRL)) {
+
+                    CORRELATION_exit_mode();
+                    dashboard.enabled = 1;
+                    dashboard.current_tab = DASHBOARD_EVENT_MAP;
+                    set_status("Dashboard", (SDL_Color){0, 255, 80, 255});
+                    continue;
+
+                }
+
+                CORRELATION_handle_event(&event, win_w, station_win_h);
+                continue;
+
+            }
+
             if (Global_Decode_Mode) {
 
                 if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_d && (SDL_GetModState() & KMOD_CTRL)) {
@@ -5921,6 +6010,12 @@ int main(int argc, char **argv) {
 
                     }
 
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
+
+                    }
+
                     if (Global_Analysis_Mode) {
 
                         ANALYSIS_exit_mode(pixels, tex_w, tex_h, waterfall_texture);
@@ -5966,6 +6061,12 @@ int main(int argc, char **argv) {
                     if (Global_Decode_Mode) {
 
                         DECODE_exit_mode();
+
+                    }
+
+                    if (Global_Correlation_Mode) {
+
+                        CORRELATION_exit_mode();
 
                     }
 
@@ -6079,7 +6180,8 @@ int main(int argc, char **argv) {
                 }
 
                 if (!Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode &&
-                    !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode) {
+                    !Global_Classification_Mode && !Global_Decode_Mode && !Global_CaseManagement_Mode &&
+                    !Global_Correlation_Mode) {
 
                     active = FIELD_NONE;
                     continue;
@@ -6227,7 +6329,7 @@ int main(int argc, char **argv) {
             }
 
             if (!Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
-                !Global_Decode_Mode && !Global_CaseManagement_Mode) {
+                !Global_Decode_Mode && !Global_CaseManagement_Mode && !Global_Correlation_Mode) {
 
                 active = FIELD_NONE;
                 continue;
@@ -6492,7 +6594,8 @@ int main(int argc, char **argv) {
         }
 
         if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
-            !Global_Decode_Mode && !Global_CaseManagement_Mode && now_ms >= next_waterfall_ms) {
+            !Global_Decode_Mode && !Global_CaseManagement_Mode && !Global_Correlation_Mode &&
+            now_ms >= next_waterfall_ms) {
 
             int rows_drawn = 0;
             int target_rows = normalize_rows_per_frame(Global_Rows_Per_Frame);
@@ -6526,7 +6629,7 @@ int main(int argc, char **argv) {
         }
 
         if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
-            !Global_Decode_Mode && !Global_CaseManagement_Mode) {
+            !Global_Decode_Mode && !Global_CaseManagement_Mode && !Global_Correlation_Mode) {
 
             Type_Input_Box draw_freq_box;
             Type_Input_Box draw_sr_box;
@@ -6583,6 +6686,12 @@ int main(int argc, char **argv) {
             if (Global_Decode_Mode) {
 
                 DECODE_exit_mode();
+
+            }
+
+            if (Global_Correlation_Mode) {
+
+                CORRELATION_exit_mode();
 
             }
 
@@ -6657,6 +6766,12 @@ int main(int argc, char **argv) {
 
         }
 
+        else if (Global_Correlation_Mode) {
+
+            CORRELATION_draw_workstation(renderer, font_small, win_w, station_win_h);
+
+        }
+
         else if (Global_CaseManagement_Mode) {
 
             CASE_MANAGEMENT_draw_workstation(renderer, font_small, win_w, station_win_h);
@@ -6680,7 +6795,7 @@ int main(int argc, char **argv) {
         }
 
         if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
-            !Global_Decode_Mode && !Global_CaseManagement_Mode) {
+            !Global_Decode_Mode && !Global_CaseManagement_Mode && !Global_Correlation_Mode) {
 
             int status_w = 0;
             int status_h = 0;
@@ -6698,7 +6813,7 @@ int main(int argc, char **argv) {
         }
 
         if (Global_SDR_Connected && !dashboard.enabled && !Global_Analysis_Mode && !Global_Classification_Mode &&
-            !Global_Decode_Mode && !Global_CaseManagement_Mode) {
+            !Global_Decode_Mode && !Global_CaseManagement_Mode && !Global_Correlation_Mode) {
 
             draw_antenna_recommendation(renderer, font_small, win_w, station_win_h);
 
@@ -6726,6 +6841,12 @@ int main(int argc, char **argv) {
     if (Global_Decode_Mode) {
 
         DECODE_exit_mode();
+
+    }
+
+    if (Global_Correlation_Mode) {
+
+        CORRELATION_exit_mode();
 
     }
 
