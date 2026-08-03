@@ -24,6 +24,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <float.h>
+#include <limits.h>
 #include <math.h>
 #include <pthread.h>
 #include <signal.h>
@@ -228,10 +229,24 @@ static char Global_SDR_Hardware[128] = "";
 static char Global_SDR_Gain_A[64] = "";
 static char Global_SDR_Gain_B[64] = "";
 static char Global_SDR_Amp_Gain[64] = "";
+static char Global_SDR_Selected_Args[1024] = "";
+static char Global_SDR_Selected_Label[256] = "";
+
+#ifndef DASHBOARD_EVENT_SDR_CHANGED
+#define DASHBOARD_EVENT_SDR_CHANGED 1001
+#endif
 
 #define RETROSPECTRUM_TX_MAX_REPEATS 100U
 #define RETROSPECTRUM_TX_CONVERT_CHUNK 8192U
 #define RETROSPECTRUM_SDR_STREAM_TIMEOUT_US 100000L
+
+#ifndef RETROSPECTRUM_MAX_SAMPLE_RATE_HZ
+#define RETROSPECTRUM_MAX_SAMPLE_RATE_HZ 20000000U
+#endif
+
+#define RETROSPECTRUM_MAX_PRECACHE_SAMPLES ((size_t)RETROSPECTRUM_MAX_SAMPLE_RATE_HZ * PRE_RECORD_SECONDS)
+
+#define RETROSPECTRUM_MAX_QUEUE_SAMPLES (((size_t)RETROSPECTRUM_MAX_SAMPLE_RATE_HZ * REC_QUEUE_SECONDS) + 1U)
 
 typedef struct {
     pthread_mutex_t lock;
@@ -450,27 +465,7 @@ static int ensure_record_dir_exists(void) {
         Returns: Directory status
     */
 
-    struct stat st;
-
-    if (stat(Global_Record_Dir, &st) == 0) {
-
-        if (S_ISDIR(st.st_mode)) {
-
-            return 1;
-
-        }
-
-        return 0;
-
-    }
-
-    if (mkdir(Global_Record_Dir, 0755) == 0) {
-
-        return 1;
-
-    }
-
-    return 0;
+    return sec_ensure_private_directory(Global_Record_Dir, 0700) ? 1 : 0;
 }
 
 // Selector Helpers
@@ -621,27 +616,41 @@ static int pre_cache_init(Type_Rec_Cache *c, uint32_t sample_rate_hz) {
         Returns: Init status
     */
 
+    if (!c || sample_rate_hz == 0 || sample_rate_hz > RETROSPECTRUM_MAX_SAMPLE_RATE_HZ ||
+        !sec_mul_bound((size_t)sample_rate_hz, PRE_RECORD_SECONDS)) {
+
+        return 0;
+
+    }
+
     memset(c, 0, sizeof(*c));
 
     c->capacity = (size_t)sample_rate_hz * PRE_RECORD_SECONDS;
 
-    c->I = malloc(sizeof(int16_t) * c->capacity);
-    c->Q = malloc(sizeof(int16_t) * c->capacity);
+    c->I = sec_calloc_array(c->capacity, sizeof(*c->I), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);    
+
+    c->Q = sec_calloc_array(c->capacity, sizeof(*c->Q), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
 
     if (!c->I || !c->Q) {
 
         free(c->I);
         free(c->Q);
-        c->I = NULL;
-        c->Q = NULL;
-        c->capacity = 0;
+        memset(c, 0, sizeof(*c));
         return 0;
 
     }
 
-    pthread_mutex_init(&c->lock, NULL);
+    if (pthread_mutex_init(&c->lock, NULL) != 0) {
+
+        free(c->I);
+        free(c->Q);
+        memset(c, 0, sizeof(*c));
+        return 0;
+
+    }
 
     return 1;
+
 }
 
 static void pre_cache_free(Type_Rec_Cache *c) {
@@ -664,35 +673,47 @@ static int pre_cache_resize(Type_Rec_Cache *c, uint32_t sample_rate_hz) {
         Returns: Resize status
     */
 
+    size_t new_capacity;
+    int16_t *new_I;
+    int16_t *new_Q;
+
+    if (!c || sample_rate_hz == 0 || sample_rate_hz > RETROSPECTRUM_MAX_SAMPLE_RATE_HZ ||
+        !sec_mul_bound((size_t)sample_rate_hz, PRE_RECORD_SECONDS)) {
+
+        return 0;
+
+    }
+
+    new_capacity = (size_t)sample_rate_hz * PRE_RECORD_SECONDS;
+
+    new_I = sec_calloc_array(new_capacity, sizeof(*new_I), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
+
+    new_Q = sec_calloc_array(new_capacity, sizeof(*new_Q), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
+
+    if (!new_I || !new_Q) {
+
+        free(new_I);
+        free(new_Q);
+
+        return 0;
+
+    }
+
     pthread_mutex_lock(&c->lock);
 
     free(c->I);
     free(c->Q);
 
-    c->capacity = (size_t)sample_rate_hz * PRE_RECORD_SECONDS;
+    c->I = new_I;
+    c->Q = new_Q;
+    c->capacity = new_capacity;
     c->write_pos = 0;
     c->count = 0;
 
-    c->I = malloc(sizeof(int16_t) * c->capacity);
-    c->Q = malloc(sizeof(int16_t) * c->capacity);
-
-    int status = (c->I && c->Q);
-
-    if (!status) {
-
-        free(c->I);
-        free(c->Q);
-        c->I = NULL;
-        c->Q = NULL;
-        c->capacity = 0;
-        c->write_pos = 0;
-        c->count = 0;
-
-    }
-
     pthread_mutex_unlock(&c->lock);
 
-    return status;
+    return 1;
+
 }
 
 static void pre_cache_write(Type_Rec_Cache *c, float I, float Q) {
@@ -749,53 +770,94 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
         Returns: Snapshot count
     */
 
+    size_t count;
+    size_t copy_bytes;
+
+    int16_t *copy_I;
+    int16_t *copy_Q;
+
+    if (!c || !out_I || !out_Q) {
+
+        return 0;
+
+    }
+
     *out_I = NULL;
     *out_Q = NULL;
+    count = c->count;
 
-    size_t count = c->count;
-
-    if (count == 0 || !c->I || !c->Q) {
+    if (count == 0 || count > c->capacity || count > RETROSPECTRUM_MAX_PRECACHE_SAMPLES ||
+        !c->I || !c->Q || !sec_mul_bound(count, sizeof(*copy_I))) {
 
         return 0;
 
     }
 
-    int16_t *copy_I = malloc(sizeof(int16_t) * count);
-    int16_t *copy_Q = malloc(sizeof(int16_t) * count);
+    copy_bytes = count * sizeof(*copy_I);
 
-    if (!copy_I || !copy_Q) {
+    copy_I = sec_calloc_array(count, sizeof(*copy_I), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
 
-        free(copy_I);
-        free(copy_Q);
-        return 0;
+    copy_Q = sec_calloc_array(count, sizeof(*copy_Q), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
+
+    if (!copy_I || !copy_Q){
+
+        goto copy_failed;
 
     }
 
-    if (c->count < c->capacity) {
+    if (count < c->capacity) {
 
-        memcpy(copy_I, c->I, sizeof(int16_t) * count);
-        memcpy(copy_Q, c->Q, sizeof(int16_t) * count);
+        if (!sec_memcpy(copy_I, copy_bytes, c->I, copy_bytes) || !sec_memcpy(copy_Q,
+            copy_bytes, c->Q, copy_bytes)) {
+
+            goto copy_failed;
+
+        }
 
     }
 
     else {
 
         size_t start = c->write_pos;
-        size_t first = c->capacity - start;
-        size_t second = start;
+        size_t first;
+        size_t second;
+        size_t first_bytes;
+        size_t second_bytes;
 
-        memcpy(copy_I, c->I + start, sizeof(int16_t) * first);
-        memcpy(copy_Q, c->Q + start, sizeof(int16_t) * first);
+        if (start >= c->capacity) {
 
-        memcpy(copy_I + first, c->I, sizeof(int16_t) * second);
-        memcpy(copy_Q + first, c->Q, sizeof(int16_t) * second);
+            goto copy_failed;
+
+        }
+
+        first = c->capacity - start;
+        second = start;
+
+        first_bytes = first * sizeof(*copy_I);
+        second_bytes = second * sizeof(*copy_I);
+
+        if (first > count || second > count || first + second != count  ||
+            !sec_memcpy(copy_I, copy_bytes, c->I + start, first_bytes)  ||
+            !sec_memcpy(copy_Q, copy_bytes, c->Q + start, second_bytes) ||
+            !sec_memcpy(copy_I + first, second_bytes, c->I, second_bytes) ||
+            !sec_memcpy(copy_Q + first, second_bytes, c->Q, second_bytes)) {
+
+            goto copy_failed;
+
+        }
 
     }
 
     *out_I = copy_I;
     *out_Q = copy_Q;
-
     return count;
+
+copy_failed:
+
+    free(copy_I);
+    free(copy_Q);
+    return 0;
+
 }
 
 // Queue Helpers
@@ -1411,13 +1473,24 @@ static int start_recording(void) {
 
     char filename[1024];
 
-    snprintf(filename, sizeof(filename), "%s/%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk_Decimation_%d.complex16",
-             Global_Record_Dir, datetime_str, Global_Rec_Center_Hz / 1e6, Global_Rec_BW_Hz / 1e3,
-             Global_Rec_Out_Rate_Hz / 1e3, Global_Rec_Decimation);
+    if (!sec_sprintf(filename, sizeof(filename),
+                 "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk_Decimation_%d.complex16",
+                 datetime_str,
+                 Global_Rec_Center_Hz / 1e6,
+                 Global_Rec_BW_Hz / 1e3,
+                 Global_Rec_Out_Rate_Hz / 1e3,
+                 Global_Rec_Decimation)) {
 
-    Global_Rec_File = fopen(filename, "wb");
 
-    if (!Global_Rec_File) {
+        Global_Rec = 0;
+        set_status("Recording filename is too long", (SDL_Color){255, 60, 40, 255});
+    
+        return 0;
+
+}
+
+
+    if (!sec_fopen_exclusive_in_directory(Global_Record_Dir, filename, &Global_Rec_File)) {
 
         Global_Rec = 0;
         set_status("Record Open Failed", (SDL_Color){255, 60, 40, 255});
@@ -1935,11 +2008,54 @@ static int sdr_apply_rx_gain_controls(SoapySDRDevice *dev, int gain_a, int gain_
     return 1;
 }
 
+static void sdr_cache_selected_label(const char *args) {
+    /*
+        Purpose: Caches a stable display label from serialized SoapySDR device arguments
+        Returns: No value
+    */
+
+    Global_SDR_Selected_Label[0] = '\0';
+
+    if (!args || !args[0]) {
+
+        return;
+
+    }
+
+    SoapySDRKwargs parsed = SoapySDRKwargs_fromString(args);
+    const char *label = SoapySDRKwargs_get(&parsed, "label");
+    const char *driver = SoapySDRKwargs_get(&parsed, "driver");
+    const char *serial = SoapySDRKwargs_get(&parsed, "serial");
+
+    if (label && label[0]) {
+
+        snprintf(Global_SDR_Selected_Label, sizeof(Global_SDR_Selected_Label), "%s", label);
+
+    }
+
+    else if (driver && driver[0] && serial && serial[0]) {
+
+        snprintf(Global_SDR_Selected_Label, sizeof(Global_SDR_Selected_Label), "%s [%s]", driver, serial);
+
+    }
+
+    else if (driver && driver[0]) {
+
+        snprintf(Global_SDR_Selected_Label, sizeof(Global_SDR_Selected_Label), "%s", driver);
+
+    }
+
+    SoapySDRKwargs_clear(&parsed);
+}
+
 static SoapySDRDevice *sdr_open_selected_device(void) {
     /*
         Purpose: Opens a SoapySDR device selected by environment arguments or the first RX-capable device
         Returns: Device handle or NULL
     */
+
+    Global_SDR_Selected_Args[0] = '\0';
+    Global_SDR_Selected_Label[0] = '\0';
 
     const char *explicit_args = getenv("RETROSPECTRUM_SOAPY_ARGS");
 
@@ -1949,6 +2065,8 @@ static SoapySDRDevice *sdr_open_selected_device(void) {
 
         if (selected && SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) > 0) {
 
+            snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", explicit_args);
+            sdr_cache_selected_label(Global_SDR_Selected_Args);
             return selected;
 
         }
@@ -1971,9 +2089,16 @@ static SoapySDRDevice *sdr_open_selected_device(void) {
         selected = SoapySDRDevice_make(&devices[index]);
 
         if (selected && SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) > 0) {
+            char *serialized = SoapySDRKwargs_toString(&devices[index]);
 
+            if (serialized) {
+
+                snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", serialized);
+                sdr_cache_selected_label(Global_SDR_Selected_Args);
+                SoapySDR_free(serialized);
+
+            }
             break;
-
         }
 
         if (selected) {
@@ -2287,6 +2412,8 @@ static int normalize_rows_per_frame(int rows) {
 
 // Radio Helpers
 
+static int RETROSPECTRUM_transmission_is_active(void);
+
 static int stop_radio(SoapySDRDevice *dev) {
     /*
         Purpose: Stops and closes the active SoapySDR receive stream
@@ -2529,6 +2656,239 @@ static int apply_radio_settings(SoapySDRDevice *dev, uint64_t Center_Hz, uint32_
     }
 
     return start_radio(dev);
+}
+
+const char *RETROSPECTRUM_sdr_selected_label(void) {
+    /*
+        Purpose: Provides the map dashboard with the active SDR display label
+        Returns: Stable display string
+    */
+
+    static char label[256];
+
+    if (!Global_SDR_Connected || !Global_SDR_Device) {
+
+        return "None";
+
+    }
+
+    if (Global_SDR_Selected_Label[0]) {
+
+        snprintf(label, sizeof(label), "%s", Global_SDR_Selected_Label);
+
+    }
+
+    else if (Global_SDR_Hardware[0] && Global_SDR_Driver[0]) {
+
+        snprintf(label, sizeof(label), "%s (%s)", Global_SDR_Hardware, Global_SDR_Driver);
+
+    }
+
+    else if (Global_SDR_Hardware[0]) {
+
+        snprintf(label, sizeof(label), "%s", Global_SDR_Hardware);
+
+    }
+
+    else if (Global_SDR_Driver[0]) {
+
+        snprintf(label, sizeof(label), "%s", Global_SDR_Driver);
+
+    }
+
+    else {
+
+        snprintf(label, sizeof(label), "SoapySDR Device");
+
+    }
+
+    return label;
+}
+
+int RETROSPECTRUM_sdr_args_is_selected(const char *args) {
+    /*
+        Purpose: Reports whether enumerated SoapySDR arguments identify the active device
+        Returns: Boolean status
+    */
+
+    return Global_SDR_Connected && Global_SDR_Device && args && args[0] &&
+           Global_SDR_Selected_Args[0] && strcmp(args, Global_SDR_Selected_Args) == 0;
+}
+
+int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_size) {
+    /*
+        Purpose: Replaces the active receive device with a selected SoapySDR device
+        Returns: Success status
+    */
+
+    if (error && error_size > 0) {
+
+        error[0] = '\0';
+
+    }
+
+    if (!args || !args[0]) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "The selected SDR has no usable SoapySDR arguments.");
+
+        }
+        return 0;
+    }
+
+    if (RETROSPECTRUM_sdr_args_is_selected(args)) {
+
+        return 1;
+
+    }
+
+    if (Global_Rec) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Stop the active recording before changing SDRs.");
+
+        }
+        return 0;
+    }
+
+    if (RETROSPECTRUM_transmission_is_active()) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "Wait for the active transmission to finish before changing SDRs.");
+
+        }
+        return 0;
+    }
+
+    SoapySDRDevice *selected = SoapySDRDevice_makeStrArgs(args);
+
+    if (!selected) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "%s", SoapySDRDevice_lastError());
+
+        }
+        return 0;
+    }
+
+    if (SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) == 0) {
+
+        if (error && error_size > 0) {
+
+            snprintf(error, error_size, "The selected SoapySDR device has no receive channel.");
+
+        }
+        (void)SoapySDRDevice_unmake(selected);
+        return 0;
+    }
+
+    SoapySDRDevice *old_device = Global_SDR_Device;
+    char old_args[sizeof(Global_SDR_Selected_Args)];
+    snprintf(old_args, sizeof(old_args), "%s", Global_SDR_Selected_Args);
+
+    Global_SDR_Connected = 0;
+    Global_SDR_Supports_TX = 0;
+
+    if (old_device) {
+
+        (void)stop_radio(old_device);
+        (void)SoapySDRDevice_unmake(old_device);
+
+    }
+
+    Global_SDR_Device = NULL;
+    Global_SDR_Selected_Args[0] = '\0';
+    Global_SDR_Selected_Label[0] = '\0';
+    Global_SDR_Driver[0] = '\0';
+    Global_SDR_Hardware[0] = '\0';
+    Global_SDR_Gain_A[0] = '\0';
+    Global_SDR_Gain_B[0] = '\0';
+    Global_SDR_Amp_Gain[0] = '\0';
+    Global_SDR_Has_AGC = 0;
+
+    Global_SDR_Device = selected;
+    Global_SDR_Supports_TX = SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_TX) > 0 ? 1 : 0;
+
+    sdr_copy_identity(selected);
+    sdr_discover_gain_controls(selected);
+
+    if (!apply_radio_settings(selected, Global_Center_Freq_Hz, Global_Sample_Rate_Hz,
+                              Global_Display_Span_Hz, Global_LNA_Gain, Global_VGA_Gain,
+                              Global_Amp_Enable)) {
+        char last_error[256];
+        snprintf(last_error, sizeof(last_error), "%s", SoapySDRDevice_lastError());
+        (void)stop_radio(selected);
+        (void)SoapySDRDevice_unmake(selected);
+        Global_SDR_Device = NULL;
+        Global_SDR_Supports_TX = 0;
+        Global_SDR_Connected = 0;
+
+        if (old_args[0]) {
+            SoapySDRDevice *restored = SoapySDRDevice_makeStrArgs(old_args);
+
+            if (restored && SoapySDRDevice_getNumChannels(restored, SOAPY_SDR_RX) > 0) {
+
+                Global_SDR_Device = restored;
+                Global_SDR_Supports_TX =
+                    SoapySDRDevice_getNumChannels(restored, SOAPY_SDR_TX) > 0 ? 1 : 0;
+                sdr_copy_identity(restored);
+                sdr_discover_gain_controls(restored);
+
+                if (apply_radio_settings(restored, Global_Center_Freq_Hz, Global_Sample_Rate_Hz,
+                                         Global_Display_Span_Hz, Global_LNA_Gain, Global_VGA_Gain,
+                                         Global_Amp_Enable)) {
+
+                    snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", old_args);
+                    sdr_cache_selected_label(Global_SDR_Selected_Args);
+                    Global_SDR_Connected = 1;
+
+                }
+
+                else {
+
+                    (void)stop_radio(restored);
+                    (void)SoapySDRDevice_unmake(restored);
+                    Global_SDR_Device = NULL;
+                    Global_SDR_Supports_TX = 0;
+
+                }
+
+            }
+
+            else if (restored) {
+
+                (void)SoapySDRDevice_unmake(restored);
+
+            }
+        }
+
+        if (error && error_size > 0) {
+
+            if (Global_SDR_Connected) {
+
+                snprintf(error, error_size, "%.180s Previous SDR restored.",
+                         last_error[0] ? last_error : "The selected SDR rejected its receive settings.");
+
+            }
+
+            else {
+
+                snprintf(error, error_size, "%s",
+                         last_error[0] ? last_error : "The selected SDR rejected its receive settings.");
+
+            }
+        }
+        return 0;
+    }
+
+    snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", args);
+    sdr_cache_selected_label(Global_SDR_Selected_Args);
+    Global_SDR_Connected = 1;
+    return 1;
 }
 
 static void *retrospectrum_tx_thread_main(void *context) {
@@ -5779,6 +6139,29 @@ int main(int argc, char **argv) {
 
                 }
 
+                else if (dashboard_event_result == DASHBOARD_EVENT_SDR_CHANGED) {
+
+                    dev = Global_SDR_Device;
+                    freq_box.label = "Center MHz";
+                    sr_box.label = "Sample MS/s";
+                    display_box.label = "Display MHz";
+                    lna_box.label = Global_SDR_Gain_A[0] ? Global_SDR_Gain_A : "Gain A";
+                    vga_box.label = Global_SDR_Gain_B[0] ? Global_SDR_Gain_B : "Gain B";
+
+                    snprintf(freq_box.text, sizeof(freq_box.text), "%.3f", Global_Center_Freq_Hz / 1e6);
+                    snprintf(sr_box.text, sizeof(sr_box.text), "%.3f", Global_Sample_Rate_Hz / 1e6);
+                    snprintf(display_box.text, sizeof(display_box.text), "%.3f", Global_Display_Span_Hz / 1e6);
+                    snprintf(lna_box.text, sizeof(lna_box.text), "%d", Global_LNA_Gain);
+                    snprintf(vga_box.text, sizeof(vga_box.text), "%d", Global_VGA_Gain);
+
+                    main_reset_input_cursors(main_input_cursors, &freq_box, &sr_box, &display_box, &lna_box,
+                                             &vga_box, &fps_box, &rows_box);
+                    next_sdr_health_ms = SDL_GetTicks64() + 1000;
+                    next_waterfall_ms = SDL_GetTicks64();
+                    set_status("SoapySDR device changed", (SDL_Color){0, 255, 80, 255});
+
+                }
+
                 else if (dashboard_event_result == DASHBOARD_EVENT_RETROSPECTRUM) {
 
                     dashboard.enabled = 0;
@@ -6538,6 +6921,10 @@ int main(int argc, char **argv) {
 
             }
         }
+
+        /* Device selection is initiated by the map dashboard, while this local
+         * handle is retained for the main loop and shutdown path. */
+        dev = Global_SDR_Device;
 
         uint64_t now_ms = SDL_GetTicks64();
 

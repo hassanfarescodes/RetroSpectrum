@@ -5891,8 +5891,8 @@ static void case_source_short_text(TTF_Font *font, const char *src, char *dst, s
     snprintf(dst, dst_size, "...");
 }
 
-static void case_draw_source_modal_button(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect,
-                                          const char *label, int hovered) {
+static void case_draw_source_modal_button(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *label,
+                                          int hovered) {
     /*
         Purpose: Draws an Analysis-style source-search modal button
         Returns: No value
@@ -11195,10 +11195,8 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
         }
 
         SDL_SetRenderDrawColor(renderer, Case_Blue.r, Case_Blue.g, Case_Blue.b, Case_Blue.a);
-        SDL_RenderDrawLine(renderer, search.x + 10 + tw, search.y + 6, search.x + 10 + tw,
-                           search.y + search.h - 6);
-        SDL_RenderDrawLine(renderer, search.x + 11 + tw, search.y + 6, search.x + 11 + tw,
-                           search.y + search.h - 6);
+        SDL_RenderDrawLine(renderer, search.x + 10 + tw, search.y + 6, search.x + 10 + tw, search.y + search.h - 6);
+        SDL_RenderDrawLine(renderer, search.x + 11 + tw, search.y + 6, search.x + 11 + tw, search.y + search.h - 6);
 
     }
 
@@ -11300,14 +11298,17 @@ static void case_draw_source_popup(SDL_Renderer *renderer, TTF_Font *font, int w
 
         }
 
-        draw_outline_rect(renderer, item, hovered ? Case_Border_Hi : selected ? (SDL_Color){0, 220, 80, 255}
-                                                                                  : (SDL_Color){0, 130, 55, 255});
+        draw_outline_rect(renderer, item,
+                          hovered    ? Case_Border_Hi
+                          : selected ? (SDL_Color){0, 220, 80, 255}
+                                     : (SDL_Color){0, 130, 55, 255});
 
         case_source_short_text(font, Global_Case_Source_Files[source_index], short_name, sizeof(short_name),
                                item.w - 20);
         draw_text(renderer, font, short_name, item.x + 10, item.y + 8,
-                  hovered ? (SDL_Color){235, 255, 240, 255}
-                          : selected ? (SDL_Color){255, 255, 255, 255} : Case_Text);
+                  hovered    ? (SDL_Color){235, 255, 240, 255}
+                  : selected ? (SDL_Color){255, 255, 255, 255}
+                             : Case_Text);
     }
 
     char count_label[128];

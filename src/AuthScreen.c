@@ -29,8 +29,7 @@
 int SECURE_NETWORK_verify_password(const char *username, const char *password, char *error, size_t error_size);
 int SECURE_NETWORK_admin_create_user(const char *username, const char *password, int enable_totp,
                                      const unsigned char *totp_secret, char *error, size_t error_size);
-int SECURE_NETWORK_admin_reset_password(const char *username, const char *new_password, char *error,
-                                        size_t error_size);
+int SECURE_NETWORK_admin_reset_password(const char *username, const char *new_password, char *error, size_t error_size);
 int SECURE_NETWORK_admin_set_totp(const char *username, const unsigned char *secret, char *error, size_t error_size);
 int SECURE_NETWORK_admin_remove_totp(const char *username, char *error, size_t error_size);
 int SECURE_NETWORK_admin_set_role(const char *username, int role, char *error, size_t error_size);
@@ -1367,15 +1366,14 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
         SDL_Rect username = auth_field_rect(panel, 0);
         SDL_Rect password = auth_field_rect(panel, 1);
 
-        auth_draw_centered_text(renderer, font_small,
-                                state->stage == AUTH_STAGE_LOGIN
-                                    ? ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local())
-                                           ? "REMOTE SERVER LOGIN"
-                                           : "LOCAL ACCOUNT LOGIN")
-                                    : (Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()
-                                           ? "REMOTE CO-ADMINISTRATOR LOGIN"
-                                           : "ADMINISTRATOR LOGIN"),
-                                (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
+        auth_draw_centered_text(
+            renderer, font_small,
+            state->stage == AUTH_STAGE_LOGIN
+                ? ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) ? "REMOTE SERVER LOGIN"
+                                                                                         : "LOCAL ACCOUNT LOGIN")
+                : (Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local() ? "REMOTE CO-ADMINISTRATOR LOGIN"
+                                                                                       : "ADMINISTRATOR LOGIN"),
+            (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
         auth_draw_field(renderer, font_small, username, "Username", state->username,
                         state->active_field == AUTH_FIELD_USERNAME, 0);
         auth_draw_field(renderer, font_small, password, "Password", state->password,
@@ -1399,14 +1397,13 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
         char identity[128];
 
         snprintf(identity, sizeof(identity), "Authenticating as %s", state->username);
-        auth_draw_centered_text(
-            renderer, font_small,
-            state->stage == AUTH_STAGE_LOGIN_TWO_FACTOR
-                ? "TWO-FACTOR AUTHENTICATION"
-                : (Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()
-                       ? "CO-ADMINISTRATOR TWO-FACTOR AUTHENTICATION"
-                       : "ADMINISTRATOR TWO-FACTOR AUTHENTICATION"),
-            (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
+        auth_draw_centered_text(renderer, font_small,
+                                state->stage == AUTH_STAGE_LOGIN_TWO_FACTOR
+                                    ? "TWO-FACTOR AUTHENTICATION"
+                                    : (Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()
+                                           ? "CO-ADMINISTRATOR TWO-FACTOR AUTHENTICATION"
+                                           : "ADMINISTRATOR TWO-FACTOR AUTHENTICATION"),
+                                (SDL_Rect){panel.x, panel.y + 70, panel.w, 24}, AUTH_MUTED);
         auth_draw_centered_text(renderer, font_small, identity,
                                 (SDL_Rect){panel.x + 40, panel.y + 111, panel.w - 80, 24}, AUTH_TEXT);
         auth_draw_field(renderer, font_small, code, "Six-digit authenticator code", state->code,
@@ -3751,47 +3748,57 @@ static int auth_submit_remote(Type_Auth_State *state) {
     int console_authorization;
 
     if (!state || state->username[0] == '\0' || state->password[0] == '\0') {
+
         auth_set_status(state, AUTH_ERROR, "Enter both a username and password.");
         return 0;
+
     }
 
-    console_authorization = state->stage == AUTH_STAGE_AUTHORIZE_CREATE ||
-                            state->stage == AUTH_STAGE_AUTHORIZE_CREATE_TWO_FACTOR;
+    console_authorization =
+        state->stage == AUTH_STAGE_AUTHORIZE_CREATE || state->stage == AUTH_STAGE_AUTHORIZE_CREATE_TWO_FACTOR;
 
-    if (state->stage != AUTH_STAGE_LOGIN && state->stage != AUTH_STAGE_LOGIN_TWO_FACTOR &&
-        !console_authorization) {
+    if (state->stage != AUTH_STAGE_LOGIN && state->stage != AUTH_STAGE_LOGIN_TWO_FACTOR && !console_authorization) {
+
         auth_set_status(state, AUTH_ERROR, "Unsupported remote authentication operation.");
         return 0;
+
     }
 
-    result = SECURE_NETWORK_authenticate(
-        state->username, state->password,
-        state->stage == AUTH_STAGE_LOGIN_TWO_FACTOR || state->stage == AUTH_STAGE_AUTHORIZE_CREATE_TWO_FACTOR
-            ? state->code
-            : NULL,
-        &is_admin, message, sizeof(message));
+    result = SECURE_NETWORK_authenticate(state->username, state->password,
+                                         state->stage == AUTH_STAGE_LOGIN_TWO_FACTOR ||
+                                                 state->stage == AUTH_STAGE_AUTHORIZE_CREATE_TWO_FACTOR
+                                             ? state->code
+                                             : NULL,
+                                         &is_admin, message, sizeof(message));
 
     if (result == SECURE_NETWORK_AUTH_SUCCESS) {
+
         auth_secure_zero(state->password, sizeof(state->password));
         auth_secure_zero(state->code, sizeof(state->code));
 
         if (console_authorization) {
+
             if (!is_admin) {
+
                 SECURE_NETWORK_disconnect();
                 auth_set_status(state, AUTH_ERROR, "Remote admin-console access requires a co-administrator account.");
                 state->stage = AUTH_STAGE_AUTHORIZE_CREATE;
                 state->active_field = AUTH_FIELD_PASSWORD;
                 return 0;
+
             }
 
             state->admin_console_ready = 1;
             return 0;
+
         }
 
         return 1;
+
     }
 
     if (result == SECURE_NETWORK_AUTH_TOTP_REQUIRED) {
+
         state->stage = console_authorization ? AUTH_STAGE_AUTHORIZE_CREATE_TWO_FACTOR : AUTH_STAGE_LOGIN_TWO_FACTOR;
         state->active_field = AUTH_FIELD_CODE;
         auth_secure_zero(state->code, sizeof(state->code));
@@ -3799,6 +3806,7 @@ static int auth_submit_remote(Type_Auth_State *state) {
                         console_authorization ? "Enter the co-administrator authenticator code."
                                               : "Enter the authenticator code for the remote server.");
         return 0;
+
     }
 
     auth_secure_zero(state->code, sizeof(state->code));
@@ -4180,9 +4188,11 @@ static void auth_handle_mouse(Type_Auth_State *state, int mouse_x, int mouse_y, 
             if (Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) {
 
                 if (SERVER_IDENTITY_trusted_is_local()) {
+
                     auth_set_status(state, AUTH_ERROR,
                                     "Import the remote server's .rspub identity before opening its admin console.");
                     return;
+
                 }
 
                 auth_reset_for_authorization(state);
@@ -4771,7 +4781,9 @@ int AUTH_run(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font_small, T
             (void)AUTH_ADMIN_run(window, renderer, font_small, font_medium, administrator, 0);
 
             if (remote_console) {
+
                 SECURE_NETWORK_disconnect();
+
             }
 
             auth_secure_zero(administrator, sizeof(administrator));
@@ -4945,6 +4957,7 @@ int AUTH_SERVER_authenticate(const char *username, const char *password, const c
     char account_scope[256];
     uint64_t matched_counter = 0;
     int load_result;
+    int is_local_console;
     int result = AUTH_SERVER_RESULT_ERROR;
 
     memset(&record, 0, sizeof(record));
@@ -4971,6 +4984,14 @@ int AUTH_SERVER_authenticate(const char *username, const char *password, const c
         return result;
 
     }
+
+    /*
+     * The local administration CLI deliberately identifies its trusted
+     * server-console authentication path with the internal "local-cli"
+     * origin. Network authentication supplies a numeric peer address from
+     * inet_ntop(), so remote clients cannot select this path.
+     */
+    is_local_console = strcmp(remote_ip, "local-cli") == 0;
 
     if (!auth_open_database(&database, path, sizeof(path))) {
 
@@ -5051,7 +5072,8 @@ int AUTH_SERVER_authenticate(const char *username, const char *password, const c
      * server console so its highest-privilege credentials cannot be used
      * across the network.
      */
-    if (record.role == AUTH_ROLE_ADMIN) {
+
+    if (record.role == AUTH_ROLE_ADMIN && !is_local_console) {
 
         auth_rate_limit_success(database, ip_scope);
         auth_rate_limit_success(database, account_scope);
@@ -5066,8 +5088,11 @@ int AUTH_SERVER_authenticate(const char *username, const char *password, const c
 
     if (is_admin) {
 
-        /* A successful privileged remote session can only be a co-administrator. */
-        *is_admin = record.role == AUTH_ROLE_CO_ADMIN;
+        /*
+         * Remote privileged sessions are limited to co-administrators. The
+         * primary administrator is privileged only on the local server CLI.
+         */
+        *is_admin = record.role == AUTH_ROLE_CO_ADMIN || (is_local_console && record.role == AUTH_ROLE_ADMIN);
 
     }
     result = AUTH_SERVER_RESULT_SUCCESS;
@@ -5311,7 +5336,9 @@ int AUTH_DB_create_user(const char *username, const char *password, int enable_t
 
     if ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) &&
         SECURE_NETWORK_is_authenticated_remote()) {
+
         return SECURE_NETWORK_admin_create_user(username, password, enable_totp, totp_secret, error, error_size);
+
     }
 
     if (!auth_open_database(&database, path, sizeof(path))) {
@@ -5386,7 +5413,9 @@ int AUTH_DB_reset_password(const char *username, const char *new_password, const
 
     if ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) &&
         SECURE_NETWORK_is_authenticated_remote()) {
+
         return SECURE_NETWORK_admin_reset_password(username, new_password, error, error_size);
+
     }
 
     if (!auth_hash_password_argon2id(new_password, encoded)) {
@@ -5515,7 +5544,9 @@ int AUTH_DB_set_totp(const char *username, const unsigned char secret[AUTH_PUBLI
 
     if ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) &&
         SECURE_NETWORK_is_authenticated_remote()) {
+
         return SECURE_NETWORK_admin_set_totp(username, secret, error, error_size);
+
     }
 
     if (!auth_open_database(&database, path, sizeof(path))) {
@@ -5565,7 +5596,9 @@ int AUTH_DB_remove_totp(const char *username, const char *acting_admin, char *er
 
     if ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) &&
         SECURE_NETWORK_is_authenticated_remote()) {
+
         return SECURE_NETWORK_admin_remove_totp(username, error, error_size);
+
     }
 
     if (!auth_open_database(&database, path, sizeof(path))) {
@@ -5637,7 +5670,9 @@ int AUTH_DB_set_role(const char *username, int role, const char *acting_admin, c
 
     if ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) &&
         SECURE_NETWORK_is_authenticated_remote()) {
+
         return SECURE_NETWORK_admin_set_role(username, role, error, error_size);
+
     }
 
     if (!auth_open_database(&database, path, sizeof(path))) {
@@ -5714,7 +5749,9 @@ int AUTH_DB_delete_user(const char *username, const char *acting_admin, char *er
 
     if ((Global_Auth_Client_Only_Mode || !SERVER_IDENTITY_trusted_is_local()) &&
         SECURE_NETWORK_is_authenticated_remote()) {
+
         return SECURE_NETWORK_admin_delete_user(username, error, error_size);
+
     }
 
     if (!auth_open_database(&database, path, sizeof(path))) {

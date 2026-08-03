@@ -3,6 +3,7 @@
 #include "SecureFunctions.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <math.h>
 #include <stdarg.h>
@@ -589,4 +590,232 @@ bool sec_str_to_double_bound(const char *s, double min_value, double max_value, 
 
     *out = value;
     return true;
+}
+
+static bool sec_normalize_directory_path(const char *path, char *normalized, size_t normalized_size) {
+    /*
+        Purpose: Copies a directory path and removes trailing seperators
+        Returns: Success status
+    */
+
+    size_t length;
+
+    if (path == NULL || normalized == NULL || normalized_size == 0) {
+
+        return false;
+
+    }
+
+    if (!sec_strcpy(normalized, normalized_size, path)) {
+
+        return false;
+
+    }
+
+    length = strnlen(normalized, normalized_size);
+
+    if (length == 0 || length >= normalized_size) {
+
+        return false;
+
+    }
+
+    while (length > 1 && normalized[length - 1] == '/') {
+        normalized[--length] = '\0';
+    }
+
+    if (strcmp(normalized, ".") == 0 || strcmp(normalized, "..") == 0 || strcmp(normalized, "/") == 0) {
+
+        return false;
+
+    }
+
+    return true;
+}
+
+static bool sec_directory_fd_is_secure(int directory_fd) {
+    /*
+        Purpose: Verifies that an opened directory is owned by this process
+                 user and is not writable by group or other users
+        Returns: Validation status
+    */
+
+    struct stat st;
+
+    if (directory_fd < 0 || fstat(directory_fd, &st) != 0) {
+
+        return false;
+
+    }
+
+    if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid()) {
+
+        return false;
+
+    }
+
+    if ((st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+
+        return false;
+
+    }
+
+    return true;
+}
+
+bool sec_ensure_private_directory(const char *path, mode_t create_mode) {
+    /*
+        Purpose: Ensures that an owned, non-writable-by-others directory exists
+        Returns: Success status
+    */
+
+    char normalized[PATH_MAX];
+    int directory_fd = -1;
+    bool created = false;
+    bool success = false;
+
+    if ((create_mode & ~((mode_t)0777)) != 0 || (create_mode & 0777) == 0 ||
+        !sec_normalize_directory_path(path, normalized, sizeof(normalized))) {
+
+        return false;
+
+    }
+
+    directory_fd = open(normalized, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+
+    if (directory_fd < 0 && errno == ENOENT) {
+
+        if (mkdir(normalized, create_mode) != 0) {
+
+            if (errno != EEXIST) {
+
+                return false;
+
+            }
+
+        }
+
+        else {
+
+            created = true;
+
+        }
+
+        directory_fd = open(normalized, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+
+    }
+
+    if (directory_fd < 0 || !sec_directory_fd_is_secure(directory_fd)) {
+
+        goto cleanup;
+
+    }
+
+    if (created && fchmod(directory_fd, create_mode) != 0) {
+
+        goto cleanup;
+
+    }
+
+    success = true;
+
+cleanup:
+
+    if (directory_fd >= 0) {
+
+        close(directory_fd);
+
+    }
+
+    return success;
+}
+
+bool sec_fopen_exclusive_in_directory(const char *directory, const char *leaf_name, FILE **out_fp) {
+    /*
+        Purpose: Exclusively creates a regular file inside a verified directory
+        Returns: Success status
+    */
+
+    char normalized[PATH_MAX];
+    size_t leaf_length;
+    int directory_fd = -1;
+    int file_fd = -1;
+    FILE *fp = NULL;
+    bool success = false;
+
+    if (out_fp == NULL) {
+
+        return false;
+
+    }
+
+    *out_fp = NULL;
+
+    if (directory == NULL || leaf_name == NULL ||
+        !sec_normalize_directory_path(directory, normalized, sizeof(normalized))) {
+
+        return false;
+
+    }
+
+    leaf_length = strnlen(leaf_name, PATH_MAX);
+
+    if (leaf_length == 0 || leaf_length >= PATH_MAX || strcmp(leaf_name, ".") == 0 || strcmp(leaf_name, "..") == 0 ||
+        strchr(leaf_name, '/') != NULL) {
+
+        return false;
+
+    }
+
+    directory_fd = open(normalized, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+
+    if (directory_fd < 0 || !sec_directory_fd_is_secure(directory_fd)) {
+
+        goto cleanup;
+
+    }
+
+    file_fd = openat(directory_fd, leaf_name, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IWUSR);
+
+    if (file_fd < 0) {
+
+        goto cleanup;
+
+    }
+
+    fp = fdopen(file_fd, "wb");
+
+    if (fp == NULL) {
+
+        unlinkat(directory_fd, leaf_name, 0);
+        goto cleanup;
+
+    }
+
+    file_fd = -1;
+    *out_fp = fp;
+    fp = NULL;
+    success = true;
+
+cleanup:
+
+    if (fp != NULL) {
+
+        fclose(fp);
+
+    }
+
+    if (file_fd >= 0) {
+
+        close(file_fd);
+
+    }
+
+    if (directory_fd >= 0) {
+
+        close(directory_fd);
+
+    }
+
+    return success;
 }

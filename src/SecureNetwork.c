@@ -39,8 +39,8 @@ int AUTH_DB_create_user(const char *username, const char *password, int enable_t
                         const unsigned char *totp_secret, const char *acting_admin, char *error, size_t error_size);
 int AUTH_DB_reset_password(const char *username, const char *new_password, const char *acting_admin, char *error,
                            size_t error_size);
-int AUTH_DB_set_totp(const char *username, const unsigned char *secret,
-                     const char *acting_admin, char *error, size_t error_size);
+int AUTH_DB_set_totp(const char *username, const unsigned char *secret, const char *acting_admin, char *error,
+                     size_t error_size);
 int AUTH_DB_remove_totp(const char *username, const char *acting_admin, char *error, size_t error_size);
 int AUTH_DB_set_role(const char *username, int role, const char *acting_admin, char *error, size_t error_size);
 int AUTH_DB_delete_user(const char *username, const char *acting_admin, char *error, size_t error_size);
@@ -1165,9 +1165,8 @@ static int secure_network_handle_user_admin(SSL *ssl, uint32_t request_id, const
     if (!payload || payload_size < SECURE_NETWORK_USER_ADMIN_HEADER_BYTES || !authenticated_username ||
         authenticated_username[0] == '\0') {
 
-        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id,
-                                          SECURE_NETWORK_STATUS_ERROR, "Malformed account-management request.",
-                                          NULL, 0);
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed account-management request.", NULL, 0);
 
     }
 
@@ -1181,9 +1180,8 @@ static int secure_network_handle_user_admin(SSL *ssl, uint32_t request_id, const
     if (username_size == 0 || username_size > AUTH_PUBLIC_USERNAME_MAX || password_size >= sizeof(password) ||
         secret_size > sizeof(secret) || offset + username_size + password_size + secret_size != payload_size) {
 
-        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id,
-                                          SECURE_NETWORK_STATUS_ERROR, "Malformed account-management request.",
-                                          NULL, 0);
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed account-management request.", NULL, 0);
 
     }
 
@@ -1191,72 +1189,92 @@ static int secure_network_handle_user_admin(SSL *ssl, uint32_t request_id, const
     offset += username_size;
 
     if (password_size > 0) {
+
         memcpy(password, payload + offset, password_size);
         offset += password_size;
+
     }
 
     if (secret_size > 0) {
+
         memcpy(secret, payload + offset, secret_size);
+
     }
 
     switch (action) {
-        case SECURE_NETWORK_USER_ADMIN_CREATE:
-            if (password_size == 0 || (flags & ~SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0 ||
-                (((flags & SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0) !=
-                 (secret_size == AUTH_PUBLIC_TOTP_SECRET_BYTES))) {
-                secure_network_set_error(error, sizeof(error), "Malformed user-creation request.");
-                break;
-            }
-            success = AUTH_DB_create_user(username, password,
-                                          (flags & SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0, 0,
-                                          (flags & SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0 ? secret : NULL,
-                                          authenticated_username, error, sizeof(error));
+    case SECURE_NETWORK_USER_ADMIN_CREATE:
+
+        if (password_size == 0 || (flags & ~SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0 ||
+            (((flags & SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0) !=
+             (secret_size == AUTH_PUBLIC_TOTP_SECRET_BYTES))) {
+
+            secure_network_set_error(error, sizeof(error), "Malformed user-creation request.");
             break;
 
-        case SECURE_NETWORK_USER_ADMIN_RESET_PASSWORD:
-            if (password_size == 0 || secret_size != 0) {
-                secure_network_set_error(error, sizeof(error), "Malformed password-reset request.");
-                break;
-            }
-            success = AUTH_DB_reset_password(username, password, authenticated_username, error, sizeof(error));
+        }
+        success = AUTH_DB_create_user(username, password, (flags & SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0, 0,
+                                      (flags & SECURE_NETWORK_USER_ADMIN_ENABLE_TOTP) != 0 ? secret : NULL,
+                                      authenticated_username, error, sizeof(error));
+        break;
+
+    case SECURE_NETWORK_USER_ADMIN_RESET_PASSWORD:
+
+        if (password_size == 0 || secret_size != 0) {
+
+            secure_network_set_error(error, sizeof(error), "Malformed password-reset request.");
             break;
 
-        case SECURE_NETWORK_USER_ADMIN_SET_TOTP:
-            if (password_size != 0 || secret_size != AUTH_PUBLIC_TOTP_SECRET_BYTES) {
-                secure_network_set_error(error, sizeof(error), "Malformed 2FA-enrollment request.");
-                break;
-            }
-            success = AUTH_DB_set_totp(username, secret, authenticated_username, error, sizeof(error));
+        }
+        success = AUTH_DB_reset_password(username, password, authenticated_username, error, sizeof(error));
+        break;
+
+    case SECURE_NETWORK_USER_ADMIN_SET_TOTP:
+
+        if (password_size != 0 || secret_size != AUTH_PUBLIC_TOTP_SECRET_BYTES) {
+
+            secure_network_set_error(error, sizeof(error), "Malformed 2FA-enrollment request.");
             break;
 
-        case SECURE_NETWORK_USER_ADMIN_REMOVE_TOTP:
-            if (password_size != 0 || secret_size != 0) {
-                secure_network_set_error(error, sizeof(error), "Malformed 2FA-removal request.");
-                break;
-            }
-            success = AUTH_DB_remove_totp(username, authenticated_username, error, sizeof(error));
+        }
+        success = AUTH_DB_set_totp(username, secret, authenticated_username, error, sizeof(error));
+        break;
+
+    case SECURE_NETWORK_USER_ADMIN_REMOVE_TOTP:
+
+        if (password_size != 0 || secret_size != 0) {
+
+            secure_network_set_error(error, sizeof(error), "Malformed 2FA-removal request.");
             break;
 
-        case SECURE_NETWORK_USER_ADMIN_SET_ROLE:
-            if (password_size != 0 || secret_size != 0 ||
-                (role != AUTH_ROLE_USER && role != AUTH_ROLE_CO_ADMIN)) {
-                secure_network_set_error(error, sizeof(error), "Malformed role-update request.");
-                break;
-            }
-            success = AUTH_DB_set_role(username, (int)role, authenticated_username, error, sizeof(error));
+        }
+        success = AUTH_DB_remove_totp(username, authenticated_username, error, sizeof(error));
+        break;
+
+    case SECURE_NETWORK_USER_ADMIN_SET_ROLE:
+
+        if (password_size != 0 || secret_size != 0 || (role != AUTH_ROLE_USER && role != AUTH_ROLE_CO_ADMIN)) {
+
+            secure_network_set_error(error, sizeof(error), "Malformed role-update request.");
             break;
 
-        case SECURE_NETWORK_USER_ADMIN_DELETE:
-            if (password_size != 0 || secret_size != 0) {
-                secure_network_set_error(error, sizeof(error), "Malformed account-deletion request.");
-                break;
-            }
-            success = AUTH_DB_delete_user(username, authenticated_username, error, sizeof(error));
+        }
+        success = AUTH_DB_set_role(username, (int)role, authenticated_username, error, sizeof(error));
+        break;
+
+    case SECURE_NETWORK_USER_ADMIN_DELETE:
+
+        if (password_size != 0 || secret_size != 0) {
+
+            secure_network_set_error(error, sizeof(error), "Malformed account-deletion request.");
             break;
 
-        default:
-            secure_network_set_error(error, sizeof(error), "Unsupported account-management operation.");
-            break;
+        }
+        success = AUTH_DB_delete_user(username, authenticated_username, error, sizeof(error));
+        break;
+
+    default:
+        secure_network_set_error(error, sizeof(error), "Unsupported account-management operation.");
+        break;
     }
 
     OPENSSL_cleanse(password, sizeof(password));
@@ -1375,11 +1393,10 @@ static void *secure_network_client_thread(void *argument) {
 
         else if (type == SECURE_NETWORK_TYPE_USER_ADMIN) {
 
-            keep = is_admin
-                       ? secure_network_handle_user_admin(ssl, request_id, payload, payload_size,
-                                                          authenticated_username)
-                       : secure_network_send_status(ssl, type, request_id, SECURE_NETWORK_STATUS_ERROR,
-                                                    "Co-administrator privileges are required.", NULL, 0);
+            keep = is_admin ? secure_network_handle_user_admin(ssl, request_id, payload, payload_size,
+                                                               authenticated_username)
+                            : secure_network_send_status(ssl, type, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                                         "Co-administrator privileges are required.", NULL, 0);
 
         }
 
@@ -1968,6 +1985,7 @@ int SECURE_NETWORK_authenticate(const char *username, const char *password, cons
             Clear it after authentication so a temporarily slow request does not
             get mistaken for a lost server connection and force a random logout.
         */
+
         if (Global_Secure_Client_Fd >= 0) {
 
             struct timeval no_timeout = {0, 0};
@@ -2573,7 +2591,6 @@ cleanup:
     return success;
 }
 
-
 static int secure_network_admin_request(uint16_t action, const char *username, const char *password,
                                         const unsigned char *secret, size_t secret_size, int role, unsigned int flags,
                                         char *error, size_t error_size) {
@@ -2589,15 +2606,20 @@ static int secure_network_admin_request(uint16_t action, const char *username, c
 
     if (username_size == 0 || username_size > AUTH_PUBLIC_USERNAME_MAX || password_size > 127 ||
         secret_size > AUTH_PUBLIC_TOTP_SECRET_BYTES || (secret_size > 0 && !secret)) {
+
         secure_network_set_error(error, error_size, "Invalid account-management request.");
         return 0;
+
     }
 
     payload_size = SECURE_NETWORK_USER_ADMIN_HEADER_BYTES + username_size + password_size + secret_size;
     payload = OPENSSL_zalloc(payload_size);
+
     if (!payload) {
+
         secure_network_set_error(error, error_size, "Unable to allocate the account-management request.");
         return 0;
+
     }
 
     secure_network_store_u16(payload, action);
@@ -2608,19 +2630,28 @@ static int secure_network_admin_request(uint16_t action, const char *username, c
     secure_network_store_u16(payload + 10, (uint16_t)flags);
     memcpy(payload + offset, username, username_size);
     offset += username_size;
+
     if (password_size > 0) {
+
         memcpy(payload + offset, password, password_size);
         offset += password_size;
+
     }
+
     if (secret_size > 0) {
+
         memcpy(payload + offset, secret, secret_size);
+
     }
 
     pthread_mutex_lock(&Global_Secure_Client_Lock);
-    if (secure_network_request_locked(SECURE_NETWORK_TYPE_USER_ADMIN, payload, payload_size, &status, error,
-                                      error_size, &extra, &extra_size) &&
+
+    if (secure_network_request_locked(SECURE_NETWORK_TYPE_USER_ADMIN, payload, payload_size, &status, error, error_size,
+                                      &extra, &extra_size) &&
         status == SECURE_NETWORK_STATUS_OK) {
+
         success = 1;
+
     }
     pthread_mutex_unlock(&Global_Secure_Client_Lock);
     OPENSSL_clear_free(payload, payload_size);
@@ -2642,16 +2673,15 @@ int SECURE_NETWORK_admin_reset_password(const char *username, const char *new_pa
                                         AUTH_ROLE_USER, 0, error, error_size);
 }
 
-int SECURE_NETWORK_admin_set_totp(const char *username,
-                                  const unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES], char *error,
-                                  size_t error_size) {
+int SECURE_NETWORK_admin_set_totp(const char *username, const unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES],
+                                  char *error, size_t error_size) {
     return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_SET_TOTP, username, NULL, secret,
                                         AUTH_PUBLIC_TOTP_SECRET_BYTES, AUTH_ROLE_USER, 0, error, error_size);
 }
 
 int SECURE_NETWORK_admin_remove_totp(const char *username, char *error, size_t error_size) {
-    return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_REMOVE_TOTP, username, NULL, NULL, 0,
-                                        AUTH_ROLE_USER, 0, error, error_size);
+    return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_REMOVE_TOTP, username, NULL, NULL, 0, AUTH_ROLE_USER,
+                                        0, error, error_size);
 }
 
 int SECURE_NETWORK_admin_set_role(const char *username, int role, char *error, size_t error_size) {

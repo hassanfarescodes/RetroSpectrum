@@ -543,7 +543,9 @@ static int correlation_parse_cache_buffer(const unsigned char *buffer, size_t bu
     size_t trend_bytes;
 
     if (!buffer || buffer_size < sizeof(header)) {
+
         return 0;
+
     }
 
     memcpy(&header, buffer, sizeof(header));
@@ -551,11 +553,15 @@ static int correlation_parse_cache_buffer(const unsigned char *buffer, size_t bu
     if (memcmp(header.magic, CORRELATION_CACHE_MAGIC, strlen(CORRELATION_CACHE_MAGIC)) != 0 ||
         header.version != CORRELATION_CACHE_VERSION || header.entry_count > CORRELATION_MAX_FILES ||
         header.trend_points != (uint32_t)Global_Correlation_Trend_Points) {
+
         return 0;
+
     }
 
     if (header.trend_points == 0 || header.trend_points > SIZE_MAX / (3U * sizeof(float))) {
+
         return 0;
+
     }
 
     trend_bytes = (size_t)header.trend_points * sizeof(float);
@@ -569,14 +575,18 @@ static int correlation_parse_cache_buffer(const unsigned char *buffer, size_t bu
         Type_Correlation_Cache_Entry *entry;
 
         if ((size_t)(end - cursor) < sizeof(disk_entry)) {
+
             return 0;
+
         }
 
         memcpy(&disk_entry, cursor, sizeof(disk_entry));
         cursor += sizeof(disk_entry);
 
         if (disk_entry.signature_count > CORRELATION_MAX_SIGNATURES_PER_FILE) {
+
             return 0;
+
         }
 
         entry = &Global_Correlation_Cache[entry_index];
@@ -591,8 +601,10 @@ static int correlation_parse_cache_buffer(const unsigned char *buffer, size_t bu
             size_t required = sizeof(disk_signature) + 3U * trend_bytes;
 
             if ((size_t)(end - cursor) < required) {
+
                 Global_Correlation_Cache_Count = 0;
                 return 0;
+
             }
 
             memcpy(&disk_signature, cursor, sizeof(disk_signature));
@@ -614,8 +626,10 @@ static int correlation_parse_cache_buffer(const unsigned char *buffer, size_t bu
     }
 
     if (cursor != end) {
+
         Global_Correlation_Cache_Count = 0;
         return 0;
+
     }
 
     Global_Correlation_Cache_Count = (int)header.entry_count;
@@ -635,7 +649,9 @@ static unsigned char *correlation_serialize_cache(size_t *serialized_size) {
     size_t total_size = sizeof(header);
 
     if (!serialized_size || Global_Correlation_Trend_Points < 1) {
+
         return NULL;
+
     }
 
     *serialized_size = 0;
@@ -648,19 +664,27 @@ static unsigned char *correlation_serialize_cache(size_t *serialized_size) {
 
         if (signature_count > CORRELATION_MAX_SIGNATURES_PER_FILE ||
             signature_count > (SIZE_MAX - sizeof(Type_Correlation_Cache_Entry_Disk)) / signature_size) {
+
             return NULL;
+
         }
 
         entry_size = sizeof(Type_Correlation_Cache_Entry_Disk) + (size_t)signature_count * signature_size;
+
         if (total_size > SIZE_MAX - entry_size) {
+
             return NULL;
+
         }
         total_size += entry_size;
     }
 
     buffer = (unsigned char *)malloc(total_size);
+
     if (!buffer) {
+
         return NULL;
+
     }
 
     memset(&header, 0, sizeof(header));
@@ -722,29 +746,42 @@ static void correlation_load_local_cache(void) {
     Global_Correlation_Cache_Count = 0;
     correlation_cache_path(path, sizeof(path));
     fp = fopen(path, "rb");
+
     if (!fp) {
+
         return;
+
     }
 
     if (fseek(fp, 0, SEEK_END) != 0) {
+
         fclose(fp);
         return;
+
     }
 
     local_size = ftell(fp);
+
     if (local_size <= 0 || fseek(fp, 0, SEEK_SET) != 0) {
+
         fclose(fp);
         return;
+
     }
 
     local_content = (unsigned char *)malloc((size_t)local_size);
+
     if (!local_content) {
+
         fclose(fp);
         return;
+
     }
 
     if (fread(local_content, 1, (size_t)local_size, fp) == (size_t)local_size) {
+
         (void)correlation_parse_cache_buffer(local_content, (size_t)local_size);
+
     }
 
     free(local_content);
@@ -763,23 +800,32 @@ static void correlation_load_server_cache_once(void) {
     char error[256] = "";
 
     if (Global_Correlation_Server_Cache_Attempted || Global_Correlation_Cancel) {
+
         return;
+
     }
 
     Global_Correlation_Server_Cache_Attempted = 1;
     correlation_set_status("Loading the shared signature cache in the background...");
 
     if (DATASTORE_load_content(CORRELATION_DATASTORE_KIND, CORRELATION_DATASTORE_DOCUMENT, &server_content,
-                               &server_content_size, &found, error, sizeof(error)) && found) {
+                               &server_content_size, &found, error, sizeof(error)) &&
+        found) {
+
         (void)correlation_parse_cache_buffer(server_content, server_content_size);
+
     }
 
     if (server_content) {
+
         DATASTORE_free_content(server_content, server_content_size);
+
     }
 
     if (error[0]) {
+
         snprintf(Global_Correlation_Cache_Sync_Error, sizeof(Global_Correlation_Cache_Sync_Error), "%s", error);
+
     }
 }
 
@@ -3989,33 +4035,42 @@ void CORRELATION_enter_mode(const char *record_dir, unsigned long long fallback_
     Global_Correlation_Fallback_Sample_Rate_Hz = fallback_sample_rate_hz;
 
     if (record_dir && record_dir[0] && strcmp(Global_Correlation_Record_Dir, record_dir) != 0) {
+
         directory_changed = 1;
         snprintf(Global_Correlation_Record_Dir, sizeof(Global_Correlation_Record_Dir), "%s", record_dir);
+
     }
 
     if (directory_changed && !Global_Correlation_Working) {
+
         Global_Correlation_Initialized = 0;
         Global_Correlation_Server_Cache_Attempted = 0;
         Global_Correlation_Cache_Count = 0;
         Global_Correlation_Result_Count = 0;
         Global_Correlation_Query_Signature_Valid = 0;
+
     }
 
     if (Global_Correlation_Working) {
+
         correlation_sync_text_input();
         return;
+
     }
 
     /*
      * Initialize once per recording directory. Server cache access is deferred
      * to the worker so opening this tab never waits on a network round trip.
      */
+
     if (!Global_Correlation_Initialized) {
+
         Global_Correlation_Cache_Sync_Error[0] = '\0';
         correlation_load_local_cache();
         correlation_scan_recordings();
         correlation_prune_cache();
         Global_Correlation_Initialized = 1;
+
     }
 
     correlation_sync_text_input();
