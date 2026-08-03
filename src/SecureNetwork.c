@@ -2335,7 +2335,7 @@ int SECURE_NETWORK_load_document(const char *document_kind, const char *document
 
     if (*found && length > 0) {
 
-        *content = malloc(length);
+        *content = malloc((size_t)length + 1u);
 
         if (!*content) {
 
@@ -2343,7 +2343,8 @@ int SECURE_NETWORK_load_document(const char *document_kind, const char *document
 
         }
         memcpy(*content, extra + 8, length);
-        *content_size = length;
+        (*content)[length] = '\0';
+        *content_size = (size_t)length;
 
     }
     success = 1;

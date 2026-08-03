@@ -9687,11 +9687,11 @@ void ANALYSIS_draw_workstation_overlays(SDL_Renderer *renderer, TTF_Font *font, 
 
         char column_label[128];
 
-        snprintf(column_label, sizeof(column_label), "%.6f s - %.6f s     (%.6f s)", start_sec, end_sec,
+        snprintf(column_label, sizeof(column_label), "%.4f s - %.4f s     (%.4f s)", start_sec, end_sec,
                  end_sec - start_sec);
 
         SDL_Rect column_bg = {spec_rect.x + spec_rect.w - 225 - 192, spec_rect.y - 30,
-                              310, // 240
+                              240, // 240
                               24};
 
         if (column_bg.x < spec_rect.x) {
