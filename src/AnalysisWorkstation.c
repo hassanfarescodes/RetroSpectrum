@@ -214,8 +214,8 @@ float Global_Analysis_Const_Q[ANALYSIS_MAX_CONST_POINTS];
 
 static const char *Global_Analysis_Constellation_Mode_Labels[ANALYSIS_CONSTELLATION_MODE_COUNT] = {
     "Off", "PSK", "QAM", "ASK/OOK", "FSK/MSK", "OFDM"};
-static const char *Global_Analysis_Constellation_PSK_Labels[ANALYSIS_CONSTELLATION_PSK_OPTION_COUNT] = {
-    "BPSK", "QPSK", "8PSK"};
+static const char *Global_Analysis_Constellation_PSK_Labels[ANALYSIS_CONSTELLATION_PSK_OPTION_COUNT] = {"BPSK", "QPSK",
+                                                                                                        "8PSK"};
 static const int Global_Analysis_Constellation_PSK_Orders[ANALYSIS_CONSTELLATION_PSK_OPTION_COUNT] = {
     ANALYSIS_CONSTELLATION_PSK_BPSK, ANALYSIS_CONSTELLATION_PSK_QPSK, ANALYSIS_CONSTELLATION_PSK_8PSK};
 static int Global_Analysis_Constellation_PSK_Prompt_Open = 0;
@@ -392,8 +392,7 @@ static void ANALYSIS_invalidate_constellation_cache(void) {
         Returns: No value
     */
 
-    if (Global_Analysis_Active_Workspace < 0 ||
-        Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
+    if (Global_Analysis_Active_Workspace < 0 || Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
 
         return;
 
@@ -408,30 +407,22 @@ static int ANALYSIS_constellation_cache_matches(void) {
         Returns: Boolean status
     */
 
-    if (Global_Analysis_Active_Workspace < 0 ||
-        Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
+    if (Global_Analysis_Active_Workspace < 0 || Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
 
         return 0;
 
     }
 
-    Type_Analysis_Constellation_Cache *cache =
-        &Global_Analysis_Constellation_Caches[Global_Analysis_Active_Workspace];
+    Type_Analysis_Constellation_Cache *cache = &Global_Analysis_Constellation_Caches[Global_Analysis_Active_Workspace];
 
-    return cache->ready &&
-           cache->mode == Global_Analysis_Constellation_Mode &&
+    return cache->ready && cache->mode == Global_Analysis_Constellation_Mode &&
            cache->psk_order == Global_Analysis_Constellation_PSK_Order &&
            cache->filter_active == Global_Analysis_Filter_Active &&
-           cache->column_active == Global_Analysis_Column_Active &&
-           cache->iq_count == Global_Analysis_IQ_Count &&
-           cache->view_start == Global_Analysis_View_Start &&
-           cache->view_len == Global_Analysis_View_Len &&
-           cache->sample_rate == Global_Analysis_Sample_Rate &&
-           cache->filter_y0 == Global_Analysis_Filter_Y0 &&
-           cache->filter_y1 == Global_Analysis_Filter_Y1 &&
-           cache->column_x0 == Global_Analysis_Column_X0 &&
-           cache->column_x1 == Global_Analysis_Column_X1 &&
-           strcmp(cache->path, Global_Analysis_Path) == 0;
+           cache->column_active == Global_Analysis_Column_Active && cache->iq_count == Global_Analysis_IQ_Count &&
+           cache->view_start == Global_Analysis_View_Start && cache->view_len == Global_Analysis_View_Len &&
+           cache->sample_rate == Global_Analysis_Sample_Rate && cache->filter_y0 == Global_Analysis_Filter_Y0 &&
+           cache->filter_y1 == Global_Analysis_Filter_Y1 && cache->column_x0 == Global_Analysis_Column_X0 &&
+           cache->column_x1 == Global_Analysis_Column_X1 && strcmp(cache->path, Global_Analysis_Path) == 0;
 }
 
 static void ANALYSIS_restore_constellation_cache(void) {
@@ -440,8 +431,7 @@ static void ANALYSIS_restore_constellation_cache(void) {
         Returns: No value
     */
 
-    Type_Analysis_Constellation_Cache *cache =
-        &Global_Analysis_Constellation_Caches[Global_Analysis_Active_Workspace];
+    Type_Analysis_Constellation_Cache *cache = &Global_Analysis_Constellation_Caches[Global_Analysis_Active_Workspace];
 
     Global_Analysis_Const_Count = cache->count;
     memcpy(Global_Analysis_Const_I, cache->i, sizeof(Global_Analysis_Const_I));
@@ -454,15 +444,13 @@ static void ANALYSIS_store_constellation_cache(void) {
         Returns: No value
     */
 
-    if (Global_Analysis_Active_Workspace < 0 ||
-        Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
+    if (Global_Analysis_Active_Workspace < 0 || Global_Analysis_Active_Workspace >= ANALYSIS_WORKSPACE_COUNT) {
 
         return;
 
     }
 
-    Type_Analysis_Constellation_Cache *cache =
-        &Global_Analysis_Constellation_Caches[Global_Analysis_Active_Workspace];
+    Type_Analysis_Constellation_Cache *cache = &Global_Analysis_Constellation_Caches[Global_Analysis_Active_Workspace];
 
     cache->ready = 1;
     cache->mode = Global_Analysis_Constellation_Mode;
@@ -1619,7 +1607,6 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     }
 }
 
-
 static int ANALYSIS_get_constellation_mode_button_rects(int win_w, int win_h, SDL_Rect *rects) {
     /*
         Purpose: Computes the equal-size constellation family button rectangles
@@ -1699,8 +1686,8 @@ static void ANALYSIS_draw_constellation_mode_buttons(SDL_Renderer *renderer, TTF
     for (int i = 0; i < count; i++) {
         int selected = Global_Analysis_Constellation_Mode == i;
         int hover = point_in_rect(mouse_x, mouse_y, rects[i]);
-        SDL_Color fill = selected ? (SDL_Color){0, 70, 28, 245}
-                                  : (hover ? (SDL_Color){24, 34, 28, 240} : (SDL_Color){5, 8, 6, 230});
+        SDL_Color fill =
+            selected ? (SDL_Color){0, 70, 28, 245} : (hover ? (SDL_Color){24, 34, 28, 240} : (SDL_Color){5, 8, 6, 230});
         SDL_Color border = selected ? (SDL_Color){0, 255, 90, 255}
                                     : (hover ? (SDL_Color){0, 205, 76, 245} : (SDL_Color){0, 120, 48, 225});
         SDL_Color text = selected ? (SDL_Color){235, 255, 242, 255}
@@ -1708,7 +1695,8 @@ static void ANALYSIS_draw_constellation_mode_buttons(SDL_Renderer *renderer, TTF
 
         draw_filled_rect(renderer, rects[i], fill);
         draw_outline_rect(renderer, rects[i], border);
-        ANALYSIS_draw_centered_button_text(renderer, font, rects[i], Global_Analysis_Constellation_Mode_Labels[i], text);
+        ANALYSIS_draw_centered_button_text(renderer, font, rects[i], Global_Analysis_Constellation_Mode_Labels[i],
+                                           text);
     }
 }
 
@@ -1723,29 +1711,36 @@ static void ANALYSIS_get_constellation_psk_prompt_rects(int win_w, int win_h, SD
     int panel_h = 190;
 
     if (panel_w > win_w - 60) {
+
         panel_w = win_w - 60;
+
     }
 
     if (panel_h > win_h - 60) {
+
         panel_h = win_h - 60;
+
     }
 
     SDL_Rect panel = {(win_w - panel_w) / 2, (win_h - panel_h) / 2, panel_w, panel_h};
 
     if (panel_rect) {
+
         *panel_rect = panel;
+
     }
 
     if (option_rects) {
+
         const int gap = 12;
         const int side_margin = 24;
         int button_width = (panel.w - side_margin * 2 - gap * 2) / ANALYSIS_CONSTELLATION_PSK_OPTION_COUNT;
         int button_y = panel.y + panel.h - 62;
 
         for (int i = 0; i < ANALYSIS_CONSTELLATION_PSK_OPTION_COUNT; i++) {
-            option_rects[i] =
-                (SDL_Rect){panel.x + side_margin + i * (button_width + gap), button_y, button_width, 36};
+            option_rects[i] = (SDL_Rect){panel.x + side_margin + i * (button_width + gap), button_y, button_width, 36};
         }
+
     }
 }
 
@@ -1777,10 +1772,9 @@ static void ANALYSIS_draw_constellation_psk_prompt(SDL_Renderer *renderer, TTF_F
     draw_filled_rect(renderer, title_bar, (SDL_Color){0, 24, 8, 245});
     draw_outline_rect(renderer, title_bar, (SDL_Color){0, 160, 60, 230});
 
-    draw_text(renderer, font, "Select PSK Modulation", panel.x + 22, panel.y + 17,
-              (SDL_Color){0, 255, 90, 255});
-    draw_text(renderer, font, "Choose the PSK order used for carrier and symbol recovery.", panel.x + 22,
-              panel.y + 76, (SDL_Color){220, 220, 220, 255});
+    draw_text(renderer, font, "Select PSK Modulation", panel.x + 22, panel.y + 17, (SDL_Color){0, 255, 90, 255});
+    draw_text(renderer, font, "Choose the PSK order used for carrier and symbol recovery.", panel.x + 22, panel.y + 76,
+              (SDL_Color){220, 220, 220, 255});
 
     int mouse_x = 0;
     int mouse_y = 0;
@@ -1798,8 +1792,8 @@ static void ANALYSIS_draw_constellation_psk_prompt(SDL_Renderer *renderer, TTF_F
 
         draw_filled_rect(renderer, option_rects[i], fill);
         draw_outline_rect(renderer, option_rects[i], border);
-        ANALYSIS_draw_centered_button_text(renderer, font, option_rects[i],
-                                           Global_Analysis_Constellation_PSK_Labels[i], text);
+        ANALYSIS_draw_centered_button_text(renderer, font, option_rects[i], Global_Analysis_Constellation_PSK_Labels[i],
+                                           text);
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
@@ -1818,19 +1812,24 @@ static int ANALYSIS_handle_constellation_psk_prompt_event(SDL_Event *event, int 
     }
 
     if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE) {
+
         Global_Analysis_Constellation_PSK_Prompt_Open = 0;
         return 1;
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
         SDL_Rect panel;
         SDL_Rect option_rects[ANALYSIS_CONSTELLATION_PSK_OPTION_COUNT];
         ANALYSIS_get_constellation_psk_prompt_rects(win_w, win_h, &panel, option_rects);
 
         for (int i = 0; i < ANALYSIS_CONSTELLATION_PSK_OPTION_COUNT; i++) {
+
             if (!point_in_rect(event->button.x, event->button.y, option_rects[i])) {
 
                 continue;
+
             }
 
             Global_Analysis_Constellation_Mode = ANALYSIS_CONSTELLATION_MODE_PSK;
@@ -1846,6 +1845,7 @@ static int ANALYSIS_handle_constellation_psk_prompt_event(SDL_Event *event, int 
 
         (void)panel;
         return 1;
+
     }
 
     return 1;
@@ -1869,8 +1869,10 @@ static int ANALYSIS_handle_constellation_mode_click(int x, int y, int win_w, int
         }
 
         if (i == ANALYSIS_CONSTELLATION_MODE_PSK) {
+
             Global_Analysis_Constellation_PSK_Prompt_Open = 1;
             return 1;
+
         }
 
         Global_Analysis_Constellation_PSK_Prompt_Open = 0;
@@ -1879,6 +1881,7 @@ static int ANALYSIS_handle_constellation_mode_click(int x, int y, int win_w, int
         Global_Analysis_Dirty = 1;
 
         if (i == ANALYSIS_CONSTELLATION_MODE_OFF) {
+
             Global_Analysis_Const_Count = 0;
             memset(Global_Analysis_Const_I, 0, sizeof(Global_Analysis_Const_I));
             memset(Global_Analysis_Const_Q, 0, sizeof(Global_Analysis_Const_Q));
@@ -1888,8 +1891,10 @@ static int ANALYSIS_handle_constellation_mode_click(int x, int y, int win_w, int
         }
 
         else {
+
             snprintf(Global_Analysis_Status, sizeof(Global_Analysis_Status), "IQ constellation family: %s",
                      Global_Analysis_Constellation_Mode_Labels[i]);
+
         }
 
         return 1;
@@ -10051,7 +10056,6 @@ static int ANALYSIS_load_iq_blocks_multithreaded(FILE *fp, int16_t *blocks, cons
     return 1;
 }
 
-
 typedef struct Type_Analysis_Constellation_Point {
     double i;
     double q;
@@ -10087,7 +10091,8 @@ static size_t ANALYSIS_constellation_next_power_of_two(size_t value) {
 }
 
 static void ANALYSIS_constellation_apply_frequency_correction(double *i_data, double *q_data, size_t count,
-                                                               double radians_per_sample) {
+                                                              double radians_per_sample) {
+
     if (!i_data || !q_data || count == 0 || fabs(radians_per_sample) < 1e-15) {
 
         return;
@@ -10113,18 +10118,22 @@ static void ANALYSIS_constellation_apply_frequency_correction(double *i_data, do
         oscillator_q = next_q;
 
         if ((n & 4095U) == 4095U) {
+
             double magnitude = hypot(oscillator_i, oscillator_q);
 
             if (magnitude > 1e-12) {
+
                 oscillator_i /= magnitude;
                 oscillator_q /= magnitude;
+
             }
+
         }
     }
 }
 
 static void ANALYSIS_constellation_complex_power(double input_i, double input_q, int order, double *output_i,
-                                                  double *output_q) {
+                                                 double *output_q) {
     double result_i = 1.0;
     double result_q = 0.0;
 
@@ -10136,11 +10145,15 @@ static void ANALYSIS_constellation_complex_power(double input_i, double input_q,
     }
 
     if (output_i) {
+
         *output_i = result_i;
+
     }
 
     if (output_q) {
+
         *output_q = result_q;
+
     }
 }
 
@@ -10156,8 +10169,10 @@ static double ANALYSIS_constellation_estimate_mth_frequency(const double *i_data
         double magnitude = hypot(i_data[n], q_data[n]);
 
         if (magnitude < magnitude_gate) {
+
             have_previous = 0;
             continue;
+
         }
 
         double unit_i = i_data[n] / magnitude;
@@ -10168,8 +10183,10 @@ static double ANALYSIS_constellation_estimate_mth_frequency(const double *i_data
         ANALYSIS_constellation_complex_power(unit_i, unit_q, order, &powered_i, &powered_q);
 
         if (have_previous) {
+
             sum_i += powered_i * previous_i + powered_q * previous_q;
             sum_q += powered_q * previous_i - powered_i * previous_q;
+
         }
 
         previous_i = powered_i;
@@ -10186,8 +10203,8 @@ static double ANALYSIS_constellation_estimate_mth_frequency(const double *i_data
     return atan2(sum_q, sum_i) / (double)order;
 }
 
-static double ANALYSIS_constellation_mth_coherence(const double *i_data, const double *q_data, size_t count,
-                                                   int order, double frequency, double magnitude_gate) {
+static double ANALYSIS_constellation_mth_coherence(const double *i_data, const double *q_data, size_t count, int order,
+                                                   double frequency, double magnitude_gate) {
     double sum_i = 0.0;
     double sum_q = 0.0;
     int used = 0;
@@ -10202,14 +10219,16 @@ static double ANALYSIS_constellation_mth_coherence(const double *i_data, const d
         double magnitude = hypot(corrected_i, corrected_q);
 
         if (magnitude >= magnitude_gate) {
+
             double powered_i = 0.0;
             double powered_q = 0.0;
 
-            ANALYSIS_constellation_complex_power(corrected_i / magnitude, corrected_q / magnitude, order,
-                                                  &powered_i, &powered_q);
+            ANALYSIS_constellation_complex_power(corrected_i / magnitude, corrected_q / magnitude, order, &powered_i,
+                                                 &powered_q);
             sum_i += powered_i;
             sum_q += powered_q;
             used++;
+
         }
 
         double next_i = oscillator_i * step_i - oscillator_q * step_q;
@@ -10221,8 +10240,8 @@ static double ANALYSIS_constellation_mth_coherence(const double *i_data, const d
     return used > 0 ? hypot(sum_i, sum_q) / (double)used : 0.0;
 }
 
-static double ANALYSIS_constellation_estimate_direct_frequency(const double *i_data, const double *q_data,
-                                                               size_t count, double magnitude_gate) {
+static double ANALYSIS_constellation_estimate_direct_frequency(const double *i_data, const double *q_data, size_t count,
+                                                               double magnitude_gate) {
     double sum_i = 0.0;
     double sum_q = 0.0;
 
@@ -10244,10 +10263,11 @@ static double ANALYSIS_constellation_estimate_direct_frequency(const double *i_d
     return hypot(sum_i, sum_q) > 1e-12 ? atan2(sum_q, sum_i) : 0.0;
 }
 
-static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, int filter_bin_low,
-                                                  int filter_bin_high, int time_filter_active, int time_col_low,
-                                                  int time_col_high, int render_w, double **output_i, double **output_q,
+static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, int filter_bin_low, int filter_bin_high,
+                                                  int time_filter_active, int time_col_low, int time_col_high,
+                                                  int render_w, double **output_i, double **output_q,
                                                   size_t *output_count, double *output_bandwidth_hz) {
+
     if (!fp || !output_i || !output_q || !output_count || Global_Analysis_Sample_Rate <= 0.0 ||
         Global_Analysis_IQ_Count == 0 || Global_Analysis_View_Len == 0) {
 
@@ -10263,25 +10283,31 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
     size_t selection_length = Global_Analysis_View_Len;
 
     if (time_filter_active && render_w > 1) {
+
         size_t start = Global_Analysis_View_Start +
-                       (size_t)(((double)time_col_low / (double)(render_w - 1)) *
-                                (double)Global_Analysis_View_Len);
+                       (size_t)(((double)time_col_low / (double)(render_w - 1)) * (double)Global_Analysis_View_Len);
         size_t end = Global_Analysis_View_Start +
-                     (size_t)(((double)time_col_high / (double)(render_w - 1)) *
-                              (double)Global_Analysis_View_Len);
+                     (size_t)(((double)time_col_high / (double)(render_w - 1)) * (double)Global_Analysis_View_Len);
 
         if (start >= Global_Analysis_IQ_Count) {
+
             start = Global_Analysis_IQ_Count - 1U;
+
         }
 
         if (end > Global_Analysis_IQ_Count) {
+
             end = Global_Analysis_IQ_Count;
+
         }
 
         if (end > start) {
+
             selection_start = start;
             selection_length = end - start;
+
         }
+
     }
 
     if (selection_length < 64U) {
@@ -10293,12 +10319,15 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
     size_t target_count = selection_length;
 
     if (target_count > ANALYSIS_CONSTELLATION_MAX_INPUT) {
+
         target_count = ANALYSIS_CONSTELLATION_MAX_INPUT;
+
     }
 
     size_t chosen_start = selection_start;
 
     if (selection_length > target_count) {
+
         const int probes = 17;
         const size_t probe_count = 4096U;
         int16_t *probe = malloc(probe_count * 2U * sizeof(int16_t));
@@ -10306,17 +10335,22 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
         size_t best_center = selection_start + selection_length / 2U;
 
         if (probe) {
+
             for (int p = 0; p < probes; p++) {
-                size_t center = selection_start +
-                                (size_t)(((double)p / (double)(probes - 1)) * (double)(selection_length - 1U));
+                size_t center =
+                    selection_start + (size_t)(((double)p / (double)(probes - 1)) * (double)(selection_length - 1U));
                 size_t probe_start = center > probe_count / 2U ? center - probe_count / 2U : selection_start;
 
                 if (probe_start < selection_start) {
+
                     probe_start = selection_start;
+
                 }
 
                 if (probe_start + probe_count > selection_start + selection_length) {
+
                     probe_start = selection_start + selection_length - probe_count;
+
                 }
 
                 clearerr(fp);
@@ -10338,27 +10372,37 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
                 }
 
                 if (samples > 0) {
+
                     power /= (double)samples;
+
                 }
 
                 if (power > best_power) {
+
                     best_power = power;
                     best_center = center;
+
                 }
             }
 
             free(probe);
+
         }
 
         chosen_start = best_center > target_count / 2U ? best_center - target_count / 2U : selection_start;
 
         if (chosen_start < selection_start) {
+
             chosen_start = selection_start;
+
         }
 
         if (chosen_start + target_count > selection_start + selection_length) {
+
             chosen_start = selection_start + selection_length - target_count;
+
         }
+
     }
 
     int16_t *raw = malloc(target_count * 2U * sizeof(int16_t));
@@ -10366,29 +10410,35 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
     double *q_data = malloc(target_count * sizeof(double));
 
     if (!raw || !i_data || !q_data) {
+
         free(raw);
         free(i_data);
         free(q_data);
         return 0;
+
     }
 
     clearerr(fp);
 
     if (fseeko(fp, (off_t)(chosen_start * 2U * sizeof(int16_t)), SEEK_SET) != 0) {
+
         free(raw);
         free(i_data);
         free(q_data);
         return 0;
+
     }
 
     size_t values_read = fread(raw, sizeof(int16_t), target_count * 2U, fp);
     size_t sample_count = values_read / 2U;
 
     if (sample_count < 64U) {
+
         free(raw);
         free(i_data);
         free(q_data);
         return 0;
+
     }
 
     double dc_i = 0.0;
@@ -10406,15 +10456,18 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
     double bandwidth_hz = Global_Analysis_Sample_Rate * 0.90;
 
     if (filter_active) {
+
         double bin_center = ((double)filter_bin_low + (double)filter_bin_high) * 0.5;
         double bin_width_hz = Global_Analysis_Sample_Rate / (double)ANALYSIS_FFT_SIZE;
-        center_offset_hz =
-            (bin_center - ((double)ANALYSIS_FFT_SIZE * 0.5)) * bin_width_hz;
+        center_offset_hz = (bin_center - ((double)ANALYSIS_FFT_SIZE * 0.5)) * bin_width_hz;
         bandwidth_hz = (double)(filter_bin_high - filter_bin_low + 1) * bin_width_hz;
+
     }
 
     if (output_bandwidth_hz) {
+
         *output_bandwidth_hz = bandwidth_hz;
+
     }
 
     double mixer_step = -2.0 * M_PI * center_offset_hz / Global_Analysis_Sample_Rate;
@@ -10441,24 +10494,33 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
     size_t fft_size = ANALYSIS_constellation_next_power_of_two(sample_count);
 
     if (fft_size < sample_count || fft_size > ANALYSIS_CONSTELLATION_MAX_INPUT) {
+
         free(i_data);
         free(q_data);
         return 0;
+
     }
 
     fftw_complex *time_data = fftw_malloc(sizeof(fftw_complex) * fft_size);
     fftw_complex *frequency_data = fftw_malloc(sizeof(fftw_complex) * fft_size);
 
     if (!time_data || !frequency_data) {
+
         if (time_data) {
+
             fftw_free(time_data);
+
         }
+
         if (frequency_data) {
+
             fftw_free(frequency_data);
+
         }
         free(i_data);
         free(q_data);
         return 0;
+
     }
 
     for (size_t n = 0; n < fft_size; n++) {
@@ -10470,17 +10532,24 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
     fftw_plan inverse = fftw_plan_dft_1d((int)fft_size, frequency_data, time_data, FFTW_BACKWARD, FFTW_ESTIMATE);
 
     if (!forward || !inverse) {
+
         if (forward) {
+
             fftw_destroy_plan(forward);
+
         }
+
         if (inverse) {
+
             fftw_destroy_plan(inverse);
+
         }
         fftw_free(time_data);
         fftw_free(frequency_data);
         free(i_data);
         free(q_data);
         return 0;
+
     }
 
     fftw_execute(forward);
@@ -10488,22 +10557,28 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
     double cutoff_hz = bandwidth_hz * 0.55;
 
     if (cutoff_hz > Global_Analysis_Sample_Rate * 0.47) {
+
         cutoff_hz = Global_Analysis_Sample_Rate * 0.47;
+
     }
 
     if (cutoff_hz < Global_Analysis_Sample_Rate / (double)fft_size) {
+
         cutoff_hz = Global_Analysis_Sample_Rate / (double)fft_size;
+
     }
 
     for (size_t k = 0; k < fft_size; k++) {
-        double frequency = k <= fft_size / 2U
-                               ? ((double)k * Global_Analysis_Sample_Rate / (double)fft_size)
-                               : ((double)((long long)k - (long long)fft_size) * Global_Analysis_Sample_Rate /
-                                  (double)fft_size);
+        double frequency =
+            k <= fft_size / 2U
+                ? ((double)k * Global_Analysis_Sample_Rate / (double)fft_size)
+                : ((double)((long long)k - (long long)fft_size) * Global_Analysis_Sample_Rate / (double)fft_size);
 
         if (fabs(frequency) > cutoff_hz) {
+
             frequency_data[k][0] = 0.0;
             frequency_data[k][1] = 0.0;
+
         }
     }
 
@@ -10542,6 +10617,7 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
 }
 
 static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, int level_count) {
+
     if (!values || count < level_count || level_count < 2 || level_count > 8) {
 
         return 1.0;
@@ -10553,11 +10629,17 @@ static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, 
     double mean = 0.0;
 
     for (int i = 0; i < count; i++) {
+
         if (values[i] < minimum) {
+
             minimum = values[i];
+
         }
+
         if (values[i] > maximum) {
+
             maximum = values[i];
+
         }
         mean += values[i];
     }
@@ -10588,8 +10670,10 @@ static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, 
                 double distance = fabs(values[i] - centers[level]);
 
                 if (distance < best_distance) {
+
                     best_distance = distance;
                     best_level = level;
+
                 }
             }
 
@@ -10598,8 +10682,11 @@ static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, 
         }
 
         for (int level = 0; level < level_count; level++) {
+
             if (counts[level] > 0) {
+
                 centers[level] = sums[level] / (double)counts[level];
+
             }
         }
     }
@@ -10614,7 +10701,9 @@ static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, 
             double distance = fabs(values[i] - centers[level]);
 
             if (distance < best_distance) {
+
                 best_distance = distance;
+
             }
         }
 
@@ -10627,6 +10716,7 @@ static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, 
 }
 
 static double ANALYSIS_constellation_psk_score(const Type_Analysis_Constellation_Point *points, int count, int order) {
+
     if (!points || count < 8) {
 
         return 0.0;
@@ -10650,8 +10740,7 @@ static double ANALYSIS_constellation_psk_score(const Type_Analysis_Constellation
 
         double powered_i = 0.0;
         double powered_q = 0.0;
-        ANALYSIS_constellation_complex_power(points[p].i / radius, points[p].q / radius, order, &powered_i,
-                                              &powered_q);
+        ANALYSIS_constellation_complex_power(points[p].i / radius, points[p].q / radius, order, &powered_i, &powered_q);
         sum_i += powered_i;
         sum_q += powered_q;
         radius_sum += radius;
@@ -10674,6 +10763,7 @@ static double ANALYSIS_constellation_psk_score(const Type_Analysis_Constellation
 }
 
 static double ANALYSIS_constellation_qam_score(const Type_Analysis_Constellation_Point *points, int count) {
+
     if (!points || count < 16) {
 
         return 0.0;
@@ -10697,8 +10787,7 @@ static double ANALYSIS_constellation_qam_score(const Type_Analysis_Constellation
     for (int p = 0; p < count; p++) {
         double powered_i = 0.0;
         double powered_q = 0.0;
-        ANALYSIS_constellation_complex_power(points[p].i - mean_i, points[p].q - mean_q, 4, &powered_i,
-                                              &powered_q);
+        ANALYSIS_constellation_complex_power(points[p].i - mean_i, points[p].q - mean_q, 4, &powered_i, &powered_q);
         fourth_i += powered_i;
         fourth_q += powered_q;
     }
@@ -10726,7 +10815,9 @@ static double ANALYSIS_constellation_qam_score(const Type_Analysis_Constellation
         distortion *= 1.0 + 0.025 * (double)(levels[index] - 2);
 
         if (distortion < best_distortion) {
+
             best_distortion = distortion;
+
         }
     }
 
@@ -10734,6 +10825,7 @@ static double ANALYSIS_constellation_qam_score(const Type_Analysis_Constellation
 }
 
 static double ANALYSIS_constellation_ask_score(const Type_Analysis_Constellation_Point *points, int count) {
+
     if (!points || count < 12) {
 
         return 0.0;
@@ -10789,7 +10881,9 @@ static double ANALYSIS_constellation_ask_score(const Type_Analysis_Constellation
         distortion *= 1.0 + 0.025 * (double)(levels[index] - 2);
 
         if (distortion < best_distortion) {
+
             best_distortion = distortion;
+
         }
     }
 
@@ -10800,6 +10894,7 @@ static double ANALYSIS_constellation_ask_score(const Type_Analysis_Constellation
 static int ANALYSIS_constellation_collect_candidate(const double *i_data, const double *q_data, size_t count,
                                                     size_t guard, int samples_per_symbol, int offset,
                                                     Type_Analysis_Constellation_Point *points, int maximum_points) {
+
     if (!i_data || !q_data || !points || samples_per_symbol < 2 || maximum_points < 1 || count <= guard * 2U) {
 
         return 0;
@@ -10826,11 +10921,15 @@ static int ANALYSIS_constellation_collect_candidate(const double *i_data, const 
     int half_window = samples_per_symbol / 10;
 
     if (half_window < 0) {
+
         half_window = 0;
+
     }
 
     if (half_window > 16) {
+
         half_window = 16;
+
     }
 
     int point_count = 0;
@@ -10856,18 +10955,20 @@ static int ANALYSIS_constellation_collect_candidate(const double *i_data, const 
         }
 
         if (samples > 0) {
+
             points[point_count].i = sum_i / (double)samples;
             points[point_count].q = sum_q / (double)samples;
             point_count++;
+
         }
     }
 
     return point_count;
 }
 
-static double ANALYSIS_constellation_transition_timing_score(const double *i_data, const double *q_data,
-                                                               size_t count, size_t guard, int samples_per_symbol,
-                                                               int center_offset) {
+static double ANALYSIS_constellation_transition_timing_score(const double *i_data, const double *q_data, size_t count,
+                                                             size_t guard, int samples_per_symbol, int center_offset) {
+
     if (!i_data || !q_data || samples_per_symbol < 4 || count <= guard * 2U + 4U) {
 
         return 1.0;
@@ -10893,11 +10994,15 @@ static double ANALYSIS_constellation_transition_timing_score(const double *i_dat
     int half_window = samples_per_symbol / 30;
 
     if (half_window < 2) {
+
         half_window = 2;
+
     }
 
     if (half_window > 8) {
+
         half_window = 8;
+
     }
 
     long long first_boundary = (long long)guard + (long long)center_offset - samples_per_symbol / 2;
@@ -10912,8 +11017,7 @@ static double ANALYSIS_constellation_transition_timing_score(const double *i_dat
     int boundary_count = 0;
     int center_count = 0;
 
-    for (long long boundary = first_boundary; boundary < (long long)region_end;
-         boundary += samples_per_symbol) {
+    for (long long boundary = first_boundary; boundary < (long long)region_end; boundary += samples_per_symbol) {
         boundary_count++;
 
         for (int k = -half_window; k <= half_window; k++) {
@@ -10935,6 +11039,7 @@ static double ANALYSIS_constellation_transition_timing_score(const double *i_dat
     size_t first_center = guard + (size_t)center_offset;
 
     for (size_t center = first_center; center < region_end; center += (size_t)samples_per_symbol) {
+
         if (center == 0U) {
 
             continue;
@@ -10967,6 +11072,7 @@ static double ANALYSIS_constellation_transition_timing_score(const double *i_dat
 static int ANALYSIS_constellation_find_symbol_timing(const double *i_data, const double *q_data, size_t count,
                                                      double bandwidth_hz, int family, int psk_order,
                                                      int *best_samples_per_symbol, int *best_offset) {
+
     if (!i_data || !q_data || count < 256U || !best_samples_per_symbol || !best_offset ||
         Global_Analysis_Sample_Rate <= 0.0) {
 
@@ -10977,7 +11083,9 @@ static int ANALYSIS_constellation_find_symbol_timing(const double *i_data, const
     double effective_bandwidth = bandwidth_hz;
 
     if (effective_bandwidth < Global_Analysis_Sample_Rate / 4096.0) {
+
         effective_bandwidth = Global_Analysis_Sample_Rate / 4096.0;
+
     }
 
     double estimated_sps = 1.35 * Global_Analysis_Sample_Rate / effective_bandwidth;
@@ -10985,31 +11093,43 @@ static int ANALYSIS_constellation_find_symbol_timing(const double *i_data, const
     int maximum_sps = (int)ceil(estimated_sps * 8.0);
 
     if (minimum_sps < 2) {
+
         minimum_sps = 2;
+
     }
 
     if (maximum_sps > 1024) {
+
         maximum_sps = 1024;
+
     }
 
     if (maximum_sps <= minimum_sps) {
+
         maximum_sps = minimum_sps + 1;
+
     }
 
     int sps_step = (maximum_sps - minimum_sps) / 96;
 
     if (sps_step < 1) {
+
         sps_step = 1;
+
     }
 
     size_t guard = count / 40U;
 
     if (guard < 128U) {
+
         guard = 128U;
+
     }
 
     if (guard * 2U >= count) {
+
         guard = 0U;
+
     }
 
     double best_score = -1.0;
@@ -11019,37 +11139,45 @@ static int ANALYSIS_constellation_find_symbol_timing(const double *i_data, const
         int offset_step = sps / 32;
 
         if (offset_step < 1) {
+
             offset_step = 1;
+
         }
 
         for (int offset = 0; offset < sps; offset += offset_step) {
-            int candidate_count = ANALYSIS_constellation_collect_candidate(i_data, q_data, count, guard, sps,
-                                                                           offset, candidate, 384);
+            int candidate_count =
+                ANALYSIS_constellation_collect_candidate(i_data, q_data, count, guard, sps, offset, candidate, 384);
             double score = 0.0;
 
             if (family == ANALYSIS_CONSTELLATION_MODE_PSK) {
+
                 score = ANALYSIS_constellation_psk_score(candidate, candidate_count, psk_order);
 
             }
 
             else if (family == ANALYSIS_CONSTELLATION_MODE_QAM) {
+
                 score = ANALYSIS_constellation_qam_score(candidate, candidate_count);
 
             }
 
             else {
+
                 score = ANALYSIS_constellation_ask_score(candidate, candidate_count);
+
             }
 
-            double transition_score = ANALYSIS_constellation_transition_timing_score(
-                i_data, q_data, count, guard, sps, offset);
+            double transition_score =
+                ANALYSIS_constellation_transition_timing_score(i_data, q_data, count, guard, sps, offset);
             transition_score = ANALYSIS_limit_double(transition_score, 0.05, 25.0);
             score *= sqrt(transition_score);
 
             if (score > best_score) {
+
                 best_score = score;
                 *best_samples_per_symbol = sps;
                 *best_offset = offset;
+
             }
         }
     }
@@ -11067,6 +11195,7 @@ static void ANALYSIS_constellation_normalize_output(int preserve_origin) {
     }
 
     if (!preserve_origin) {
+
         double mean_i = 0.0;
         double mean_q = 0.0;
 
@@ -11082,6 +11211,7 @@ static void ANALYSIS_constellation_normalize_output(int preserve_origin) {
             Global_Analysis_Const_I[p] = (float)((double)Global_Analysis_Const_I[p] - mean_i);
             Global_Analysis_Const_Q[p] = (float)((double)Global_Analysis_Const_Q[p] - mean_q);
         }
+
     }
 
     double *components = malloc((size_t)count * sizeof(double));
@@ -11121,9 +11251,9 @@ static void ANALYSIS_constellation_normalize_output(int preserve_origin) {
 }
 
 static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_data, const double *q_data,
-                                                                  size_t count, int order,
-                                                                  double magnitude_gate,
-                                                                  double maximum_offset_hz) {
+                                                                size_t count, int order, double magnitude_gate,
+                                                                double maximum_offset_hz) {
+
     if (!i_data || !q_data || count < 64U || order < 2 || Global_Analysis_Sample_Rate <= 0.0) {
 
         return 0.0;
@@ -11142,13 +11272,20 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
     fftw_complex *frequency_data = fftw_malloc(sizeof(fftw_complex) * fft_size);
 
     if (!time_data || !frequency_data) {
+
         if (time_data) {
+
             fftw_free(time_data);
+
         }
+
         if (frequency_data) {
+
             fftw_free(frequency_data);
+
         }
         return 0.0;
+
     }
 
     for (size_t n = 0; n < fft_size; n++) {
@@ -11169,9 +11306,7 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
         double powered_q = 0.0;
         double unit_i = i_data[n] / magnitude;
         double unit_q = q_data[n] / magnitude;
-        double window = count > 1U
-                            ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) / (double)(count - 1U))
-                            : 1.0;
+        double window = count > 1U ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) / (double)(count - 1U)) : 1.0;
 
         ANALYSIS_constellation_complex_power(unit_i, unit_q, order, &powered_i, &powered_q);
         time_data[n][0] = powered_i * window;
@@ -11181,9 +11316,11 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
     fftw_plan plan = fftw_plan_dft_1d((int)fft_size, time_data, frequency_data, FFTW_FORWARD, FFTW_ESTIMATE);
 
     if (!plan) {
+
         fftw_free(time_data);
         fftw_free(frequency_data);
         return 0.0;
+
     }
 
     fftw_execute(plan);
@@ -11193,17 +11330,19 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
     double search_hz = maximum_offset_hz * (double)order;
 
     if (search_hz < Global_Analysis_Sample_Rate / (double)fft_size) {
+
         search_hz = Global_Analysis_Sample_Rate / (double)fft_size;
+
     }
 
     if (search_hz > Global_Analysis_Sample_Rate * 0.48) {
+
         search_hz = Global_Analysis_Sample_Rate * 0.48;
+
     }
 
     for (size_t bin = 0; bin < fft_size; bin++) {
-        long long signed_bin = bin <= fft_size / 2U
-                                   ? (long long)bin
-                                   : (long long)bin - (long long)fft_size;
+        long long signed_bin = bin <= fft_size / 2U ? (long long)bin : (long long)bin - (long long)fft_size;
         double frequency_hz = (double)signed_bin * Global_Analysis_Sample_Rate / (double)fft_size;
 
         if (fabs(frequency_hz) > search_hz) {
@@ -11212,18 +11351,21 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
 
         }
 
-        double power = frequency_data[bin][0] * frequency_data[bin][0] +
-                       frequency_data[bin][1] * frequency_data[bin][1];
+        double power =
+            frequency_data[bin][0] * frequency_data[bin][0] + frequency_data[bin][1] * frequency_data[bin][1];
 
         if (power > maximum_power) {
+
             maximum_power = power;
             maximum_bin = bin;
+
         }
     }
 
     double fractional_bin = 0.0;
 
     if (maximum_bin > 0U && maximum_bin + 1U < fft_size) {
+
         double left_power = frequency_data[maximum_bin - 1U][0] * frequency_data[maximum_bin - 1U][0] +
                             frequency_data[maximum_bin - 1U][1] * frequency_data[maximum_bin - 1U][1];
         double center_power = frequency_data[maximum_bin][0] * frequency_data[maximum_bin][0] +
@@ -11236,16 +11378,18 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
         double denominator = left_log - 2.0 * center_log + right_log;
 
         if (fabs(denominator) > 1e-12) {
+
             fractional_bin = 0.5 * (left_log - right_log) / denominator;
             fractional_bin = ANALYSIS_limit_double(fractional_bin, -0.5, 0.5);
+
         }
+
     }
 
-    long long signed_peak_bin = maximum_bin <= fft_size / 2U
-                                    ? (long long)maximum_bin
-                                    : (long long)maximum_bin - (long long)fft_size;
-    double powered_frequency_hz = ((double)signed_peak_bin + fractional_bin) *
-                                  Global_Analysis_Sample_Rate / (double)fft_size;
+    long long signed_peak_bin =
+        maximum_bin <= fft_size / 2U ? (long long)maximum_bin : (long long)maximum_bin - (long long)fft_size;
+    double powered_frequency_hz =
+        ((double)signed_peak_bin + fractional_bin) * Global_Analysis_Sample_Rate / (double)fft_size;
     double carrier_frequency_hz = powered_frequency_hz / (double)order;
 
     fftw_destroy_plan(plan);
@@ -11256,8 +11400,9 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
 }
 
 static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_data, const double *q_data,
-                                                                  size_t count, double magnitude_gate,
-                                                                  double maximum_offset_hz) {
+                                                                size_t count, double magnitude_gate,
+                                                                double maximum_offset_hz) {
+
     if (!i_data || !q_data || count < 64U || Global_Analysis_Sample_Rate <= 0.0) {
 
         return 0.0;
@@ -11276,13 +11421,20 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
     fftw_complex *frequency_data = fftw_malloc(sizeof(fftw_complex) * fft_size);
 
     if (!time_data || !frequency_data) {
+
         if (time_data) {
+
             fftw_free(time_data);
+
         }
+
         if (frequency_data) {
+
             fftw_free(frequency_data);
+
         }
         return 0.0;
+
     }
 
     double average_power = 0.0;
@@ -11294,9 +11446,11 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
     double rms = sqrt(average_power / (double)count);
 
     if (rms < 1e-12) {
+
         fftw_free(time_data);
         fftw_free(frequency_data);
         return 0.0;
+
     }
 
     for (size_t n = 0; n < fft_size; n++) {
@@ -11318,16 +11472,17 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
         double normalized_magnitude = hypot(normalized_i, normalized_q);
 
         /* Limit impulsive samples without discarding QAM amplitude levels. */
+
         if (normalized_magnitude > 4.0) {
+
             normalized_i *= 4.0 / normalized_magnitude;
             normalized_q *= 4.0 / normalized_magnitude;
+
         }
 
         double powered_i = 0.0;
         double powered_q = 0.0;
-        double window = count > 1U
-                            ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) / (double)(count - 1U))
-                            : 1.0;
+        double window = count > 1U ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) / (double)(count - 1U)) : 1.0;
 
         /* Square QAM has a non-zero fourth moment at four times the CFO. */
         ANALYSIS_constellation_complex_power(normalized_i, normalized_q, 4, &powered_i, &powered_q);
@@ -11338,9 +11493,11 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
     fftw_plan plan = fftw_plan_dft_1d((int)fft_size, time_data, frequency_data, FFTW_FORWARD, FFTW_ESTIMATE);
 
     if (!plan) {
+
         fftw_free(time_data);
         fftw_free(frequency_data);
         return 0.0;
+
     }
 
     fftw_execute(plan);
@@ -11348,20 +11505,22 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
     double search_hz = maximum_offset_hz * 4.0;
 
     if (search_hz < Global_Analysis_Sample_Rate / (double)fft_size) {
+
         search_hz = Global_Analysis_Sample_Rate / (double)fft_size;
+
     }
 
     if (search_hz > Global_Analysis_Sample_Rate * 0.48) {
+
         search_hz = Global_Analysis_Sample_Rate * 0.48;
+
     }
 
     double maximum_power = -1.0;
     size_t maximum_bin = 0U;
 
     for (size_t bin = 0; bin < fft_size; bin++) {
-        long long signed_bin = bin <= fft_size / 2U
-                                   ? (long long)bin
-                                   : (long long)bin - (long long)fft_size;
+        long long signed_bin = bin <= fft_size / 2U ? (long long)bin : (long long)bin - (long long)fft_size;
         double frequency_hz = (double)signed_bin * Global_Analysis_Sample_Rate / (double)fft_size;
 
         if (fabs(frequency_hz) > search_hz) {
@@ -11370,12 +11529,14 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
 
         }
 
-        double power = frequency_data[bin][0] * frequency_data[bin][0] +
-                       frequency_data[bin][1] * frequency_data[bin][1];
+        double power =
+            frequency_data[bin][0] * frequency_data[bin][0] + frequency_data[bin][1] * frequency_data[bin][1];
 
         if (power > maximum_power) {
+
             maximum_power = power;
             maximum_bin = bin;
+
         }
     }
 
@@ -11394,15 +11555,16 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
     double denominator = left_log - 2.0 * center_log + right_log;
 
     if (fabs(denominator) > 1e-12) {
+
         fractional_bin = 0.5 * (left_log - right_log) / denominator;
         fractional_bin = ANALYSIS_limit_double(fractional_bin, -0.5, 0.5);
+
     }
 
-    long long signed_peak_bin = maximum_bin <= fft_size / 2U
-                                    ? (long long)maximum_bin
-                                    : (long long)maximum_bin - (long long)fft_size;
-    double fourth_power_frequency_hz = ((double)signed_peak_bin + fractional_bin) *
-                                       Global_Analysis_Sample_Rate / (double)fft_size;
+    long long signed_peak_bin =
+        maximum_bin <= fft_size / 2U ? (long long)maximum_bin : (long long)maximum_bin - (long long)fft_size;
+    double fourth_power_frequency_hz =
+        ((double)signed_peak_bin + fractional_bin) * Global_Analysis_Sample_Rate / (double)fft_size;
     double carrier_frequency_hz = fourth_power_frequency_hz / 4.0;
 
     fftw_destroy_plan(plan);
@@ -11412,8 +11574,9 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
     return 2.0 * M_PI * carrier_frequency_hz / Global_Analysis_Sample_Rate;
 }
 
-static double ANALYSIS_constellation_estimate_spectral_center(const double *i_data, const double *q_data,
-                                                               size_t count, double maximum_offset_hz) {
+static double ANALYSIS_constellation_estimate_spectral_center(const double *i_data, const double *q_data, size_t count,
+                                                              double maximum_offset_hz) {
+
     if (!i_data || !q_data || count < 64U || Global_Analysis_Sample_Rate <= 0.0) {
 
         return 0.0;
@@ -11433,69 +11596,88 @@ static double ANALYSIS_constellation_estimate_spectral_center(const double *i_da
     double *selected_power = malloc(fft_size * sizeof(double));
 
     if (!time_data || !frequency_data || !selected_power) {
+
         if (time_data) {
+
             fftw_free(time_data);
+
         }
+
         if (frequency_data) {
+
             fftw_free(frequency_data);
+
         }
         free(selected_power);
         return 0.0;
+
     }
 
     for (size_t n = 0; n < fft_size; n++) {
+
         if (n < count) {
-            double window = count > 1U
-                                ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) / (double)(count - 1U))
-                                : 1.0;
+
+            double window = count > 1U ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) / (double)(count - 1U)) : 1.0;
             time_data[n][0] = i_data[n] * window;
             time_data[n][1] = q_data[n] * window;
+
         }
+
         else {
+
             time_data[n][0] = 0.0;
             time_data[n][1] = 0.0;
+
         }
     }
 
     fftw_plan plan = fftw_plan_dft_1d((int)fft_size, time_data, frequency_data, FFTW_FORWARD, FFTW_ESTIMATE);
 
     if (!plan) {
+
         fftw_free(time_data);
         fftw_free(frequency_data);
         free(selected_power);
         return 0.0;
+
     }
 
     fftw_execute(plan);
 
     if (maximum_offset_hz < Global_Analysis_Sample_Rate / (double)fft_size) {
+
         maximum_offset_hz = Global_Analysis_Sample_Rate / (double)fft_size;
+
     }
 
     if (maximum_offset_hz > Global_Analysis_Sample_Rate * 0.48) {
+
         maximum_offset_hz = Global_Analysis_Sample_Rate * 0.48;
+
     }
 
     size_t selected_count = 0U;
 
     for (size_t bin = 0; bin < fft_size; bin++) {
-        long long signed_bin = bin <= fft_size / 2U
-                                   ? (long long)bin
-                                   : (long long)bin - (long long)fft_size;
+        long long signed_bin = bin <= fft_size / 2U ? (long long)bin : (long long)bin - (long long)fft_size;
         double frequency_hz = (double)signed_bin * Global_Analysis_Sample_Rate / (double)fft_size;
 
         if (fabs(frequency_hz) <= maximum_offset_hz) {
-            selected_power[selected_count++] = frequency_data[bin][0] * frequency_data[bin][0] +
-                                               frequency_data[bin][1] * frequency_data[bin][1];
+
+            selected_power[selected_count++] =
+                frequency_data[bin][0] * frequency_data[bin][0] + frequency_data[bin][1] * frequency_data[bin][1];
+
         }
     }
 
     if (selected_count == 0U) {
+
         fftw_destroy_plan(plan);
         fftw_free(time_data);
         fftw_free(frequency_data);
         free(selected_power);
         return 0.0;
+
     }
 
     qsort(selected_power, selected_count, sizeof(double), ANALYSIS_constellation_double_compare);
@@ -11504,9 +11686,7 @@ static double ANALYSIS_constellation_estimate_spectral_center(const double *i_da
     double weight_sum = 0.0;
 
     for (size_t bin = 0; bin < fft_size; bin++) {
-        long long signed_bin = bin <= fft_size / 2U
-                                   ? (long long)bin
-                                   : (long long)bin - (long long)fft_size;
+        long long signed_bin = bin <= fft_size / 2U ? (long long)bin : (long long)bin - (long long)fft_size;
         double frequency_hz = (double)signed_bin * Global_Analysis_Sample_Rate / (double)fft_size;
 
         if (fabs(frequency_hz) > maximum_offset_hz) {
@@ -11515,13 +11695,15 @@ static double ANALYSIS_constellation_estimate_spectral_center(const double *i_da
 
         }
 
-        double power = frequency_data[bin][0] * frequency_data[bin][0] +
-                       frequency_data[bin][1] * frequency_data[bin][1];
+        double power =
+            frequency_data[bin][0] * frequency_data[bin][0] + frequency_data[bin][1] * frequency_data[bin][1];
         double weight = power - 2.0 * noise_power;
 
         if (weight > 0.0) {
+
             weighted_frequency += frequency_hz * weight;
             weight_sum += weight;
+
         }
     }
 
@@ -11544,9 +11726,9 @@ typedef struct Type_Analysis_Constellation_Rate_Peak {
     double normalized_power;
 } Type_Analysis_Constellation_Rate_Peak;
 
-static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, const double *q_data,
-                                                           size_t count, double bandwidth_hz,
-                                                           double magnitude_gate) {
+static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, const double *q_data, size_t count,
+                                                          double bandwidth_hz, double magnitude_gate) {
+
     if (!i_data || !q_data || count < 256U || Global_Analysis_Sample_Rate <= 0.0) {
 
         return 0.0;
@@ -11567,14 +11749,22 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
     fftw_complex *frequency_data = fftw_malloc(sizeof(fftw_complex) * fft_size);
 
     if (!difference || !time_data || !frequency_data) {
+
         free(difference);
+
         if (time_data) {
+
             fftw_free(time_data);
+
         }
+
         if (frequency_data) {
+
             fftw_free(frequency_data);
+
         }
         return 0.0;
+
     }
 
     double mean_difference = 0.0;
@@ -11585,9 +11775,11 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
         double value = 0.0;
 
         if (previous_magnitude >= magnitude_gate && current_magnitude >= magnitude_gate) {
+
             double delta_i = i_data[n] - i_data[n - 1U];
             double delta_q = q_data[n] - q_data[n - 1U];
             value = delta_i * delta_i + delta_q * delta_q;
+
         }
 
         difference[n - 1U] = value;
@@ -11597,23 +11789,30 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
     mean_difference /= (double)difference_count;
 
     for (size_t n = 0; n < fft_size; n++) {
+
         if (n < difference_count) {
+
             double value = difference[n] - mean_difference;
 
             if (n > 0U && n + 1U < difference_count) {
+
                 value = (difference[n - 1U] + difference[n] + difference[n + 1U]) / 3.0 - mean_difference;
+
             }
 
             double window = difference_count > 1U
-                                ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) /
-                                                  (double)(difference_count - 1U))
+                                ? 0.5 - 0.5 * cos((2.0 * M_PI * (double)n) / (double)(difference_count - 1U))
                                 : 1.0;
             time_data[n][0] = value * window;
             time_data[n][1] = 0.0;
+
         }
+
         else {
+
             time_data[n][0] = 0.0;
             time_data[n][1] = 0.0;
+
         }
     }
 
@@ -11622,28 +11821,34 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
     fftw_plan plan = fftw_plan_dft_1d((int)fft_size, time_data, frequency_data, FFTW_FORWARD, FFTW_ESTIMATE);
 
     if (!plan) {
+
         fftw_free(time_data);
         fftw_free(frequency_data);
         return 0.0;
+
     }
 
     fftw_execute(plan);
 
-    double minimum_rate_hz = bandwidth_hz > 0.0 ? bandwidth_hz / 64.0
-                                                 : Global_Analysis_Sample_Rate / 4096.0;
-    double maximum_rate_hz = bandwidth_hz > 0.0 ? bandwidth_hz * 8.0
-                                                 : Global_Analysis_Sample_Rate / 8.0;
+    double minimum_rate_hz = bandwidth_hz > 0.0 ? bandwidth_hz / 64.0 : Global_Analysis_Sample_Rate / 4096.0;
+    double maximum_rate_hz = bandwidth_hz > 0.0 ? bandwidth_hz * 8.0 : Global_Analysis_Sample_Rate / 8.0;
 
     if (minimum_rate_hz < 100.0) {
+
         minimum_rate_hz = 100.0;
+
     }
 
     if (maximum_rate_hz > Global_Analysis_Sample_Rate * 0.25) {
+
         maximum_rate_hz = Global_Analysis_Sample_Rate * 0.25;
+
     }
 
     if (maximum_rate_hz <= minimum_rate_hz) {
+
         maximum_rate_hz = minimum_rate_hz * 2.0;
+
     }
 
     Type_Analysis_Constellation_Rate_Peak peaks[24];
@@ -11661,8 +11866,8 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
 
         }
 
-        double power = frequency_data[bin][0] * frequency_data[bin][0] +
-                       frequency_data[bin][1] * frequency_data[bin][1];
+        double power =
+            frequency_data[bin][0] * frequency_data[bin][0] + frequency_data[bin][1] * frequency_data[bin][1];
         double left_power = frequency_data[bin - 1U][0] * frequency_data[bin - 1U][0] +
                             frequency_data[bin - 1U][1] * frequency_data[bin - 1U][1];
         double right_power = frequency_data[bin + 1U][0] * frequency_data[bin + 1U][0] +
@@ -11683,27 +11888,38 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
         int insertion = peak_count;
 
         if (insertion > 23) {
+
             insertion = 23;
+
         }
 
         while (insertion > 0 && peaks[insertion - 1].normalized_power < power) {
+
             if (insertion < 24) {
+
                 peaks[insertion] = peaks[insertion - 1];
+
             }
             insertion--;
         }
 
         if (insertion < 24) {
+
             peaks[insertion].frequency_hz = frequency_hz;
             peaks[insertion].normalized_power = power;
 
             if (peak_count < 24) {
+
                 peak_count++;
+
             }
+
         }
 
         if (power > maximum_peak_power) {
+
             maximum_peak_power = power;
+
         }
     }
 
@@ -11746,21 +11962,24 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
 
                 }
 
-                double relative_error = fabs(peaks[p].frequency_hz -
-                                             (double)harmonic * candidate_rate_hz) /
-                                        candidate_rate_hz;
+                double relative_error =
+                    fabs(peaks[p].frequency_hz - (double)harmonic * candidate_rate_hz) / candidate_rate_hz;
 
                 if (relative_error < 0.03) {
+
                     score += peaks[p].normalized_power / pow((double)harmonic, 0.35) *
                              exp(-pow(relative_error / 0.012, 2.0));
+
                 }
             }
 
             score *= 1.0 + 0.03 * log(candidate_rate_hz);
 
             if (score > best_score) {
+
                 best_score = score;
                 best_rate_hz = candidate_rate_hz;
+
             }
         }
     }
@@ -11769,11 +11988,10 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
 }
 
 static int ANALYSIS_constellation_find_center_offset(const double *i_data, const double *q_data, size_t count,
-                                                      size_t guard, int samples_per_symbol,
-                                                      int *relative_center_offset,
-                                                      double *transition_concentration) {
-    if (!i_data || !q_data || samples_per_symbol < 2 || count <= guard * 2U + 4U ||
-        !relative_center_offset) {
+                                                     size_t guard, int samples_per_symbol, int *relative_center_offset,
+                                                     double *transition_concentration) {
+
+    if (!i_data || !q_data || samples_per_symbol < 2 || count <= guard * 2U + 4U || !relative_center_offset) {
 
         return 0;
 
@@ -11784,10 +12002,12 @@ static int ANALYSIS_constellation_find_center_offset(const double *i_data, const
     double *smoothed = calloc((size_t)samples_per_symbol, sizeof(double));
 
     if (!histogram || !histogram_count || !smoothed) {
+
         free(histogram);
         free(histogram_count);
         free(smoothed);
         return 0;
+
     }
 
     size_t start = guard > 1U ? guard : 1U;
@@ -11803,19 +12023,26 @@ static int ANALYSIS_constellation_find_center_offset(const double *i_data, const
     }
 
     for (int phase = 0; phase < samples_per_symbol; phase++) {
+
         if (histogram_count[phase] > 0) {
+
             histogram[phase] /= (double)histogram_count[phase];
+
         }
     }
 
     int smoothing_radius = samples_per_symbol / 100;
 
     if (smoothing_radius < 1) {
+
         smoothing_radius = 1;
+
     }
 
     if (smoothing_radius > 6) {
+
         smoothing_radius = 6;
+
     }
 
     double mean_smoothed = 0.0;
@@ -11840,8 +12067,10 @@ static int ANALYSIS_constellation_find_center_offset(const double *i_data, const
         mean_smoothed += smoothed[phase];
 
         if (smoothed[phase] > maximum_smoothed) {
+
             maximum_smoothed = smoothed[phase];
             boundary_phase = phase;
+
         }
     }
 
@@ -11862,7 +12091,9 @@ static int ANALYSIS_constellation_find_center_offset(const double *i_data, const
     *relative_center_offset = relative_offset;
 
     if (transition_concentration) {
+
         *transition_concentration = maximum_smoothed / (mean_smoothed + 1e-18);
+
     }
 
     free(histogram);
@@ -11872,9 +12103,10 @@ static int ANALYSIS_constellation_find_center_offset(const double *i_data, const
 }
 
 static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, const double *q_data, size_t count,
-                                                         double bandwidth_hz, int family, int psk_order,
-                                                         double magnitude_gate, int *best_samples_per_symbol,
-                                                         int *best_offset) {
+                                                        double bandwidth_hz, int family, int psk_order,
+                                                        double magnitude_gate, int *best_samples_per_symbol,
+                                                        int *best_offset) {
+
     if (!i_data || !q_data || count < 256U || !best_samples_per_symbol || !best_offset ||
         Global_Analysis_Sample_Rate <= 0.0) {
 
@@ -11885,7 +12117,9 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
     double effective_bandwidth = bandwidth_hz;
 
     if (effective_bandwidth < Global_Analysis_Sample_Rate / 4096.0) {
+
         effective_bandwidth = Global_Analysis_Sample_Rate / 4096.0;
+
     }
 
     /*
@@ -11905,44 +12139,62 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
     double maximum_rate_hz = effective_bandwidth * 2.0;
 
     if (minimum_rate_hz < 100.0) {
+
         minimum_rate_hz = 100.0;
+
     }
 
     if (maximum_rate_hz > Global_Analysis_Sample_Rate * 0.5) {
+
         maximum_rate_hz = Global_Analysis_Sample_Rate * 0.5;
+
     }
 
     if (maximum_rate_hz <= minimum_rate_hz) {
+
         maximum_rate_hz = minimum_rate_hz * 2.0;
+
     }
 
     int minimum_sps = (int)floor(Global_Analysis_Sample_Rate / maximum_rate_hz) - 2;
     int maximum_sps = (int)ceil(Global_Analysis_Sample_Rate / minimum_rate_hz) + 2;
 
     if (minimum_sps < 2) {
+
         minimum_sps = 2;
+
     }
 
     if (minimum_sps > 2048) {
+
         minimum_sps = 2048;
+
     }
 
     if (maximum_sps > 2048) {
+
         maximum_sps = 2048;
+
     }
 
     if (maximum_sps < minimum_sps) {
+
         maximum_sps = minimum_sps;
+
     }
 
     size_t guard = count / 40U;
 
     if (guard < 128U) {
+
         guard = 128U;
+
     }
 
     if (guard * 2U >= count) {
+
         guard = 0U;
+
     }
 
     size_t timing_start = guard > 1U ? guard : 1U;
@@ -11950,7 +12202,9 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
     const size_t maximum_timing_samples = 65536U;
 
     if (timing_end > timing_start + maximum_timing_samples) {
+
         timing_end = timing_start + maximum_timing_samples;
+
     }
 
     if (timing_end <= timing_start + 32U) {
@@ -11966,11 +12220,13 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
     double *smoothed = calloc((size_t)maximum_sps, sizeof(double));
 
     if (!transition_energy || !histogram || !histogram_count || !smoothed) {
+
         free(transition_energy);
         free(histogram);
         free(histogram_count);
         free(smoothed);
         return 0;
+
     }
 
     for (size_t index = 0; index < transition_count; index++) {
@@ -11979,8 +12235,10 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
         double current_magnitude = hypot(i_data[n], q_data[n]);
 
         if (previous_magnitude < magnitude_gate || current_magnitude < magnitude_gate) {
+
             transition_energy[index] = 0.0;
             continue;
+
         }
 
         double delta_i = i_data[n] - i_data[n - 1U];
@@ -12005,24 +12263,33 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
             phase++;
 
             if (phase >= sps) {
+
                 phase = 0;
+
             }
         }
 
         for (phase = 0; phase < sps; phase++) {
+
             if (histogram_count[phase] > 0) {
+
                 histogram[phase] /= (double)histogram_count[phase];
+
             }
         }
 
         int smoothing_radius = sps / 100;
 
         if (smoothing_radius < 1) {
+
             smoothing_radius = 1;
+
         }
 
         if (smoothing_radius > 6) {
+
             smoothing_radius = 6;
+
         }
 
         double mean_smoothed = 0.0;
@@ -12047,8 +12314,10 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
             mean_smoothed += smoothed[phase];
 
             if (smoothed[phase] > maximum_smoothed) {
+
                 maximum_smoothed = smoothed[phase];
                 boundary_phase = phase;
+
             }
         }
 
@@ -12073,22 +12342,26 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
             offset -= sps;
         }
 
-        int candidate_count = ANALYSIS_constellation_collect_candidate(i_data, q_data, count, guard, sps,
-                                                                       offset, candidate, 384);
+        int candidate_count =
+            ANALYSIS_constellation_collect_candidate(i_data, q_data, count, guard, sps, offset, candidate, 384);
         double cluster_score = 0.0;
 
         if (family == ANALYSIS_CONSTELLATION_MODE_PSK) {
+
             cluster_score = ANALYSIS_constellation_psk_score(candidate, candidate_count, psk_order);
 
         }
 
         else if (family == ANALYSIS_CONSTELLATION_MODE_QAM) {
+
             cluster_score = ANALYSIS_constellation_qam_score(candidate, candidate_count);
 
         }
 
         else {
+
             cluster_score = ANALYSIS_constellation_ask_score(candidate, candidate_count);
+
         }
 
         if (cluster_score <= 0.0) {
@@ -12107,15 +12380,19 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
         double timing_excess = concentration - 1.0;
 
         if (timing_excess < 0.0001) {
+
             timing_excess = 0.0001;
+
         }
 
         double score = cluster_score * timing_excess / (double)sps;
 
         if (score > best_score) {
+
             best_score = score;
             *best_samples_per_symbol = sps;
             *best_offset = offset;
+
         }
     }
 
@@ -12127,8 +12404,9 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
     return best_score > 0.0;
 }
 
-static double ANALYSIS_constellation_psk_residual_frequency(const Type_Analysis_Constellation_Point *points,
-                                                            int count, int order, int samples_per_symbol) {
+static double ANALYSIS_constellation_psk_residual_frequency(const Type_Analysis_Constellation_Point *points, int count,
+                                                            int order, int samples_per_symbol) {
+
     if (!points || count < 8 || order < 1 || samples_per_symbol < 1) {
 
         return 0.0;
@@ -12145,18 +12423,22 @@ static double ANALYSIS_constellation_psk_residual_frequency(const Type_Analysis_
         double magnitude = hypot(points[p].i, points[p].q);
 
         if (magnitude < 1e-12) {
+
             have_previous = 0;
             continue;
+
         }
 
         double powered_i = 0.0;
         double powered_q = 0.0;
-        ANALYSIS_constellation_complex_power(points[p].i / magnitude, points[p].q / magnitude, order,
-                                              &powered_i, &powered_q);
+        ANALYSIS_constellation_complex_power(points[p].i / magnitude, points[p].q / magnitude, order, &powered_i,
+                                             &powered_q);
 
         if (have_previous) {
+
             sum_i += powered_i * previous_i + powered_q * previous_q;
             sum_q += powered_q * previous_i - powered_i * previous_q;
+
         }
 
         previous_i = powered_i;
@@ -12164,14 +12446,11 @@ static double ANALYSIS_constellation_psk_residual_frequency(const Type_Analysis_
         have_previous = 1;
     }
 
-    return hypot(sum_i, sum_q) > 1e-12
-               ? atan2(sum_q, sum_i) / ((double)order * (double)samples_per_symbol)
-               : 0.0;
+    return hypot(sum_i, sum_q) > 1e-12 ? atan2(sum_q, sum_i) / ((double)order * (double)samples_per_symbol) : 0.0;
 }
 
-static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_Constellation_Point *points,
-                                                            int count, int samples_per_symbol,
-                                                            double symbol_rate_hz) {
+static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_Constellation_Point *points, int count,
+                                                            int samples_per_symbol, double symbol_rate_hz) {
     const int block_symbols = 32;
 
     if (!points || count < block_symbols * 4 || samples_per_symbol < 1 || symbol_rate_hz <= 0.0) {
@@ -12193,8 +12472,7 @@ static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_
         double block_q = 0.0;
 
         for (int symbol = 0; symbol < block_symbols; symbol++) {
-            const Type_Analysis_Constellation_Point *point =
-                &points[block * block_symbols + symbol];
+            const Type_Analysis_Constellation_Point *point = &points[block * block_symbols + symbol];
             double powered_i = 0.0;
             double powered_q = 0.0;
 
@@ -12207,9 +12485,11 @@ static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_
         block_q /= (double)block_symbols;
 
         if (have_previous) {
+
             correlation_i += block_i * previous_i + block_q * previous_q;
             correlation_q += block_q * previous_i - block_i * previous_q;
             correlation_power += hypot(block_i, block_q) * hypot(previous_i, previous_q);
+
         }
 
         previous_i = block_i;
@@ -12217,9 +12497,7 @@ static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_
         have_previous = 1;
     }
 
-    double coherence = correlation_power > 1e-18
-                           ? hypot(correlation_i, correlation_q) / correlation_power
-                           : 0.0;
+    double coherence = correlation_power > 1e-18 ? hypot(correlation_i, correlation_q) / correlation_power : 0.0;
 
     if (coherence < 0.12) {
 
@@ -12227,13 +12505,15 @@ static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_
 
     }
 
-    double radians_per_sample = atan2(correlation_q, correlation_i) /
-                                (4.0 * (double)block_symbols * (double)samples_per_symbol);
+    double radians_per_sample =
+        atan2(correlation_q, correlation_i) / (4.0 * (double)block_symbols * (double)samples_per_symbol);
     double residual_hz = radians_per_sample * Global_Analysis_Sample_Rate / (2.0 * M_PI);
     double maximum_residual_hz = symbol_rate_hz / 128.0;
 
     if (maximum_residual_hz < 20.0) {
+
         maximum_residual_hz = 20.0;
+
     }
 
     if (fabs(residual_hz) > maximum_residual_hz) {
@@ -12247,6 +12527,7 @@ static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_
 
 static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q_data, size_t count,
                                                        double bandwidth_hz, int family, int selected_psk_order) {
+
     if (!i_data || !q_data || count < 256U || Global_Analysis_Sample_Rate <= 0.0) {
 
         return;
@@ -12263,34 +12544,40 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     double gate = rms * 0.15;
     int psk_order = selected_psk_order;
 
-    if (psk_order != ANALYSIS_CONSTELLATION_PSK_BPSK &&
-        psk_order != ANALYSIS_CONSTELLATION_PSK_QPSK &&
+    if (psk_order != ANALYSIS_CONSTELLATION_PSK_BPSK && psk_order != ANALYSIS_CONSTELLATION_PSK_QPSK &&
         psk_order != ANALYSIS_CONSTELLATION_PSK_8PSK) {
+
         psk_order = ANALYSIS_CONSTELLATION_PSK_BPSK;
+
     }
 
     double maximum_offset_hz = bandwidth_hz * 0.75;
 
     if (maximum_offset_hz < Global_Analysis_Sample_Rate / 4096.0) {
+
         maximum_offset_hz = Global_Analysis_Sample_Rate / 4096.0;
+
     }
 
     double frequency = 0.0;
 
     if (family == ANALYSIS_CONSTELLATION_MODE_PSK) {
+
         frequency = ANALYSIS_constellation_estimate_psk_frequency_fft(i_data, q_data, count, psk_order, gate,
                                                                       maximum_offset_hz);
 
     }
 
     else if (family == ANALYSIS_CONSTELLATION_MODE_QAM) {
-        frequency = ANALYSIS_constellation_estimate_qam_frequency_fft(i_data, q_data, count, gate,
-                                                                      maximum_offset_hz);
+
+        frequency = ANALYSIS_constellation_estimate_qam_frequency_fft(i_data, q_data, count, gate, maximum_offset_hz);
 
     }
 
     else {
+
         frequency = ANALYSIS_constellation_estimate_spectral_center(i_data, q_data, count, maximum_offset_hz);
+
     }
 
     ANALYSIS_constellation_apply_frequency_correction(i_data, q_data, count, frequency);
@@ -12298,8 +12585,8 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     int samples_per_symbol = 0;
     int offset = 0;
 
-    if (!ANALYSIS_constellation_find_symbol_timing_v2(i_data, q_data, count, bandwidth_hz, family, psk_order,
-                                                      gate, &samples_per_symbol, &offset)) {
+    if (!ANALYSIS_constellation_find_symbol_timing_v2(i_data, q_data, count, bandwidth_hz, family, psk_order, gate,
+                                                      &samples_per_symbol, &offset)) {
 
         return;
 
@@ -12308,11 +12595,15 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     size_t guard = count / 40U;
 
     if (guard < 128U) {
+
         guard = 128U;
+
     }
 
     if (guard * 2U >= count) {
+
         guard = 0U;
+
     }
 
     Type_Analysis_Constellation_Point output[ANALYSIS_MAX_CONST_POINTS];
@@ -12328,27 +12619,32 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     double residual_frequency = 0.0;
 
     if (family == ANALYSIS_CONSTELLATION_MODE_PSK) {
-        residual_frequency = ANALYSIS_constellation_psk_residual_frequency(output, output_count, psk_order,
-                                                                           samples_per_symbol);
+
+        residual_frequency =
+            ANALYSIS_constellation_psk_residual_frequency(output, output_count, psk_order, samples_per_symbol);
 
     }
 
     else if (family == ANALYSIS_CONSTELLATION_MODE_QAM) {
+
         double symbol_rate_hz = Global_Analysis_Sample_Rate / (double)samples_per_symbol;
-        residual_frequency = ANALYSIS_constellation_qam_residual_frequency(output, output_count,
-                                                                           samples_per_symbol, symbol_rate_hz);
+        residual_frequency =
+            ANALYSIS_constellation_qam_residual_frequency(output, output_count, samples_per_symbol, symbol_rate_hz);
 
     }
 
     else {
-        residual_frequency = ANALYSIS_constellation_psk_residual_frequency(output, output_count, 1,
-                                                                           samples_per_symbol);
+
+        residual_frequency = ANALYSIS_constellation_psk_residual_frequency(output, output_count, 1, samples_per_symbol);
+
     }
 
     if (fabs(residual_frequency) > 1e-15) {
+
         ANALYSIS_constellation_apply_frequency_correction(i_data, q_data, count, residual_frequency);
         output_count = ANALYSIS_constellation_collect_candidate(i_data, q_data, count, guard, samples_per_symbol,
                                                                 offset, output, ANALYSIS_MAX_CONST_POINTS);
+
     }
 
     if (output_count < 4) {
@@ -12360,6 +12656,7 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     double rotation_phase = 0.0;
 
     if (family == ANALYSIS_CONSTELLATION_MODE_PSK) {
+
         double sum_i = 0.0;
         double sum_q = 0.0;
 
@@ -12367,12 +12664,14 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
             double radius = hypot(output[p].i, output[p].q);
 
             if (radius > gate) {
+
                 double powered_i = 0.0;
                 double powered_q = 0.0;
-                ANALYSIS_constellation_complex_power(output[p].i / radius, output[p].q / radius, psk_order,
-                                                      &powered_i, &powered_q);
+                ANALYSIS_constellation_complex_power(output[p].i / radius, output[p].q / radius, psk_order, &powered_i,
+                                                     &powered_q);
                 sum_i += powered_i;
                 sum_q += powered_q;
+
             }
         }
 
@@ -12381,6 +12680,7 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     }
 
     else if (family == ANALYSIS_CONSTELLATION_MODE_QAM) {
+
         double sum_i = 0.0;
         double sum_q = 0.0;
 
@@ -12397,6 +12697,7 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     }
 
     else {
+
         double mean_i = 0.0;
         double mean_q = 0.0;
 
@@ -12421,6 +12722,7 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
         }
 
         rotation_phase = 0.5 * atan2(2.0 * covariance_iq, covariance_ii - covariance_qq);
+
     }
 
     double rotation_i = cos(-rotation_phase);
@@ -12436,10 +12738,8 @@ static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q
     ANALYSIS_constellation_normalize_output(family == ANALYSIS_CONSTELLATION_MODE_ASK_OOK);
 }
 
-
 static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t count, int level_count,
-                                                    double *centroids, size_t *populations,
-                                                    int *assignments) {
+                                                   double *centroids, size_t *populations, int *assignments) {
     /*
         Purpose: Fits two or four ordered frequency states without collapsing distinct FSK levels
         Returns: Mean squared fitting error, or a negative value on failure
@@ -12462,14 +12762,19 @@ static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t 
     size_t finite_count = 0U;
 
     for (size_t n = 0U; n < count; n++) {
+
         if (isfinite(values[n])) {
+
             sorted[finite_count++] = values[n];
+
         }
     }
 
     if (finite_count < (size_t)(level_count * 4)) {
+
         free(sorted);
         return -1.0;
+
     }
 
     qsort(sorted, finite_count, sizeof(double), ANALYSIS_constellation_double_compare);
@@ -12480,13 +12785,14 @@ static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t 
     double robust_high = sorted[high_index];
 
     if (!isfinite(robust_low) || !isfinite(robust_high) || robust_high <= robust_low) {
+
         free(sorted);
         return -1.0;
+
     }
 
     for (int level = 0; level < level_count; level++) {
-        centroids[level] = robust_low + (robust_high - robust_low) * (double)level /
-                                       (double)(level_count - 1);
+        centroids[level] = robust_low + (robust_high - robust_low) * (double)level / (double)(level_count - 1);
     }
 
     for (int iteration = 0; iteration < 48; iteration++) {
@@ -12509,8 +12815,10 @@ static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t 
                 double distance = fabs(value - centroids[level]);
 
                 if (distance < nearest_distance) {
+
                     nearest = level;
                     nearest_distance = distance;
+
                 }
             }
 
@@ -12521,6 +12829,7 @@ static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t 
         double movement = 0.0;
 
         for (int level = 0; level < level_count; level++) {
+
             if (counts[level] == 0U) {
 
                 continue;
@@ -12534,10 +12843,13 @@ static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t 
 
         for (int left = 0; left < level_count - 1; left++) {
             for (int right = left + 1; right < level_count; right++) {
+
                 if (centroids[right] < centroids[left]) {
+
                     double swap = centroids[left];
                     centroids[left] = centroids[right];
                     centroids[right] = swap;
+
                 }
             }
         }
@@ -12560,11 +12872,15 @@ static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t 
         double value = values[n];
 
         if (!isfinite(value) || value < robust_low || value > robust_high) {
+
             if (assignments) {
+
                 assignments[n] = -1;
+
             }
 
             continue;
+
         }
 
         int nearest = 0;
@@ -12574,13 +12890,17 @@ static double ANALYSIS_constellation_fsk_kmeans_1d(const double *values, size_t 
             double distance = fabs(value - centroids[level]);
 
             if (distance < nearest_distance) {
+
                 nearest = level;
                 nearest_distance = distance;
+
             }
         }
 
         if (assignments) {
+
             assignments[n] = nearest;
+
         }
 
         populations[nearest]++;
@@ -12620,11 +12940,13 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     unsigned char *valid = calloc(frequency_count, sizeof(unsigned char));
 
     if (!frequency_hz || !smoothed_hz || !transition_strength || !valid) {
+
         free(frequency_hz);
         free(smoothed_hz);
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     double average_power = 0.0;
@@ -12643,8 +12965,10 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         size_t index = n - 1U;
 
         if (current_magnitude < magnitude_gate || previous_magnitude < magnitude_gate) {
+
             frequency_hz[index] = 0.0;
             continue;
+
         }
 
         double product_i = i_data[n] * i_data[n - 1U] + q_data[n] * q_data[n - 1U];
@@ -12657,28 +12981,35 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     }
 
     if (valid_count < 32U) {
+
         free(frequency_hz);
         free(smoothed_hz);
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     double *sorted_frequency = malloc(valid_count * sizeof(double));
 
     if (!sorted_frequency) {
+
         free(frequency_hz);
         free(smoothed_hz);
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     size_t sorted_index = 0U;
 
     for (size_t n = 0U; n < frequency_count; n++) {
+
         if (valid[n]) {
+
             sorted_frequency[sorted_index++] = frequency_hz[n];
+
         }
     }
 
@@ -12689,15 +13020,21 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     int smoothing_radius = 2;
 
     if (bandwidth_hz > 0.0) {
+
         smoothing_radius = (int)llround(sample_rate / (8.0 * bandwidth_hz));
+
     }
 
     if (smoothing_radius < 1) {
+
         smoothing_radius = 1;
+
     }
 
     if (smoothing_radius > 24) {
+
         smoothing_radius = 24;
+
     }
 
     for (size_t n = 0U; n < frequency_count; n++) {
@@ -12705,16 +13042,21 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         size_t last = n + (size_t)smoothing_radius + 1U;
 
         if (last > frequency_count) {
+
             last = frequency_count;
+
         }
 
         double sum = 0.0;
         size_t used = 0U;
 
         for (size_t sample = first; sample < last; sample++) {
+
             if (valid[sample]) {
+
                 sum += frequency_hz[sample];
                 used++;
+
             }
         }
 
@@ -12725,14 +13067,17 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     size_t strength_count = 0U;
 
     if (!strength_values) {
+
         free(frequency_hz);
         free(smoothed_hz);
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     for (size_t n = 1U; n < frequency_count; n++) {
+
         if (!valid[n] || !valid[n - 1U]) {
 
             continue;
@@ -12743,17 +13088,21 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         transition_strength[n] = strength;
 
         if (strength > 0.0 && isfinite(strength)) {
+
             strength_values[strength_count++] = strength;
+
         }
     }
 
     if (strength_count < 8U) {
+
         free(strength_values);
         free(frequency_hz);
         free(smoothed_hz);
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     qsort(strength_values, strength_count, sizeof(double), ANALYSIS_constellation_double_compare);
@@ -12766,6 +13115,7 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     size_t transition_count = 0U;
 
     if (!transition_samples || !transition_weights) {
+
         free(transition_samples);
         free(transition_weights);
         free(frequency_hz);
@@ -12773,12 +13123,15 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     size_t minimum_peak_separation = (size_t)(2 * smoothing_radius + 1);
 
     if (minimum_peak_separation < 2U) {
+
         minimum_peak_separation = 2U;
+
     }
 
     for (size_t n = 1U; n + 1U < frequency_count; n++) {
@@ -12791,14 +13144,17 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
 
         }
 
-        if (transition_count > 0U &&
-            n - transition_samples[transition_count - 1U] < minimum_peak_separation) {
+        if (transition_count > 0U && n - transition_samples[transition_count - 1U] < minimum_peak_separation) {
+
             if (strength > transition_weights[transition_count - 1U]) {
+
                 transition_samples[transition_count - 1U] = n;
                 transition_weights[transition_count - 1U] = strength;
+
             }
 
             continue;
+
         }
 
         transition_samples[transition_count] = n;
@@ -12810,26 +13166,35 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     double boundary_offset = 0.0;
 
     if (transition_count >= 4U) {
+
         int minimum_sps = 4;
         int maximum_sps = 2048;
 
         if (bandwidth_hz > 0.0) {
+
             minimum_sps = (int)floor(sample_rate / (2.0 * bandwidth_hz));
             maximum_sps = (int)ceil(sample_rate * 16.0 / bandwidth_hz);
+
         }
 
         if (minimum_sps < 4) {
+
             minimum_sps = 4;
+
         }
 
         if (maximum_sps > 2048) {
+
             maximum_sps = 2048;
+
         }
 
         int count_limited_maximum = (int)(frequency_count / 8U);
 
         if (maximum_sps > count_limited_maximum) {
+
             maximum_sps = count_limited_maximum;
+
         }
 
         double best_score = -1.0;
@@ -12841,8 +13206,7 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
 
             for (size_t transition = 0U; transition < transition_count; transition++) {
                 double weight = transition_weights[transition];
-                double phase = 2.0 * M_PI * (double)transition_samples[transition] /
-                               (double)candidate_sps;
+                double phase = 2.0 * M_PI * (double)transition_samples[transition] / (double)candidate_sps;
                 phase_i += weight * cos(phase);
                 phase_q += weight * sin(phase);
                 weight_sum += weight;
@@ -12858,19 +13222,21 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
             double score = coherence + 0.01 * log((double)candidate_sps);
 
             if (score > best_score) {
+
                 best_score = score;
                 samples_per_symbol = candidate_sps;
+
             }
         }
 
         if (samples_per_symbol >= 4) {
+
             double phase_i = 0.0;
             double phase_q = 0.0;
 
             for (size_t transition = 0U; transition < transition_count; transition++) {
                 double weight = transition_weights[transition];
-                double phase = 2.0 * M_PI * (double)transition_samples[transition] /
-                               (double)samples_per_symbol;
+                double phase = 2.0 * M_PI * (double)transition_samples[transition] / (double)samples_per_symbol;
                 phase_i += weight * cos(phase);
                 phase_q += weight * sin(phase);
             }
@@ -12878,11 +13244,15 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
             double boundary_phase = atan2(phase_q, phase_i);
 
             if (boundary_phase < 0.0) {
+
                 boundary_phase += 2.0 * M_PI;
+
             }
 
             boundary_offset = boundary_phase * (double)samples_per_symbol / (2.0 * M_PI);
+
         }
+
     }
 
     double *symbol_values = malloc(frequency_count * sizeof(double));
@@ -12890,6 +13260,7 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     size_t symbol_count = 0U;
 
     if (!symbol_values || !symbol_transitions) {
+
         free(symbol_values);
         free(symbol_transitions);
         free(transition_samples);
@@ -12899,9 +13270,11 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     if (samples_per_symbol >= 4) {
+
         size_t run_start = 0U;
 
         while (run_start < frequency_count) {
@@ -12924,14 +13297,18 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
             double center_sample = boundary_offset + 0.5 * (double)samples_per_symbol;
 
             if (center_sample < (double)run_start) {
+
                 double steps = ceil(((double)run_start - center_sample) / (double)samples_per_symbol);
                 center_sample += steps * (double)samples_per_symbol;
+
             }
 
             int half_window = samples_per_symbol / 4;
 
             if (half_window < 2) {
+
                 half_window = 2;
+
             }
 
             while (center_sample < (double)run_end && symbol_count < frequency_count) {
@@ -12942,11 +13319,15 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
                 long second_end = center_index + half_window;
 
                 if (first_start < (long)run_start) {
+
                     first_start = (long)run_start;
+
                 }
 
                 if (second_end > (long)run_end) {
+
                     second_end = (long)run_end;
+
                 }
 
                 double first_sum = 0.0;
@@ -12955,27 +13336,34 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
                 size_t second_count = 0U;
 
                 for (long sample = first_start; sample < first_end; sample++) {
+
                     if (sample >= 0 && valid[(size_t)sample]) {
+
                         first_sum += frequency_hz[(size_t)sample];
                         first_count++;
+
                     }
                 }
 
                 for (long sample = second_start; sample < second_end; sample++) {
+
                     if (sample >= 0 && valid[(size_t)sample]) {
+
                         second_sum += frequency_hz[(size_t)sample];
                         second_count++;
+
                     }
                 }
 
                 if (first_count > 0U && second_count > 0U) {
+
                     double first_average = first_sum / (double)first_count;
                     double second_average = second_sum / (double)second_count;
 
-                    symbol_values[symbol_count] = (first_sum + second_sum) /
-                                                  (double)(first_count + second_count);
+                    symbol_values[symbol_count] = (first_sum + second_sum) / (double)(first_count + second_count);
                     symbol_transitions[symbol_count] = second_average - first_average;
                     symbol_count++;
+
                 }
 
                 center_sample += (double)samples_per_symbol;
@@ -12983,17 +13371,22 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
 
             run_start = run_end + 1U;
         }
+
     }
 
     if (symbol_count < 16U) {
+
         symbol_count = 0U;
         size_t fallback_stride = (size_t)(2 * smoothing_radius + 1);
 
         if (fallback_stride < 1U) {
+
             fallback_stride = 1U;
+
         }
 
         for (size_t n = 0U; n < frequency_count && symbol_count < frequency_count; n += fallback_stride) {
+
             if (!valid[n]) {
 
                 continue;
@@ -13004,62 +13397,74 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
             symbol_transitions[symbol_count] = 0.0;
             symbol_count++;
         }
+
     }
 
     double centroids_two[4] = {0.0, 0.0, 0.0, 0.0};
     double centroids_four[4] = {0.0, 0.0, 0.0, 0.0};
     size_t populations_two[4] = {0U, 0U, 0U, 0U};
     size_t populations_four[4] = {0U, 0U, 0U, 0U};
-    double error_two = ANALYSIS_constellation_fsk_kmeans_1d(symbol_values, symbol_count, 2,
-                                                            centroids_two, populations_two, NULL);
-    double error_four = ANALYSIS_constellation_fsk_kmeans_1d(symbol_values, symbol_count, 4,
-                                                             centroids_four, populations_four, NULL);
+    double error_two =
+        ANALYSIS_constellation_fsk_kmeans_1d(symbol_values, symbol_count, 2, centroids_two, populations_two, NULL);
+    double error_four =
+        ANALYSIS_constellation_fsk_kmeans_1d(symbol_values, symbol_count, 4, centroids_four, populations_four, NULL);
     int level_count = 2;
     double *centroids = centroids_two;
 
     if (error_two >= 0.0 && error_four >= 0.0) {
-        double gaps[3] = {
-            centroids_four[1] - centroids_four[0],
-            centroids_four[2] - centroids_four[1],
-            centroids_four[3] - centroids_four[2]
-        };
+
+        double gaps[3] = {centroids_four[1] - centroids_four[0], centroids_four[2] - centroids_four[1],
+                          centroids_four[3] - centroids_four[2]};
         double minimum_gap = gaps[0];
         double maximum_gap = gaps[0];
 
         for (int gap = 1; gap < 3; gap++) {
+
             if (gaps[gap] < minimum_gap) {
+
                 minimum_gap = gaps[gap];
+
             }
 
             if (gaps[gap] > maximum_gap) {
+
                 maximum_gap = gaps[gap];
+
             }
         }
 
         size_t minimum_population = symbol_count / 50U;
 
         if (minimum_population < 4U) {
+
             minimum_population = 4U;
+
         }
 
         int populations_valid = 1;
 
         for (int level = 0; level < 4; level++) {
+
             if (populations_four[level] < minimum_population) {
+
                 populations_valid = 0;
+
             }
         }
 
         double gap_uniformity = maximum_gap > 0.0 ? minimum_gap / maximum_gap : 0.0;
 
-        if (populations_valid && minimum_gap > 1e-9 && gap_uniformity >= 0.35 &&
-            error_four < error_two * 0.45) {
+        if (populations_valid && minimum_gap > 1e-9 && gap_uniformity >= 0.35 && error_four < error_two * 0.45) {
+
             level_count = 4;
             centroids = centroids_four;
+
         }
+
     }
 
     if (error_two < 0.0 || centroids[level_count - 1] <= centroids[0]) {
+
         free(symbol_values);
         free(symbol_transitions);
         free(transition_samples);
@@ -13069,6 +13474,7 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         free(transition_strength);
         free(valid);
         return;
+
     }
 
     double plot_center = 0.5 * (centroids[0] + centroids[level_count - 1]);
@@ -13081,11 +13487,14 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         double gap = centroids[level + 1] - centroids[level];
 
         if (gap < minimum_level_gap) {
+
             minimum_level_gap = gap;
+
         }
     }
 
     if (!isfinite(plot_scale) || plot_scale <= 1e-9 || minimum_level_gap <= 1e-9) {
+
         free(symbol_values);
         free(symbol_transitions);
         free(transition_samples);
@@ -13095,19 +13504,21 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         free(transition_strength);
         free(valid);
         return;
+
     }
 
-    size_t output_stride = symbol_count > ANALYSIS_MAX_CONST_POINTS
-                               ? symbol_count / ANALYSIS_MAX_CONST_POINTS
-                               : 1U;
+    size_t output_stride = symbol_count > ANALYSIS_MAX_CONST_POINTS ? symbol_count / ANALYSIS_MAX_CONST_POINTS : 1U;
 
     if (output_stride < 1U) {
+
         output_stride = 1U;
+
     }
 
     int output_count = 0;
 
     for (size_t symbol = 0U; symbol < symbol_count && output_count < ANALYSIS_MAX_CONST_POINTS; symbol++) {
+
         if ((symbol % output_stride) != 0U) {
 
             continue;
@@ -13122,27 +13533,37 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
             double distance = fabs(value - centroids[level]);
 
             if (distance < nearest_distance) {
+
                 nearest = level;
                 nearest_distance = distance;
+
             }
         }
 
         double local_gap = minimum_level_gap;
 
         if (nearest > 0) {
+
             double gap = centroids[nearest] - centroids[nearest - 1];
 
             if (gap < local_gap) {
+
                 local_gap = gap;
+
             }
+
         }
 
         if (nearest + 1 < level_count) {
+
             double gap = centroids[nearest + 1] - centroids[nearest];
 
             if (gap < local_gap) {
+
                 local_gap = gap;
+
             }
+
         }
 
         if (nearest_distance > 0.45 * local_gap) {
@@ -13154,17 +13575,14 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
         double normalized_state = (value - plot_center) / plot_scale;
         double normalized_transition = symbol_transitions[symbol] / outer_span;
 
-        if (!isfinite(normalized_state) || !isfinite(normalized_transition) ||
-            fabs(normalized_transition) > 0.60) {
+        if (!isfinite(normalized_state) || !isfinite(normalized_transition) || fabs(normalized_transition) > 0.60) {
 
             continue;
 
         }
 
-        Global_Analysis_Const_I[output_count] =
-            (float)ANALYSIS_limit_double(normalized_state, -0.98, 0.98);
-        Global_Analysis_Const_Q[output_count] =
-            (float)ANALYSIS_limit_double(normalized_transition, -0.55, 0.55);
+        Global_Analysis_Const_I[output_count] = (float)ANALYSIS_limit_double(normalized_state, -0.98, 0.98);
+        Global_Analysis_Const_Q[output_count] = (float)ANALYSIS_limit_double(normalized_transition, -0.55, 0.55);
         output_count++;
     }
 
@@ -13179,7 +13597,6 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
     free(transition_strength);
     free(valid);
 }
-
 
 static double ANALYSIS_constellation_ofdm_cp_score(const double *i_data, const double *q_data, size_t count,
                                                    int fft_size, int cp_size, int offset, double *phase_out) {
@@ -13204,7 +13621,9 @@ static double ANALYSIS_constellation_ofdm_cp_score(const double *i_data, const d
     }
 
     if (phase_out) {
+
         *phase_out = atan2(sum_q, sum_i);
+
     }
 
     return power_a > 1e-12 && power_b > 1e-12 ? hypot(sum_i, sum_q) / sqrt(power_a * power_b) : 0.0;
@@ -13234,20 +13653,24 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
             int offset_step = symbol_size / 48;
 
             if (offset_step < 1) {
+
                 offset_step = 1;
+
             }
 
             for (int offset = 0; offset < symbol_size; offset += offset_step) {
                 double phase = 0.0;
-                double score = ANALYSIS_constellation_ofdm_cp_score(i_data, q_data, count, fft_size, cp_size,
-                                                                     offset, &phase);
+                double score =
+                    ANALYSIS_constellation_ofdm_cp_score(i_data, q_data, count, fft_size, cp_size, offset, &phase);
 
                 if (score > best_score) {
+
                     best_score = score;
                     best_phase = phase;
                     best_fft = fft_size;
                     best_cp = cp_size;
                     best_offset = offset;
+
                 }
             }
         }
@@ -13263,8 +13686,7 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
     ANALYSIS_constellation_apply_frequency_correction(i_data, q_data, count, frequency);
 
     int symbol_size = best_fft + best_cp;
-    int symbol_count = (int)((count > (size_t)best_offset ? count - (size_t)best_offset : 0U) /
-                             (size_t)symbol_size);
+    int symbol_count = (int)((count > (size_t)best_offset ? count - (size_t)best_offset : 0U) / (size_t)symbol_size);
 
     if (symbol_count < 3) {
 
@@ -13273,46 +13695,59 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
     }
 
     if (symbol_count > 96) {
+
         symbol_count = 96;
+
     }
 
     fftw_complex *time_data = fftw_malloc(sizeof(fftw_complex) * (size_t)best_fft);
     fftw_complex *frequency_data = fftw_malloc(sizeof(fftw_complex) * (size_t)best_fft);
     double *average_power = calloc((size_t)best_fft, sizeof(double));
     double *sorted_power = malloc((size_t)best_fft * sizeof(double));
-    Type_Analysis_Constellation_Point *symbols = malloc((size_t)symbol_count * (size_t)best_fft *
-                                                        sizeof(Type_Analysis_Constellation_Point));
+    Type_Analysis_Constellation_Point *symbols =
+        malloc((size_t)symbol_count * (size_t)best_fft * sizeof(Type_Analysis_Constellation_Point));
 
     if (!time_data || !frequency_data || !average_power || !sorted_power || !symbols) {
+
         if (time_data) {
+
             fftw_free(time_data);
+
         }
+
         if (frequency_data) {
+
             fftw_free(frequency_data);
+
         }
         free(average_power);
         free(sorted_power);
         free(symbols);
         return;
+
     }
 
     fftw_plan plan = fftw_plan_dft_1d(best_fft, time_data, frequency_data, FFTW_FORWARD, FFTW_ESTIMATE);
 
     if (!plan) {
+
         fftw_free(time_data);
         fftw_free(frequency_data);
         free(average_power);
         free(sorted_power);
         free(symbols);
         return;
+
     }
 
     for (int symbol = 0; symbol < symbol_count; symbol++) {
         size_t start = (size_t)best_offset + (size_t)symbol * (size_t)symbol_size + (size_t)best_cp;
 
         if (start + (size_t)best_fft > count) {
+
             symbol_count = symbol;
             break;
+
         }
 
         for (int n = 0; n < best_fft; n++) {
@@ -13332,6 +13767,7 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
     }
 
     if (symbol_count < 3) {
+
         fftw_destroy_plan(plan);
         fftw_free(time_data);
         fftw_free(frequency_data);
@@ -13339,6 +13775,7 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
         free(sorted_power);
         free(symbols);
         return;
+
     }
 
     for (int bin = 0; bin < best_fft; bin++) {
@@ -13352,11 +13789,15 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
     double threshold = noise_power * 5.0;
 
     if (threshold < maximum_power * 0.0001) {
+
         threshold = maximum_power * 0.0001;
+
     }
 
     if (threshold > maximum_power * 0.50) {
+
         threshold = maximum_power * 0.50;
+
     }
 
     int output_count = 0;
@@ -13383,6 +13824,7 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
             double magnitude = hypot(point.i, point.q);
 
             if (magnitude > 1e-12) {
+
                 double powered_i = 0.0;
                 double powered_q = 0.0;
                 double unit_i = point.i / magnitude;
@@ -13395,6 +13837,7 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
                 fourth_i += powered_i;
                 fourth_q += powered_q;
                 phase_samples++;
+
             }
 
             bin_power += point.i * point.i + point.q * point.q;
@@ -13416,10 +13859,8 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
 
         for (int symbol = 0; symbol < symbol_count && output_count < ANALYSIS_MAX_CONST_POINTS; symbol++) {
             Type_Analysis_Constellation_Point point = symbols[(size_t)symbol * (size_t)best_fft + (size_t)bin];
-            Global_Analysis_Const_I[output_count] =
-                (float)((point.i * rotation_i - point.q * rotation_q) / bin_rms);
-            Global_Analysis_Const_Q[output_count] =
-                (float)((point.i * rotation_q + point.q * rotation_i) / bin_rms);
+            Global_Analysis_Const_I[output_count] = (float)((point.i * rotation_i - point.q * rotation_q) / bin_rms);
+            Global_Analysis_Const_Q[output_count] = (float)((point.i * rotation_q + point.q * rotation_i) / bin_rms);
             output_count++;
         }
     }
@@ -13435,12 +13876,12 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
     free(symbols);
 }
 
-
 static int ANALYSIS_constellation_ofdm_cp_metrics(const double *i_data, const double *q_data, size_t count,
                                                   int fft_size, int cp_size, double *metrics, double *corr_i,
                                                   double *corr_q, size_t metric_count) {
-    if (!i_data || !q_data || !metrics || !corr_i || !corr_q || fft_size <= 0 || cp_size <= 0 ||
-        metric_count == 0 || count < (size_t)(fft_size + cp_size)) {
+
+    if (!i_data || !q_data || !metrics || !corr_i || !corr_q || fft_size <= 0 || cp_size <= 0 || metric_count == 0 ||
+        count < (size_t)(fft_size + cp_size)) {
 
         return 0;
 
@@ -13463,9 +13904,7 @@ static int ANALYSIS_constellation_ofdm_cp_metrics(const double *i_data, const do
     for (size_t start = 0; start < metric_count; start++) {
         corr_i[start] = sum_i;
         corr_q[start] = sum_q;
-        metrics[start] = power_a > 1e-15 && power_b > 1e-15
-                             ? hypot(sum_i, sum_q) / sqrt(power_a * power_b)
-                             : 0.0;
+        metrics[start] = power_a > 1e-15 && power_b > 1e-15 ? hypot(sum_i, sum_q) / sqrt(power_a * power_b) : 0.0;
 
         if (start + 1U >= metric_count) {
 
@@ -13505,8 +13944,7 @@ static int ANALYSIS_constellation_ofdm_has_periodic_neighbor(const size_t *peaks
 
         }
 
-        if (difference + (size_t)tolerance >= (size_t)symbol_size &&
-            difference <= (size_t)(symbol_size + tolerance)) {
+        if (difference + (size_t)tolerance >= (size_t)symbol_size && difference <= (size_t)(symbol_size + tolerance)) {
 
             return 1;
 
@@ -13522,8 +13960,7 @@ static int ANALYSIS_constellation_ofdm_has_periodic_neighbor(const size_t *peaks
 
         }
 
-        if (difference + (size_t)tolerance >= (size_t)symbol_size &&
-            difference <= (size_t)(symbol_size + tolerance)) {
+        if (difference + (size_t)tolerance >= (size_t)symbol_size && difference <= (size_t)(symbol_size + tolerance)) {
 
             return 1;
 
@@ -13546,16 +13983,12 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
     const int fft_size = 128;
     const int cp_size = 32;
     const int symbol_size = fft_size + cp_size;
-    const int logical_carriers[48] = {
-        -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13,
-        -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-        13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
-    const int data_carriers[44] = {
-        -24, -23, -22, -20, -19, -18, -17, -16, -15, -14, -13,
-        -12, -11, -10, -9, -8, -6, -5, -4, -3, -2, -1,
-        1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12,
-        13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24};
+    const int logical_carriers[48] = {-24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9,
+                                      -8,  -7,  -6,  -5,  -4,  -3,  -2,  -1,  1,   2,   3,   4,   5,   6,   7,   8,
+                                      9,   10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24};
+    const int data_carriers[44] = {-24, -23, -22, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9,
+                                   -8,  -6,  -5,  -4,  -3,  -2,  -1,  1,   2,   3,   4,   5,   6,   8,   9,
+                                   10,  11,  12,  13,  14,  15,  16,  17,  18,  19,  20,  22,  23,  24};
     const int pilot_carriers[4] = {-21, -7, 7, 21};
     const double pilot_values[4] = {1.0, 1.0, 1.0, -1.0};
 
@@ -13571,39 +14004,50 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
     double *corr_q = malloc(metric_count * sizeof(double));
 
     if (!metrics || !corr_i || !corr_q) {
+
         free(metrics);
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
-    if (!ANALYSIS_constellation_ofdm_cp_metrics(i_data, q_data, count, fft_size, cp_size, metrics, corr_i,
-                                                corr_q, metric_count)) {
+    if (!ANALYSIS_constellation_ofdm_cp_metrics(i_data, q_data, count, fft_size, cp_size, metrics, corr_i, corr_q,
+                                                metric_count)) {
+
         free(metrics);
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     double maximum_metric = 0.0;
 
     for (size_t n = 0; n < metric_count; n++) {
+
         if (metrics[n] > maximum_metric) {
+
             maximum_metric = metrics[n];
+
         }
     }
 
     if (maximum_metric < 0.45) {
+
         free(metrics);
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     double timing_threshold = maximum_metric * 0.55;
 
     if (timing_threshold < 0.45) {
+
         timing_threshold = 0.45;
+
     }
 
     /*
@@ -13621,72 +14065,95 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         int run_length = 0;
         double run_sum = 0.0;
 
-        for (size_t position = (size_t)phase; position < metric_count;
-             position += (size_t)symbol_size) {
+        for (size_t position = (size_t)phase; position < metric_count; position += (size_t)symbol_size) {
+
             if (metrics[position] >= timing_threshold) {
+
                 if (run_length == 0) {
+
                     run_start = position;
+
                 }
 
                 run_length++;
                 run_sum += metrics[position];
-            } else {
+
+            }
+
+            else {
+
                 if (run_length >= 6) {
+
                     double average = run_sum / (double)run_length;
                     double score = (double)run_length * average * average;
 
                     if (score > best_run_score ||
                         (fabs(score - best_run_score) <= 1e-12 && run_start < best_run_start)) {
+
                         best_run_score = score;
                         best_run_start = run_start;
                         best_run_length = run_length;
+
                     }
+
                 }
 
                 run_length = 0;
                 run_sum = 0.0;
+
             }
         }
 
         if (run_length >= 6) {
+
             double average = run_sum / (double)run_length;
             double score = (double)run_length * average * average;
 
-            if (score > best_run_score ||
-                (fabs(score - best_run_score) <= 1e-12 && run_start < best_run_start)) {
+            if (score > best_run_score || (fabs(score - best_run_score) <= 1e-12 && run_start < best_run_start)) {
+
                 best_run_score = score;
                 best_run_start = run_start;
                 best_run_length = run_length;
+
             }
+
         }
     }
 
     if (best_run_length < 6) {
+
         free(metrics);
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     int maximum_symbols = ANALYSIS_MAX_CONST_POINTS / 44;
 
     if (maximum_symbols < 1) {
+
         maximum_symbols = 1;
+
     }
 
     int symbol_count = best_run_length;
 
     if (symbol_count > maximum_symbols) {
+
         symbol_count = maximum_symbols;
+
     }
 
     size_t *starts = malloc((size_t)symbol_count * sizeof(size_t));
 
     if (!starts) {
+
         free(metrics);
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     for (int symbol = 0; symbol < symbol_count; symbol++) {
@@ -13703,11 +14170,13 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
     }
 
     if (hypot(aggregate_i, aggregate_q) <= 1e-15) {
+
         free(starts);
         free(metrics);
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     double frequency = -atan2(aggregate_q, aggregate_i) / (double)fft_size;
@@ -13715,16 +14184,22 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
 
     fftw_complex *time_data = fftw_malloc(sizeof(fftw_complex) * (size_t)fft_size);
     fftw_complex *frequency_data = fftw_malloc(sizeof(fftw_complex) * (size_t)fft_size);
-    Type_Analysis_Constellation_Point *symbols = malloc((size_t)symbol_count * (size_t)fft_size *
-                                                        sizeof(Type_Analysis_Constellation_Point));
+    Type_Analysis_Constellation_Point *symbols =
+        malloc((size_t)symbol_count * (size_t)fft_size * sizeof(Type_Analysis_Constellation_Point));
     double average_power[128] = {0.0};
 
     if (!time_data || !frequency_data || !symbols) {
+
         if (time_data) {
+
             fftw_free(time_data);
+
         }
+
         if (frequency_data) {
+
             fftw_free(frequency_data);
+
         }
         free(symbols);
         free(starts);
@@ -13732,11 +14207,13 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     fftw_plan plan = fftw_plan_dft_1d(fft_size, time_data, frequency_data, FFTW_FORWARD, FFTW_ESTIMATE);
 
     if (!plan) {
+
         fftw_free(time_data);
         fftw_free(frequency_data);
         free(symbols);
@@ -13745,6 +14222,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     int used_symbols = 0;
@@ -13779,6 +14257,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
     symbol_count = used_symbols;
 
     if (symbol_count < 6) {
+
         fftw_destroy_plan(plan);
         fftw_free(time_data);
         fftw_free(frequency_data);
@@ -13788,6 +14267,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     double total_power = 0.0;
@@ -13815,7 +14295,9 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
             int bin = (logical_carriers[carrier] + shift) % fft_size;
 
             if (bin < 0) {
+
                 bin += fft_size;
+
             }
 
             active_power += average_power[bin];
@@ -13825,7 +14307,9 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
             int bin = (carrier + shift) % fft_size;
 
             if (bin < 0) {
+
                 bin += fft_size;
+
             }
 
             guard_power += average_power[bin];
@@ -13835,7 +14319,9 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
             int bin = (carrier + shift) % fft_size;
 
             if (bin < 0) {
+
                 bin += fft_size;
+
             }
 
             guard_power += average_power[bin];
@@ -13844,24 +14330,27 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         int dc_bin = shift % fft_size;
 
         if (dc_bin < 0) {
+
             dc_bin += fft_size;
+
         }
 
         double active_mean = active_power / 48.0;
         double guard_mean = guard_power / 16.0;
-        double denominator = guard_mean + 0.25 * average_power[dc_bin] +
-                             0.05 * average_total_power + 1e-15;
+        double denominator = guard_mean + 0.25 * average_power[dc_bin] + 0.05 * average_total_power + 1e-15;
         double score = active_mean / denominator;
 
-        if (score > best_shift_score ||
-            (fabs(score - best_shift_score) <= 1e-12 && active_power > best_shift_power)) {
+        if (score > best_shift_score || (fabs(score - best_shift_score) <= 1e-12 && active_power > best_shift_power)) {
+
             best_shift_score = score;
             best_shift_power = active_power;
             best_shift = shift;
+
         }
     }
 
     if (best_shift_power <= 1e-12 || best_shift_power < total_power * 0.30) {
+
         fftw_destroy_plan(plan);
         fftw_free(time_data);
         fftw_free(frequency_data);
@@ -13871,6 +14360,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     /*
@@ -13891,21 +14381,25 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
             int bin = (pilot_carriers[pilot] + best_shift) % fft_size;
 
             if (bin < 0) {
+
                 bin += fft_size;
+
             }
 
-            Type_Analysis_Constellation_Point point =
-                symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
+            Type_Analysis_Constellation_Point point = symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
             power += point.i * point.i + point.q * point.q;
         }
 
         if (power > reference_power) {
+
             reference_power = power;
             reference_symbol = symbol;
+
         }
     }
 
     if (reference_power <= 1e-12) {
+
         fftw_destroy_plan(plan);
         fftw_free(time_data);
         fftw_free(frequency_data);
@@ -13915,22 +14409,25 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         free(corr_i);
         free(corr_q);
         return 0;
+
     }
 
     for (int pilot = 0; pilot < 4; pilot++) {
         int bin = (pilot_carriers[pilot] + best_shift) % fft_size;
 
         if (bin < 0) {
+
             bin += fft_size;
+
         }
 
-        Type_Analysis_Constellation_Point point =
-            symbols[(size_t)reference_symbol * (size_t)fft_size + (size_t)bin];
+        Type_Analysis_Constellation_Point point = symbols[(size_t)reference_symbol * (size_t)fft_size + (size_t)bin];
         double corrected_i = point.i * pilot_values[pilot];
         double corrected_q = point.q * pilot_values[pilot];
         double magnitude = hypot(corrected_i, corrected_q);
 
         if (magnitude <= 1e-12) {
+
             fftw_destroy_plan(plan);
             fftw_free(time_data);
             fftw_free(frequency_data);
@@ -13940,6 +14437,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
             free(corr_i);
             free(corr_q);
             return 0;
+
         }
 
         reference_i[pilot] = corrected_i / magnitude;
@@ -13956,11 +14454,12 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
                 int bin = (pilot_carriers[pilot] + best_shift) % fft_size;
 
                 if (bin < 0) {
+
                     bin += fft_size;
+
                 }
 
-                Type_Analysis_Constellation_Point point =
-                    symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
+                Type_Analysis_Constellation_Point point = symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
                 double point_i = point.i * pilot_values[pilot];
                 double point_q = point.q * pilot_values[pilot];
                 double magnitude = hypot(point_i, point_q);
@@ -13996,6 +14495,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
                 double sum_q = 0.0;
 
                 for (int pilot = 0; pilot < 4; pilot++) {
+
                     if (hypot(error_i[pilot], error_q[pilot]) <= 1e-12) {
 
                         continue;
@@ -14012,10 +14512,12 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
                 double coherence = hypot(sum_i, sum_q);
 
                 if (coherence > best_coherence) {
+
                     best_coherence = coherence;
                     best_slope = slope;
                     best_sum_i = sum_i;
                     best_sum_q = sum_q;
+
                 }
             }
 
@@ -14041,8 +14543,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
                 double phase = common_phase + best_slope * (double)carrier;
                 double rotation_i = cos(-phase);
                 double rotation_q = sin(-phase);
-                Type_Analysis_Constellation_Point *point =
-                    &symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
+                Type_Analysis_Constellation_Point *point = &symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
                 double corrected_i = point->i * rotation_i - point->q * rotation_q;
                 double corrected_q = point->i * rotation_q + point->q * rotation_i;
                 point->i = corrected_i;
@@ -14054,15 +14555,16 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
             int bin = (pilot_carriers[pilot] + best_shift) % fft_size;
 
             if (bin < 0) {
+
                 bin += fft_size;
+
             }
 
             double sum_i = 0.0;
             double sum_q = 0.0;
 
             for (int symbol = 0; symbol < symbol_count; symbol++) {
-                Type_Analysis_Constellation_Point point =
-                    symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
+                Type_Analysis_Constellation_Point point = symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
                 double point_i = point.i * pilot_values[pilot];
                 double point_q = point.q * pilot_values[pilot];
                 double magnitude = hypot(point_i, point_q);
@@ -14080,8 +14582,10 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
             double magnitude = hypot(sum_i, sum_q);
 
             if (magnitude > 1e-12) {
+
                 reference_i[pilot] = sum_i / magnitude;
                 reference_q[pilot] = sum_q / magnitude;
+
             }
         }
     }
@@ -14093,7 +14597,9 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         int bin = (data_carriers[carrier_index] + best_shift) % fft_size;
 
         if (bin < 0) {
+
             bin += fft_size;
+
         }
 
         double fourth_i = 0.0;
@@ -14101,17 +14607,18 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         double power = 0.0;
 
         for (int symbol = 0; symbol < symbol_count; symbol++) {
-            Type_Analysis_Constellation_Point point =
-                symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
+            Type_Analysis_Constellation_Point point = symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
             double magnitude = hypot(point.i, point.q);
 
             if (magnitude > 1e-12) {
+
                 double powered_i = 0.0;
                 double powered_q = 0.0;
-                ANALYSIS_constellation_complex_power(point.i / magnitude, point.q / magnitude, 4,
-                                                     &powered_i, &powered_q);
+                ANALYSIS_constellation_complex_power(point.i / magnitude, point.q / magnitude, 4, &powered_i,
+                                                     &powered_q);
                 fourth_i += powered_i;
                 fourth_q += powered_q;
+
             }
 
             power += point.i * point.i + point.q * point.q;
@@ -14121,30 +14628,29 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
         bin_rms[carrier_index] = sqrt(power / (double)symbol_count);
 
         if (bin_rms[carrier_index] < 1e-12) {
+
             bin_rms[carrier_index] = 1.0;
+
         }
     }
 
     int output_count = 0;
 
     for (int symbol = 0; symbol < symbol_count && output_count < ANALYSIS_MAX_CONST_POINTS; symbol++) {
-        for (int carrier_index = 0;
-             carrier_index < 44 && output_count < ANALYSIS_MAX_CONST_POINTS;
-             carrier_index++) {
+        for (int carrier_index = 0; carrier_index < 44 && output_count < ANALYSIS_MAX_CONST_POINTS; carrier_index++) {
             int bin = (data_carriers[carrier_index] + best_shift) % fft_size;
 
             if (bin < 0) {
+
                 bin += fft_size;
+
             }
 
-            Type_Analysis_Constellation_Point point =
-                symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
+            Type_Analysis_Constellation_Point point = symbols[(size_t)symbol * (size_t)fft_size + (size_t)bin];
             double rotation_i = cos(-bin_phase[carrier_index]);
             double rotation_q = sin(-bin_phase[carrier_index]);
-            double corrected_i =
-                (point.i * rotation_i - point.q * rotation_q) / bin_rms[carrier_index];
-            double corrected_q =
-                (point.i * rotation_q + point.q * rotation_i) / bin_rms[carrier_index];
+            double corrected_i = (point.i * rotation_i - point.q * rotation_q) / bin_rms[carrier_index];
+            double corrected_q = (point.i * rotation_q + point.q * rotation_i) / bin_rms[carrier_index];
 
             Global_Analysis_Const_I[output_count] = (float)corrected_i;
             Global_Analysis_Const_Q[output_count] = (float)corrected_q;
@@ -14167,6 +14673,7 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
 }
 
 static void ANALYSIS_constellation_build_ofdm_family(double *i_data, double *q_data, size_t count) {
+
     if (ANALYSIS_constellation_build_known_ofdm_qpsk(i_data, q_data, count)) {
 
         return;
@@ -14176,9 +14683,9 @@ static void ANALYSIS_constellation_build_ofdm_family(double *i_data, double *q_d
     ANALYSIS_constellation_build_ofdm_family_generic(i_data, q_data, count);
 }
 
-static void ANALYSIS_build_selected_constellation(FILE *fp, int filter_active, int filter_bin_low,
-                                                  int filter_bin_high, int time_filter_active, int time_col_low,
-                                                  int time_col_high, int render_w) {
+static void ANALYSIS_build_selected_constellation(FILE *fp, int filter_active, int filter_bin_low, int filter_bin_high,
+                                                  int time_filter_active, int time_col_low, int time_col_high,
+                                                  int render_w) {
     Global_Analysis_Const_Count = 0;
     memset(Global_Analysis_Const_I, 0, sizeof(Global_Analysis_Const_I));
     memset(Global_Analysis_Const_Q, 0, sizeof(Global_Analysis_Const_Q));
@@ -14190,8 +14697,10 @@ static void ANALYSIS_build_selected_constellation(FILE *fp, int filter_active, i
     }
 
     if (ANALYSIS_constellation_cache_matches()) {
+
         ANALYSIS_restore_constellation_cache();
         return;
+
     }
 
     double *i_data = NULL;
@@ -14199,32 +14708,34 @@ static void ANALYSIS_build_selected_constellation(FILE *fp, int filter_active, i
     size_t count = 0;
     double bandwidth_hz = Global_Analysis_Sample_Rate;
 
-    if (!ANALYSIS_constellation_prepare_samples(fp, filter_active, filter_bin_low, filter_bin_high,
-                                                time_filter_active, time_col_low, time_col_high, render_w, &i_data,
-                                                &q_data, &count, &bandwidth_hz)) {
+    if (!ANALYSIS_constellation_prepare_samples(fp, filter_active, filter_bin_low, filter_bin_high, time_filter_active,
+                                                time_col_low, time_col_high, render_w, &i_data, &q_data, &count,
+                                                &bandwidth_hz)) {
+
         ANALYSIS_store_constellation_cache();
         return;
+
     }
 
     switch (Global_Analysis_Constellation_Mode) {
-        case ANALYSIS_CONSTELLATION_MODE_PSK:
-        case ANALYSIS_CONSTELLATION_MODE_QAM:
-        case ANALYSIS_CONSTELLATION_MODE_ASK_OOK:
-            ANALYSIS_constellation_build_linear_family(i_data, q_data, count, bandwidth_hz,
-                                                       Global_Analysis_Constellation_Mode,
-                                                       Global_Analysis_Constellation_PSK_Order);
-            break;
+    case ANALYSIS_CONSTELLATION_MODE_PSK:
+    case ANALYSIS_CONSTELLATION_MODE_QAM:
+    case ANALYSIS_CONSTELLATION_MODE_ASK_OOK:
+        ANALYSIS_constellation_build_linear_family(i_data, q_data, count, bandwidth_hz,
+                                                   Global_Analysis_Constellation_Mode,
+                                                   Global_Analysis_Constellation_PSK_Order);
+        break;
 
-        case ANALYSIS_CONSTELLATION_MODE_FSK_MSK:
-            ANALYSIS_constellation_build_fsk_family(i_data, q_data, count, bandwidth_hz);
-            break;
+    case ANALYSIS_CONSTELLATION_MODE_FSK_MSK:
+        ANALYSIS_constellation_build_fsk_family(i_data, q_data, count, bandwidth_hz);
+        break;
 
-        case ANALYSIS_CONSTELLATION_MODE_OFDM:
-            ANALYSIS_constellation_build_ofdm_family(i_data, q_data, count);
-            break;
+    case ANALYSIS_CONSTELLATION_MODE_OFDM:
+        ANALYSIS_constellation_build_ofdm_family(i_data, q_data, count);
+        break;
 
-        default:
-            break;
+    default:
+        break;
     }
 
     free(i_data);
@@ -15190,12 +15701,16 @@ int ANALYSIS_handle_event(SDL_Event *event, int win_w, int win_h, uint32_t *pixe
     }
 
     if (Global_Analysis_Constellation_PSK_Prompt_Open) {
+
         ANALYSIS_handle_constellation_psk_prompt_event(event, win_w, win_h);
 
         if (active) {
+
             *active = FIELD_NONE;
+
         }
         return ANALYSIS_EVENT_HANDLED;
+
     }
 
     if (ANALYSIS_handle_file_search_event(event, win_w, win_h)) {

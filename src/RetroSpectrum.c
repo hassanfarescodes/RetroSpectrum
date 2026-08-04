@@ -15,6 +15,8 @@
  * ============================================================================
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 // =========
 // Libraries
 // =========
@@ -627,7 +629,7 @@ static int pre_cache_init(Type_Rec_Cache *c, uint32_t sample_rate_hz) {
 
     c->capacity = (size_t)sample_rate_hz * PRE_RECORD_SECONDS;
 
-    c->I = sec_calloc_array(c->capacity, sizeof(*c->I), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);    
+    c->I = sec_calloc_array(c->capacity, sizeof(*c->I), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
 
     c->Q = sec_calloc_array(c->capacity, sizeof(*c->Q), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
 
@@ -650,7 +652,6 @@ static int pre_cache_init(Type_Rec_Cache *c, uint32_t sample_rate_hz) {
     }
 
     return 1;
-
 }
 
 static void pre_cache_free(Type_Rec_Cache *c) {
@@ -713,7 +714,6 @@ static int pre_cache_resize(Type_Rec_Cache *c, uint32_t sample_rate_hz) {
     pthread_mutex_unlock(&c->lock);
 
     return 1;
-
 }
 
 static void pre_cache_write(Type_Rec_Cache *c, float I, float Q) {
@@ -786,8 +786,8 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
     *out_Q = NULL;
     count = c->count;
 
-    if (count == 0 || count > c->capacity || count > RETROSPECTRUM_MAX_PRECACHE_SAMPLES ||
-        !c->I || !c->Q || !sec_mul_bound(count, sizeof(*copy_I))) {
+    if (count == 0 || count > c->capacity || count > RETROSPECTRUM_MAX_PRECACHE_SAMPLES || !c->I || !c->Q ||
+        !sec_mul_bound(count, sizeof(*copy_I))) {
 
         return 0;
 
@@ -799,7 +799,7 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
 
     copy_Q = sec_calloc_array(count, sizeof(*copy_Q), RETROSPECTRUM_MAX_PRECACHE_SAMPLES);
 
-    if (!copy_I || !copy_Q){
+    if (!copy_I || !copy_Q) {
 
         goto copy_failed;
 
@@ -807,8 +807,7 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
 
     if (count < c->capacity) {
 
-        if (!sec_memcpy(copy_I, copy_bytes, c->I, copy_bytes) || !sec_memcpy(copy_Q,
-            copy_bytes, c->Q, copy_bytes)) {
+        if (!sec_memcpy(copy_I, copy_bytes, c->I, copy_bytes) || !sec_memcpy(copy_Q, copy_bytes, c->Q, copy_bytes)) {
 
             goto copy_failed;
 
@@ -836,9 +835,9 @@ static size_t pre_cache_snapshot_locked(Type_Rec_Cache *c, int16_t **out_I, int1
         first_bytes = first * sizeof(*copy_I);
         second_bytes = second * sizeof(*copy_I);
 
-        if (first > count || second > count || first + second != count  ||
-            !sec_memcpy(copy_I, copy_bytes, c->I + start, first_bytes)  ||
-            !sec_memcpy(copy_Q, copy_bytes, c->Q + start, second_bytes) ||
+        if (first > count || second > count || first + second != count ||
+            !sec_memcpy(copy_I, copy_bytes, c->I + start, first_bytes) ||
+            !sec_memcpy(copy_Q, copy_bytes, c->Q + start, first_bytes) ||
             !sec_memcpy(copy_I + first, second_bytes, c->I, second_bytes) ||
             !sec_memcpy(copy_Q + first, second_bytes, c->Q, second_bytes)) {
 
@@ -857,7 +856,6 @@ copy_failed:
     free(copy_I);
     free(copy_Q);
     return 0;
-
 }
 
 // Queue Helpers
@@ -868,14 +866,29 @@ static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
         Returns: Init status
     */
 
+    size_t base_capacity;
+
+    if (!q || sample_rate_hz == 0 || sample_rate_hz > RETROSPECTRUM_MAX_SAMPLE_RATE_HZ ||
+        !sec_mul_bound((size_t)sample_rate_hz, REC_QUEUE_SECONDS)) {
+
+        return 0;
+
+    }
+
     memset(q, 0, sizeof(*q));
 
-    // +1 because this ring-buffer design leaves one slot empty
+    base_capacity = (size_t)sample_rate_hz * REC_QUEUE_SECONDS;
 
-    q->capacity = ((size_t)sample_rate_hz * REC_QUEUE_SECONDS) + 1;
+    if (base_capacity == SIZE_MAX) {
 
-    q->I = malloc(sizeof(int16_t) * q->capacity);
-    q->Q = malloc(sizeof(int16_t) * q->capacity);
+        return 0;
+
+    }
+
+    q->capacity = base_capacity + 1U;
+
+    q->I = sec_calloc_array(q->capacity, sizeof(*q->I), RETROSPECTRUM_MAX_QUEUE_SAMPLES);
+    q->Q = sec_calloc_array(q->capacity, sizeof(*q->Q), RETROSPECTRUM_MAX_QUEUE_SAMPLES);
 
     if (!q->I || !q->Q) {
 
@@ -886,25 +899,29 @@ static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
 
     }
 
-    pthread_mutex_init(&q->lock, NULL);
-    pthread_cond_init(&q->data_cond, NULL);
+    if (pthread_mutex_init(&q->lock, NULL) != 0) {
+
+
+        free(q->I);
+        free(q->Q);
+        memset(q, 0, sizeof(*q));
+        return 0;
+
+    }
+
+    if (pthread_cond_init(&q->data_cond, NULL) != 0) {
+
+        pthread_mutex_destroy(&q->lock);
+        free(q->I);
+        free(q->Q);
+        memset(q, 0, sizeof(*q));
+        return 0;
+
+    }
 
     return 1;
-}
 
-static void rec_queue_free(Type_Rec_Queue *q) {
-    /*
-        Purpose: Frees the recording queue
-        Returns: No value
-    */
 
-    pthread_mutex_destroy(&q->lock);
-    pthread_cond_destroy(&q->data_cond);
-
-    free(q->I);
-    free(q->Q);
-
-    memset(q, 0, sizeof(*q));
 }
 
 static int rec_queue_resize(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
@@ -913,38 +930,90 @@ static int rec_queue_resize(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
         Returns: Resize status
     */
 
+    size_t base_capacity;
+    size_t new_capacity;
+    int16_t *new_I;
+    int16_t *new_Q;
+
+    if (!q || sample_rate_hz == 0 || sample_rate_hz > RETROSPECTRUM_MAX_SAMPLE_RATE_HZ ||
+        !sec_mul_bound((size_t)sample_rate_hz, REC_QUEUE_SECONDS)) {
+
+        return 0;
+
+    }
+
+    base_capacity = (size_t)sample_rate_hz * REC_QUEUE_SECONDS;
+
+    if (base_capacity == SIZE_MAX) {
+
+        return 0;
+
+    }
+
+    new_capacity = base_capacity + 1U;
+
+    new_I = sec_calloc_array(new_capacity, sizeof(*new_I), RETROSPECTRUM_MAX_QUEUE_SAMPLES);
+
+    new_Q = sec_calloc_array(new_capacity, sizeof(*new_Q), RETROSPECTRUM_MAX_QUEUE_SAMPLES);
+
+    if (!new_I || !new_Q) {
+
+        free(new_I);
+        free(new_Q);
+
+        return 0;
+
+    }
+
     pthread_mutex_lock(&q->lock);
 
     free(q->I);
     free(q->Q);
 
-    q->capacity = ((size_t)sample_rate_hz * REC_QUEUE_SECONDS) + 1;
+    q->I = new_I;
+    q->Q = new_Q;
+
+    q->capacity = new_capacity;
     q->read_pos = 0;
     q->write_pos = 0;
     q->stop_requested = 0;
     q->overflow = 0;
 
-    q->I = malloc(sizeof(int16_t) * q->capacity);
-    q->Q = malloc(sizeof(int16_t) * q->capacity);
+    pthread_mutex_unlock(&q->lock);
 
-    int result = (q->I && q->Q);
+    return 1;
 
-    if (!result) {
+}
 
-        free(q->I);
-        free(q->Q);
+static void rec_queue_free(Type_Rec_Queue *q) {
+    /*
+        Purpose: Frees the recording queue
+        Returns: No value
+    */
 
-        q->I = NULL;
-        q->Q = NULL;
-        q->capacity = 0;
-        q->read_pos = 0;
-        q->write_pos = 0;
+    if (!q) {
+
+        return;
 
     }
 
+    pthread_mutex_lock(&q->lock);
+
+    free(q->I);
+    free(q->Q);
+
+    q->I = NULL;
+    q->Q = NULL;
+    q->capacity = 0;
+    q->read_pos = 0;
+    q->write_pos = 0;
+    q->stop_requested = 1;
+    q->overflow = 0;
+
     pthread_mutex_unlock(&q->lock);
 
-    return result;
+    pthread_cond_destroy(&q->data_cond);
+    pthread_mutex_destroy(&q->lock);
 }
 
 static size_t rec_queue_available_locked(Type_Rec_Queue *q) {
@@ -1473,22 +1542,16 @@ static int start_recording(void) {
 
     char filename[1024];
 
-    if (!sec_sprintf(filename, sizeof(filename),
-                 "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk_Decimation_%d.complex16",
-                 datetime_str,
-                 Global_Rec_Center_Hz / 1e6,
-                 Global_Rec_BW_Hz / 1e3,
-                 Global_Rec_Out_Rate_Hz / 1e3,
-                 Global_Rec_Decimation)) {
-
+    if (!sec_sprintf(filename, sizeof(filename), "%s_CAPTURE_%.6fMHz_BW_%.3fkHz_SR_%.3fk_Decimation_%d.complex16",
+                     datetime_str, Global_Rec_Center_Hz / 1e6, Global_Rec_BW_Hz / 1e3, Global_Rec_Out_Rate_Hz / 1e3,
+                     Global_Rec_Decimation)) {
 
         Global_Rec = 0;
         set_status("Recording filename is too long", (SDL_Color){255, 60, 40, 255});
-    
+
         return 0;
 
-}
-
+    }
 
     if (!sec_fopen_exclusive_in_directory(Global_Record_Dir, filename, &Global_Rec_File)) {
 
@@ -1877,15 +1940,22 @@ static void sdr_discover_gain_controls(SoapySDRDevice *dev) {
 
         if (Global_SDR_Gain_A[0] == '\0') {
 
-            snprintf(Global_SDR_Gain_A, sizeof(Global_SDR_Gain_A), "%s", gains[index]);
+            if (sec_strcpy(Global_SDR_Gain_A, sizeof(Global_SDR_Gain_A), gains[index])) {
+                continue;
+            }
+
+            Global_SDR_Gain_A[0] = '\0';
             continue;
 
         }
 
         if (Global_SDR_Gain_B[0] == '\0' && !sdr_name_equals(gains[index], Global_SDR_Gain_A)) {
 
-            snprintf(Global_SDR_Gain_B, sizeof(Global_SDR_Gain_B), "%s", gains[index]);
-            break;
+            if (sec_strcpy(Global_SDR_Gain_B, sizeof(Global_SDR_Gain_B), gains[index])) {
+                break;
+            }
+
+            Global_SDR_Gain_B[0] = '\0';
 
         }
     }
@@ -2061,12 +2131,20 @@ static SoapySDRDevice *sdr_open_selected_device(void) {
 
     if (explicit_args && explicit_args[0]) {
 
-        SoapySDRDevice *selected = SoapySDRDevice_makeStrArgs(explicit_args);
+        if (!sec_strcpy(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), explicit_args)) {
+
+            Global_SDR_Selected_Args[0] = '\0';
+            Global_SDR_Selected_Label[0] = '\0';
+            return NULL;
+
+        }
+
+        SoapySDRDevice *selected = SoapySDRDevice_makeStrArgs(Global_SDR_Selected_Args);
 
         if (selected && SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) > 0) {
 
-            snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", explicit_args);
             sdr_cache_selected_label(Global_SDR_Selected_Args);
+
             return selected;
 
         }
@@ -2077,6 +2155,9 @@ static SoapySDRDevice *sdr_open_selected_device(void) {
 
         }
 
+        Global_SDR_Selected_Args[0] = '\0';
+        Global_SDR_Selected_Label[0] = '\0';
+
         return NULL;
 
     }
@@ -2086,28 +2167,45 @@ static SoapySDRDevice *sdr_open_selected_device(void) {
     SoapySDRDevice *selected = NULL;
 
     for (size_t index = 0; index < device_count; index++) {
+
         selected = SoapySDRDevice_make(&devices[index]);
 
-        if (selected && SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) > 0) {
-            char *serialized = SoapySDRKwargs_toString(&devices[index]);
+        if (!selected) {
+          
+            continue;
 
-            if (serialized) {
-
-                snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", serialized);
-                sdr_cache_selected_label(Global_SDR_Selected_Args);
-                SoapySDR_free(serialized);
-
-            }
-            break;
         }
 
-        if (selected) {
+        if (SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) == 0) {
 
             (void)SoapySDRDevice_unmake(selected);
             selected = NULL;
+            continue;
 
         }
+
+        char *serialized = SoapySDRKwargs_toString(&devices[index]);
+
+        if (!serialized || !sec_strcpy(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), serialized)) {
+
+            if (serialized) {
+
+                SoapySDR_free(serialized);
+
+            }
+
+            (void)SoapySDRDevice_unmake(selected);
+            selected = NULL;
+            continue;
+
+        }
+
+        sdr_cache_selected_label(Global_SDR_Selected_Args);
+
+        SoapySDR_free(serialized);
+        break;
     }
+
 
     SoapySDRKwargsList_clear(devices, device_count);
     return selected;
@@ -2615,7 +2713,7 @@ static int apply_radio_settings(SoapySDRDevice *dev, uint64_t Center_Hz, uint32_
     double actual_rate = SoapySDRDevice_getSampleRate(dev, SOAPY_SDR_RX, 0);
     double actual_frequency = SoapySDRDevice_getFrequency(dev, SOAPY_SDR_RX, 0);
 
-    if (!isfinite(actual_rate) || actual_rate < 1000.0 || actual_rate > (double)UINT32_MAX ||
+    if (!isfinite(actual_rate) || actual_rate < 1000.0 || actual_rate > (double)RETROSPECTRUM_MAX_SAMPLE_RATE_HZ ||
         !isfinite(actual_frequency) || actual_frequency <= 0.0 || actual_frequency > (double)UINT64_MAX) {
 
         return 0;
@@ -2711,8 +2809,17 @@ int RETROSPECTRUM_sdr_args_is_selected(const char *args) {
         Returns: Boolean status
     */
 
-    return Global_SDR_Connected && Global_SDR_Device && args && args[0] &&
-           Global_SDR_Selected_Args[0] && strcmp(args, Global_SDR_Selected_Args) == 0;
+    char bounded_args[sizeof(Global_SDR_Selected_Args)];
+
+    if (!Global_SDR_Connected || !Global_SDR_Device || !args || !args[0] || !Global_SDR_Selected_Args[0] ||
+        !sec_strcpy(bounded_args, sizeof(bounded_args), args)) {
+
+        return 0;
+
+    }
+
+    return strcmp(bounded_args, Global_SDR_Selected_Args) == 0;
+
 }
 
 int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_size) {
@@ -2721,23 +2828,26 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
         Returns: Success status
     */
 
+    char validated_args[sizeof(Global_SDR_Selected_Args)] = "";
+
     if (error && error_size > 0) {
 
         error[0] = '\0';
 
     }
 
-    if (!args || !args[0]) {
+    if (!args || !args[0] || !sec_strcpy(validated_args, sizeof(validated_args), args)) {
 
         if (error && error_size > 0) {
 
-            snprintf(error, error_size, "The selected SDR has no usable SoapySDR arguments.");
+            (void)sec_sprintf(error, error_size, "The selected SDR arguments are empty or too long.");
 
         }
         return 0;
+
     }
 
-    if (RETROSPECTRUM_sdr_args_is_selected(args)) {
+    if (RETROSPECTRUM_sdr_args_is_selected(validated_args)) {
 
         return 1;
 
@@ -2751,6 +2861,7 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
 
         }
         return 0;
+
     }
 
     if (RETROSPECTRUM_transmission_is_active()) {
@@ -2761,9 +2872,10 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
 
         }
         return 0;
+
     }
 
-    SoapySDRDevice *selected = SoapySDRDevice_makeStrArgs(args);
+    SoapySDRDevice *selected = SoapySDRDevice_makeStrArgs(validated_args);
 
     if (!selected) {
 
@@ -2773,6 +2885,7 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
 
         }
         return 0;
+
     }
 
     if (SoapySDRDevice_getNumChannels(selected, SOAPY_SDR_RX) == 0) {
@@ -2784,6 +2897,7 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
         }
         (void)SoapySDRDevice_unmake(selected);
         return 0;
+
     }
 
     SoapySDRDevice *old_device = Global_SDR_Device;
@@ -2816,9 +2930,9 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
     sdr_copy_identity(selected);
     sdr_discover_gain_controls(selected);
 
-    if (!apply_radio_settings(selected, Global_Center_Freq_Hz, Global_Sample_Rate_Hz,
-                              Global_Display_Span_Hz, Global_LNA_Gain, Global_VGA_Gain,
-                              Global_Amp_Enable)) {
+    if (!apply_radio_settings(selected, Global_Center_Freq_Hz, Global_Sample_Rate_Hz, Global_Display_Span_Hz,
+                              Global_LNA_Gain, Global_VGA_Gain, Global_Amp_Enable)) {
+
         char last_error[256];
         snprintf(last_error, sizeof(last_error), "%s", SoapySDRDevice_lastError());
         (void)stop_radio(selected);
@@ -2828,19 +2942,18 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
         Global_SDR_Connected = 0;
 
         if (old_args[0]) {
+
             SoapySDRDevice *restored = SoapySDRDevice_makeStrArgs(old_args);
 
             if (restored && SoapySDRDevice_getNumChannels(restored, SOAPY_SDR_RX) > 0) {
 
                 Global_SDR_Device = restored;
-                Global_SDR_Supports_TX =
-                    SoapySDRDevice_getNumChannels(restored, SOAPY_SDR_TX) > 0 ? 1 : 0;
+                Global_SDR_Supports_TX = SoapySDRDevice_getNumChannels(restored, SOAPY_SDR_TX) > 0 ? 1 : 0;
                 sdr_copy_identity(restored);
                 sdr_discover_gain_controls(restored);
 
-                if (apply_radio_settings(restored, Global_Center_Freq_Hz, Global_Sample_Rate_Hz,
-                                         Global_Display_Span_Hz, Global_LNA_Gain, Global_VGA_Gain,
-                                         Global_Amp_Enable)) {
+                if (apply_radio_settings(restored, Global_Center_Freq_Hz, Global_Sample_Rate_Hz, Global_Display_Span_Hz,
+                                         Global_LNA_Gain, Global_VGA_Gain, Global_Amp_Enable)) {
 
                     snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", old_args);
                     sdr_cache_selected_label(Global_SDR_Selected_Args);
@@ -2864,6 +2977,7 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
                 (void)SoapySDRDevice_unmake(restored);
 
             }
+
         }
 
         if (error && error_size > 0) {
@@ -2881,14 +2995,35 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
                          last_error[0] ? last_error : "The selected SDR rejected its receive settings.");
 
             }
+
         }
         return 0;
+
     }
 
-    snprintf(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), "%s", args);
+    if (!sec_strcpy(Global_SDR_Selected_Args, sizeof(Global_SDR_Selected_Args), validated_args)) {
+
+        (void)stop_radio(selected);
+        (void)SoapySDRDevice_unmake(selected);
+
+        Global_SDR_Device = NULL;
+        Global_SDR_Connected = 0;
+        Global_SDR_Supports_TX = 0;
+
+        if (error && error_size > 0) {
+
+            (void)sec_sprintf(error, error_size, "Unable to preserve the selected SDR arguments.");
+
+    }
+
+        return 0;
+
+    }
+
     sdr_cache_selected_label(Global_SDR_Selected_Args);
     Global_SDR_Connected = 1;
     return 1;
+
 }
 
 static void *retrospectrum_tx_thread_main(void *context) {
@@ -3746,7 +3881,7 @@ static int apply_from_inputs(SoapySDRDevice *dev, Type_Input_Box *freq_box, Type
     double display_span_value = display_mhz * 1e6;
 
     if (!isfinite(center_hz_value) || center_hz_value <= 0.0 || center_hz_value > (double)UINT64_MAX ||
-        !isfinite(sample_rate_value) || sample_rate_value < 1000.0 || sample_rate_value > (double)UINT32_MAX ||
+        !isfinite(sample_rate_value) || sample_rate_value < 1000.0 || sample_rate_value > (double)RETROSPECTRUM_MAX_SAMPLE_RATE_HZ ||
         !isfinite(display_span_value) || display_span_value < 1000.0 || display_span_value > (double)UINT32_MAX) {
 
         return 0;
@@ -3917,31 +4052,44 @@ static char *main_field_text(Type_Active_Fields field, Type_Input_Box *freq_box,
                                     rows_box, text_size);
 }
 
-static void main_clamp_cursor_for_text(const char *text, int *cursor) {
+static int main_clamp_cursor_for_text(const char *text, size_t text_size, int *cursor) {
     /*
         Purpose: Clamps the main text cursor
         Returns: No value
     */
 
-    if (!text || !cursor) {
+    size_t length;
 
-        return;
+    if (!text || text_size == 0 || !cursor) {
+
+        return 0;
 
     }
 
-    int len = (int)strlen(text);
+    length = strnlen(text, text_size);
 
-    if (*cursor < 0) {
+    if (length >= text_size || length > (size_t)INT_MAX) {
+
+        *cursor = 0;
+
+        return 0;
+
+    }
+
+    if (*cursor < 0){
 
         *cursor = 0;
 
     }
 
-    if (*cursor > len) {
+    if ((size_t)*cursor > length) {
 
-        *cursor = len;
+        *cursor = (int)length;
 
     }
+
+    return 1;
+
 }
 
 static void main_reset_input_cursors(int cursors[7], Type_Input_Box *freq_box, Type_Input_Box *sr_box,
@@ -3954,8 +4102,29 @@ static void main_reset_input_cursors(int cursors[7], Type_Input_Box *freq_box, T
 
     Type_Input_Box *boxes[7] = {freq_box, sr_box, display_box, lna_box, vga_box, fps_box, rows_box};
 
+
     for (int i = 0; i < 7; i++) {
-        cursors[i] = boxes[i] ? (int)strlen(boxes[i]->text) : 0;
+
+        if (!boxes[i]) {
+
+            cursors[i] = 0;
+            continue;
+
+        }
+
+        size_t length = strnlen(boxes[i]->text, sizeof(boxes[i]->text));
+
+        if (length >= sizeof(boxes[i]->text) || length > (size_t)INT_MAX) {
+
+            cursors[i] = 0;
+
+        }
+
+        else {
+
+            cursors[i] = (int)length;
+        }
+
     }
 }
 
@@ -3978,9 +4147,26 @@ static void main_set_active_cursor_end(Type_Active_Fields field, int cursors[7],
     size_t text_size = 0;
     char *text =
         main_field_text_by_index(index, freq_box, sr_box, display_box, lna_box, vga_box, fps_box, rows_box, &text_size);
-    (void)text_size;
 
-    cursors[index] = text ? (int)strlen(text) : 0;
+    if (!text || text_size == 0) {
+
+        cursors[index] = 0;
+
+        return;
+
+    }
+
+    size_t length = strnlen(text, text_size);
+
+    if (length >= text_size || length > (size_t)INT_MAX) {
+
+        cursors[index] = 0;
+        return;
+
+    }
+
+    cursors[index] = (int)length;
+
 }
 
 static void main_insert_text_at_cursor(char *dst, size_t dst_size, int *cursor, const char *src) {
@@ -3989,76 +4175,92 @@ static void main_insert_text_at_cursor(char *dst, size_t dst_size, int *cursor, 
         Returns: No value
     */
 
-    if (!dst || dst_size == 0 || !cursor || !src) {
+    if (!dst || dst_size == 0 || !cursor || !src || !main_clamp_cursor_for_text(dst, dst_size, cursor)) {
 
         return;
 
     }
 
-    main_clamp_cursor_for_text(dst, cursor);
-
     while (*src) {
-        char c = *src++;
 
-        if (!((c >= '0' && c <= '9') || c == '.')) {
+        char character = *src++;
+        size_t length;
+        int position;
+
+        if (!((character >= '0' && character <= '9') || character == '.')) {
 
             continue;
 
         }
 
-        size_t len = strlen(dst);
+        length = strnlen(dst, dst_size);
 
-        if (len + 1 >= dst_size) {
+        if (length >= dst_size || length + 1U >= dst_size) {
 
             break;
 
         }
 
-        int pos = *cursor;
+        position = *cursor;
 
-        if (pos < 0) {
+        if (position < 0) {
 
-            pos = 0;
-
-        }
-
-        if (pos > (int)len) {
-
-            pos = (int)len;
+            position = 0;
 
         }
 
-        memmove(dst + pos + 1, dst + pos, len - (size_t)pos + 1);
-        dst[pos] = c;
-        *cursor = pos + 1;
+        if ((size_t)position > length) {
+
+            position = (int)length;
+
+        }
+
+        if (!sec_memmove(dst + position + 1, dst_size - ((size_t)position + 1U), dst + position,
+            length - (size_t)position + 1U)) {
+
+            return;
+
+        }
+
+        dst[position] = character;
+        *cursor = position + 1;
     }
 }
 
-static void main_backspace_at_cursor(char *dst, int *cursor) {
+static void main_backspace_at_cursor(char *dst, size_t dst_size, int *cursor) {
     /*
         Purpose: Removes the previous character from the main at cursor
         Returns: No value
     */
 
-    if (!dst || !cursor) {
+    size_t length;
+    int position;
+
+    if (!dst || dst_size == 0 || !cursor || !main_clamp_cursor_for_text(dst, dst_size, cursor) ||
+        *cursor <= 0) {
 
         return;
 
     }
 
-    main_clamp_cursor_for_text(dst, cursor);
+    length = strnlen(dst, dst_size);
 
-    if (*cursor <= 0) {
+    if (length >= dst_size) {
 
         return;
 
     }
 
-    size_t len = strlen(dst);
-    int pos = *cursor;
+    position = *cursor;
 
-    memmove(dst + pos - 1, dst + pos, len - (size_t)pos + 1);
-    *cursor = pos - 1;
+    if (!sec_memmove(dst + position - 1, dst_size - ((size_t)position - 1U), dst + position,
+        length - (size_t)position + 1U)) {
+
+        return;
+
+    }
+
+    *cursor = position - 1;
 }
 
 static void main_move_active_cursor(Type_Active_Fields field, int cursors[7], int delta, Type_Input_Box *freq_box,
@@ -4089,7 +4291,7 @@ static void main_move_active_cursor(Type_Active_Fields field, int cursors[7], in
     }
 
     cursors[index] += delta;
-    main_clamp_cursor_for_text(text, &cursors[index]);
+    main_clamp_cursor_for_text(text, text_size, &cursors[index]);
 }
 
 static void main_make_cursor_box(Type_Input_Box *dst, const Type_Input_Box *src, int active, int cursor) {
@@ -4113,7 +4315,17 @@ static void main_make_cursor_box(Type_Input_Box *dst, const Type_Input_Box *src,
     }
 
     const char *text = src->text;
-    int len = (int)strlen(text);
+
+    size_t text_length = strnlen(text, sizeof(src->text));
+
+    if (text_length >= sizeof(src->text) || text_length > (size_t)INT_MAX) {
+
+        dst->text[0] = '\0';
+        return;
+
+    }
+
+    int len = (int)text_length;
 
     if (cursor < 0) {
 
@@ -4179,7 +4391,7 @@ static void cli_secure_zero(void *memory, size_t size) {
     }
 }
 
-static void cli_trim_line(char *text) {
+static int cli_trim_line(char *text, size_t text_size) {
     /*
 
     Purpose: Removes leading and trailing whitespace from CLI input
@@ -4191,27 +4403,43 @@ static void cli_trim_line(char *text) {
     size_t start = 0;
     size_t length;
 
-    if (!text) {
+    if (!text || text_size == 0) {
 
-        return;
+        return 0;
 
     }
 
-    length = strlen(text);
+    length = strnlen(text, text_size);
+
+    if (length >= text_size) {
+
+        text[0] = '\0';
+        return 0;
+
+    }
 
     while (length > 0 && isspace((unsigned char)text[length - 1])) {
+
         text[--length] = '\0';
+
     }
 
-    while (text[start] && isspace((unsigned char)text[start])) {
+    while (start < length && isspace((unsigned char)text[start])) {
+
         start++;
-    }
-
-    if (start > 0) {
-
-        memmove(text, text + start, strlen(text + start) + 1);
 
     }
+
+    if (start > 0 && !sec_memmove(text, text_size, text + start, length - start + 1U)) {
+
+        text[0] = '\0';
+
+        return 0;
+
+    }
+
+    return 1;
+
 }
 
 static int cli_read_line(const char *prompt, char *output, size_t output_size, int hidden) {
@@ -4228,6 +4456,14 @@ static int cli_read_line(const char *prompt, char *output, size_t output_size, i
     int terminal_changed = 0;
 
     if (!output || output_size == 0) {
+
+        return 0;
+
+    }
+
+    if (output_size > (size_t)INT_MAX) {
+
+        output[0] = '\0';
 
         return 0;
 
@@ -4287,7 +4523,15 @@ static int cli_read_line(const char *prompt, char *output, size_t output_size, i
     }
 
     {
-        size_t length = strlen(output);
+        size_t length = strnlen(output, output_size);
+
+        if (length >= output_size) {
+
+            output[0] = '\0';
+            return 0;
+
+        }
+
         int complete_line = length > 0 && output[length - 1] == '\n';
 
         if (!complete_line && !feof(stdin)) {
@@ -4309,7 +4553,13 @@ static int cli_read_line(const char *prompt, char *output, size_t output_size, i
 
     if (!hidden) {
 
-        cli_trim_line(output);
+        if (!cli_trim_line(output, output_size)) {
+
+            output[0] = '\0';
+
+            return 0;
+
+        }
 
     }
     return 1;
@@ -4546,11 +4796,13 @@ static int cli_enroll_totp(unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES]) 
 
     char base32[128] = "";
     char code[16] = "";
+    int success = 0;
 
     if (!AUTH_TOTP_generate_secret(secret) || !AUTH_TOTP_base32(secret, base32, sizeof(base32))) {
 
         fprintf(stderr, "Unable to generate a secure 2FA secret.\n");
-        return 0;
+
+        goto cleanup;
 
     }
 
@@ -4560,13 +4812,18 @@ static int cli_enroll_totp(unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES]) 
     if (!cli_read_line("Current 2FA code: ", code, sizeof(code), 0) || !AUTH_TOTP_verify(secret, code)) {
 
         fprintf(stderr, "The 2FA code was not valid. No 2FA change was saved.\n");
-        cli_secure_zero(code, sizeof(code));
-        return 0;
+
+        goto cleanup;
 
     }
 
+    success = 1;
+
+cleanup:
+
+    cli_secure_zero(base32, sizeof(base32));
     cli_secure_zero(code, sizeof(code));
-    return 1;
+    return success;
 }
 
 static int cli_bootstrap_primary_admin(void) {
@@ -4678,7 +4935,15 @@ static int cli_authenticate(char *authenticated_username, size_t username_size, 
 
     }
 
-    snprintf(authenticated_username, username_size, "%s", username);
+    if (!authenticated_username || username_size == 0 || !authenticated_role || 
+        !sec_strcpy(authenticated_username, username_size, username)) {
+
+        fprintf(stderr, "Authenticated username buffer is too small.\n");
+
+        goto cleanup;
+
+    }
+
     *authenticated_role = summary.role;
     success = 1;
 
@@ -4699,7 +4964,16 @@ static int cli_read_target_username(char *username, size_t username_size, const 
 
     if (argument && argument[0]) {
 
-        snprintf(username, username_size, "%s", argument);
+        if (!sec_strcpy(username, username_size, argument)) {
+
+            fprintf(stderr, "Target username exceeds the supported length.\n");
+
+            username[0] = '\0';
+
+            return 0;
+
+        }
+
         return 1;
 
     }
@@ -4898,7 +5172,13 @@ static void cli_set_role(const char *acting_admin, const char *username_argument
 
     if (role_argument && role_argument[0]) {
 
-        snprintf(role_text, sizeof(role_text), "%s", role_argument);
+        if (!sec_strcpy(role_text, sizeof(role_text), role_argument)) {
+
+            fprintf(stderr, "Role argument is too long.\n");
+
+            return;
+
+        }
 
     }
 
@@ -6154,8 +6434,8 @@ int main(int argc, char **argv) {
                     snprintf(lna_box.text, sizeof(lna_box.text), "%d", Global_LNA_Gain);
                     snprintf(vga_box.text, sizeof(vga_box.text), "%d", Global_VGA_Gain);
 
-                    main_reset_input_cursors(main_input_cursors, &freq_box, &sr_box, &display_box, &lna_box,
-                                             &vga_box, &fps_box, &rows_box);
+                    main_reset_input_cursors(main_input_cursors, &freq_box, &sr_box, &display_box, &lna_box, &vga_box,
+                                             &fps_box, &rows_box);
                     next_sdr_health_ms = SDL_GetTicks64() + 1000;
                     next_waterfall_ms = SDL_GetTicks64();
                     set_status("SoapySDR device changed", (SDL_Color){0, 255, 80, 255});
@@ -6669,7 +6949,7 @@ int main(int argc, char **argv) {
 
                     if (index >= 0 && index < 7 && text) {
 
-                        main_backspace_at_cursor(text, &main_input_cursors[index]);
+                        main_backspace_at_cursor(text, text_size, &main_input_cursors[index]);
 
                     }
 

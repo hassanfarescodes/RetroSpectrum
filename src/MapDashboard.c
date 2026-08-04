@@ -132,8 +132,8 @@ static void dashboard_sdr_selector_rects(int win_w, int win_h, SDL_Rect *label_r
         Returns: No value
     */
 
-    SDL_Rect button = {win_w - DASHBOARD_MARGIN - DASHBOARD_SDR_BUTTON_W, win_h - 48,
-                       DASHBOARD_SDR_BUTTON_W, DASHBOARD_SDR_BUTTON_H};
+    SDL_Rect button = {win_w - DASHBOARD_MARGIN - DASHBOARD_SDR_BUTTON_W, win_h - 48, DASHBOARD_SDR_BUTTON_W,
+                       DASHBOARD_SDR_BUTTON_H};
     SDL_Rect label = {button.x - 112, button.y, 102, button.h};
 
     if (label_rect) {
@@ -149,8 +149,7 @@ static void dashboard_sdr_selector_rects(int win_w, int win_h, SDL_Rect *label_r
     }
 }
 
-static void dashboard_sdr_copy_truncated(TTF_Font *font, char *dst, size_t dst_size, const char *src,
-                                         int max_width) {
+static void dashboard_sdr_copy_truncated(TTF_Font *font, char *dst, size_t dst_size, const char *src, int max_width) {
     /*
         Purpose: Copies text while fitting it inside the SDR selector button
         Returns: No value
@@ -218,8 +217,7 @@ static void dashboard_refresh_sdr_options(void) {
 
     }
 
-    for (size_t index = 0; index < device_count &&
-                           Global_Dashboard_SDR_Option_Count < DASHBOARD_MAX_SDR_OPTIONS;
+    for (size_t index = 0; index < device_count && Global_Dashboard_SDR_Option_Count < DASHBOARD_MAX_SDR_OPTIONS;
          index++) {
         const char *label = SoapySDRKwargs_get(&devices[index], "label");
         const char *driver = SoapySDRKwargs_get(&devices[index], "driver");
@@ -237,8 +235,7 @@ static void dashboard_refresh_sdr_options(void) {
 
         }
 
-        Type_Dashboard_SDR_Option *option =
-            &Global_Dashboard_SDR_Options[Global_Dashboard_SDR_Option_Count];
+        Type_Dashboard_SDR_Option *option = &Global_Dashboard_SDR_Options[Global_Dashboard_SDR_Option_Count];
 
         snprintf(option->args, sizeof(option->args), "%s", serialized);
 
@@ -273,8 +270,8 @@ static void dashboard_refresh_sdr_options(void) {
     SoapySDRKwargsList_clear(devices, device_count);
 }
 
-static void dashboard_draw_sdr_selector(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h,
-                                        int mouse_x, int mouse_y) {
+static void dashboard_draw_sdr_selector(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h, int mouse_x,
+                                        int mouse_y) {
     /*
         Purpose: Draws the bottom-right selected SDR label and device menu
         Returns: No value
@@ -300,8 +297,8 @@ static void dashboard_draw_sdr_selector(SDL_Renderer *renderer, TTF_Font *font, 
     draw_outline_rect(renderer, button_rect, button_border);
 
     char selected_text[256];
-    dashboard_sdr_copy_truncated(font, selected_text, sizeof(selected_text),
-                                 RETROSPECTRUM_sdr_selected_label(), button_rect.w - 42);
+    dashboard_sdr_copy_truncated(font, selected_text, sizeof(selected_text), RETROSPECTRUM_sdr_selected_label(),
+                                 button_rect.w - 42);
     draw_text(renderer, font, selected_text, button_rect.x + 10, button_rect.y + 6, Dashboard_Text);
 
     int arrow_x = button_rect.x + button_rect.w - 18;
@@ -329,8 +326,8 @@ static void dashboard_draw_sdr_selector(SDL_Renderer *renderer, TTF_Font *font, 
     }
 
     int row_count = Global_Dashboard_SDR_Option_Count > 0 ? Global_Dashboard_SDR_Option_Count : 1;
-    SDL_Rect menu = {button_rect.x, button_rect.y - (row_count * DASHBOARD_SDR_ROW_H) - 4,
-                     button_rect.w, row_count * DASHBOARD_SDR_ROW_H};
+    SDL_Rect menu = {button_rect.x, button_rect.y - (row_count * DASHBOARD_SDR_ROW_H) - 4, button_rect.w,
+                     row_count * DASHBOARD_SDR_ROW_H};
 
     draw_filled_rect(renderer, menu, (SDL_Color){0, 8, 4, 250});
     draw_outline_rect(renderer, menu, Dashboard_Border_Hi);
@@ -360,10 +357,9 @@ static void dashboard_draw_sdr_selector(SDL_Renderer *renderer, TTF_Font *font, 
         }
 
         char option_text[256];
-        dashboard_sdr_copy_truncated(font, option_text, sizeof(option_text),
-                                     Global_Dashboard_SDR_Options[index].label, row.w - 38);
-        SDL_Color text_color = RETROSPECTRUM_sdr_args_is_selected(
-                                   Global_Dashboard_SDR_Options[index].args)
+        dashboard_sdr_copy_truncated(font, option_text, sizeof(option_text), Global_Dashboard_SDR_Options[index].label,
+                                     row.w - 38);
+        SDL_Color text_color = RETROSPECTRUM_sdr_args_is_selected(Global_Dashboard_SDR_Options[index].args)
                                    ? Dashboard_Border_Hi
                                    : Dashboard_Text;
 
@@ -388,8 +384,8 @@ static void dashboard_draw_sdr_selector(SDL_Renderer *renderer, TTF_Font *font, 
     }
 }
 
-static int dashboard_handle_sdr_selector_event(Type_Dashboard_State *dashboard, const SDL_Event *event,
-                                               int win_w, int win_h) {
+static int dashboard_handle_sdr_selector_event(Type_Dashboard_State *dashboard, const SDL_Event *event, int win_w,
+                                               int win_h) {
     /*
         Purpose: Handles opening the SDR menu and switching the active device
         Returns: 0 not handled, 1 handled, 2 active SDR changed
@@ -406,8 +402,7 @@ static int dashboard_handle_sdr_selector_event(Type_Dashboard_State *dashboard, 
     dashboard_sdr_selector_rects(win_w, win_h, &label_rect, &button_rect);
     (void)label_rect;
 
-    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE &&
-        Global_Dashboard_SDR_Menu_Open) {
+    if (event->type == SDL_KEYDOWN && event->key.keysym.sym == SDLK_ESCAPE && Global_Dashboard_SDR_Menu_Open) {
 
         Global_Dashboard_SDR_Menu_Open = 0;
         return 1;
@@ -430,6 +425,7 @@ static int dashboard_handle_sdr_selector_event(Type_Dashboard_State *dashboard, 
 
         }
         return 1;
+
     }
 
     if (!Global_Dashboard_SDR_Menu_Open) {
@@ -439,10 +435,11 @@ static int dashboard_handle_sdr_selector_event(Type_Dashboard_State *dashboard, 
     }
 
     int row_count = Global_Dashboard_SDR_Option_Count > 0 ? Global_Dashboard_SDR_Option_Count : 1;
-    SDL_Rect menu = {button_rect.x, button_rect.y - (row_count * DASHBOARD_SDR_ROW_H) - 4,
-                     button_rect.w, row_count * DASHBOARD_SDR_ROW_H};
+    SDL_Rect menu = {button_rect.x, button_rect.y - (row_count * DASHBOARD_SDR_ROW_H) - 4, button_rect.w,
+                     row_count * DASHBOARD_SDR_ROW_H};
 
     if (dashboard_point_in_rect(event->button.x, event->button.y, menu)) {
+
         int selected_index = (event->button.y - menu.y) / DASHBOARD_SDR_ROW_H;
 
         if (Global_Dashboard_SDR_Option_Count == 0 || selected_index < 0 ||
@@ -477,6 +474,7 @@ static int dashboard_handle_sdr_selector_event(Type_Dashboard_State *dashboard, 
         snprintf(dashboard->status, sizeof(dashboard->status), "Selected SDR: %s", option->label);
         Global_Dashboard_SDR_Menu_Open = 0;
         return 2;
+
     }
 
     Global_Dashboard_SDR_Menu_Open = 0;
