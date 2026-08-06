@@ -1,0 +1,66 @@
+
+RetroSpectrum target: DatabaseCrypto.c
+Expected function definitions: 42
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: database_crypto_error
+[92mPASSED[0m function addressable: database_crypto_write_all
+[92mPASSED[0m function addressable: database_crypto_read_all
+[92mPASSED[0m function addressable: database_crypto_ensure_directory
+[92mPASSED[0m function addressable: database_crypto_directory
+[92mPASSED[0m function addressable: database_crypto_path
+[92mPASSED[0m function addressable: database_crypto_validate_key_file
+[92mPASSED[0m function addressable: database_crypto_cleanup_cached_master
+[92mPASSED[0m function addressable: database_crypto_cache_master
+[92mPASSED[0m function addressable: database_crypto_copy_cached_master
+[92mPASSED[0m function addressable: database_crypto_default_key_path
+[92mPASSED[0m function addressable: database_crypto_read_saved_key_path
+[92mPASSED[0m function addressable: database_crypto_resolve_key_path
+[92mPASSED[0m function addressable: database_crypto_load_key_file
+[92mPASSED[0m function addressable: database_crypto_any_database_exists
+[92mPASSED[0m function addressable: database_crypto_create_default_master
+[92mPASSED[0m function addressable: database_crypto_load_or_create_master
+[92mPASSED[0m function addressable: database_crypto_derive_from_master
+[92mPASSED[0m function addressable: database_crypto_derive_key
+[92mPASSED[0m function addressable: database_crypto_hex
+[92mPASSED[0m function addressable: database_crypto_parse_version
+[92mPASSED[0m function addressable: database_crypto_version_supported
+[92mPASSED[0m function addressable: database_crypto_has_sqlcipher
+[92mPASSED[0m function addressable: database_crypto_exec
+[92mPASSED[0m function addressable: database_crypto_validate_database_file
+[92mPASSED[0m function addressable: database_crypto_apply_key
+[92mPASSED[0m function addressable: database_crypto_key_opens_database
+[92mPASSED[0m function addressable: database_crypto_write_saved_key_path
+[92mPASSED[0m function addressable: database_crypto_file_is_plaintext
+[92mPASSED[0m function addressable: database_crypto_parent_directory_writable
+[92mPASSED[0m function addressable: database_crypto_create_secure_empty_file
+[92mPASSED[0m function addressable: database_crypto_export_plaintext
+[92mPASSED[0m function addressable: database_crypto_verify_encrypted_copy
+[92mPASSED[0m function addressable: database_crypto_fsync_file
+[92mPASSED[0m function addressable: database_crypto_fsync_parent_directory
+[92mPASSED[0m function addressable: database_crypto_migrate_plaintext
+[92mPASSED[0m function addressable: database_crypto_open
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_open_auth
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_open_data
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_set_key_path
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_is_unlocked
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_key_path
+[92mPASSED[0m parse SQLCipher version
+[92mPASSED[0m reject malformed SQLCipher version
+[92mPASSED[0m database crypto directory
+[92mPASSED[0m database crypto path
+[92mPASSED[0m plaintext detection missing file false
+[92mPASSED[0m write database master key
+[92mPASSED[0m set database key path
+[92mPASSED[0m database reports unlocked
+[92mPASSED[0m database cached key available
+[92mPASSED[0m database key path retained
+[92mPASSED[0m open encrypted auth database
+[92mPASSED[0m auth database permission
+[92mPASSED[0m open encrypted data database
+[92mPASSED[0m data database is not plaintext header
+[92mPASSED[0m database cleanup locks state
+[92mPASSED[0m reject nonexistent key path
+
+DatabaseCrypto.c summary: [92m60 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

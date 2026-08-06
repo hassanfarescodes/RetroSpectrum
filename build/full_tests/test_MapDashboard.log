@@ -1,0 +1,95 @@
+[INFO] [UHD] linux; GNU C++ version 14.2.0; Boost_108300; UHD_4.8.0.0+ds1-2
+[1m[31m[ERROR] avahi_service_browser_new() failed: Bad state[0m
+
+RetroSpectrum target: MapDashboard.c
+Expected function definitions: 49
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: dashboard_sdr_selector_rects
+[92mPASSED[0m function addressable: dashboard_sdr_copy_truncated
+[92mPASSED[0m function addressable: dashboard_refresh_sdr_options
+[92mPASSED[0m function addressable: dashboard_draw_sdr_selector
+[92mPASSED[0m function addressable: dashboard_handle_sdr_selector_event
+[92mPASSED[0m function addressable: dashboard_point_in_rect
+[92mPASSED[0m function addressable: dashboard_update_timestamp
+[92mPASSED[0m function addressable: dashboard_copy_text
+[92mPASSED[0m function addressable: dashboard_draw_text_centered
+[92mPASSED[0m function addressable: dashboard_draw_grid
+[92mPASSED[0m function addressable: dashboard_top_rect
+[92mPASSED[0m function addressable: dashboard_content_rect
+[92mPASSED[0m function addressable: dashboard_make_tabs
+[92mPASSED[0m function addressable: dashboard_draw_tab
+[92mPASSED[0m function addressable: dashboard_draw_top_bar
+[92mPASSED[0m function addressable: dashboard_draw_station_card
+[92mPASSED[0m function addressable: dashboard_hash_string
+[92mPASSED[0m function addressable: dashboard_ascii_equal_ci
+[92mPASSED[0m function addressable: dashboard_ascii_contains_ci
+[92mPASSED[0m function addressable: dashboard_case_color
+[92mPASSED[0m function addressable: dashboard_find_case_index
+[92mPASSED[0m function addressable: dashboard_case_index_for
+[92mPASSED[0m function addressable: dashboard_csv_parse_line
+[92mPASSED[0m function addressable: dashboard_unescape_multiline_text
+[92mPASSED[0m function addressable: dashboard_load_case_descriptions
+[92mPASSED[0m function addressable: dashboard_load_case_metadata
+[92mPASSED[0m function addressable: dashboard_parse_coordinate
+[92mPASSED[0m function addressable: dashboard_load_case_content
+[92mPASSED[0m function addressable: dashboard_reload_cases
+[92mPASSED[0m function addressable: dashboard_lonlat_to_screen
+[92mPASSED[0m function addressable: dashboard_draw_circle_outline
+[92mPASSED[0m function addressable: dashboard_draw_case_dot
+[92mPASSED[0m function addressable: dashboard_case_matches_search
+[92mPASSED[0m function addressable: dashboard_draw_case_points
+[92mPASSED[0m function addressable: dashboard_select_case_at
+[92mPASSED[0m function addressable: dashboard_wrap_text
+[92mPASSED[0m function addressable: dashboard_case_country_matches
+[92mPASSED[0m function addressable: dashboard_collect_cases_for_country
+[92mPASSED[0m function addressable: dashboard_draw_hover_country_cases
+[92mPASSED[0m function addressable: dashboard_draw_case_search
+[92mPASSED[0m function addressable: dashboard_draw_case_sidebar
+[92mPASSED[0m function addressable: dashboard_handle_case_search_event
+[92mPASSED[0m function addressable: dashboard_handle_case_sidebar_event
+[92mPASSED[0m function addressable: dashboard_handle_top_tab_event
+[92mPASSED[0m function addressable: dashboard_init
+[92mPASSED[0m function addressable: dashboard_shutdown
+[92mPASSED[0m function addressable: dashboard_find_country_screen_point
+[92mPASSED[0m function addressable: dashboard_handle_event
+[92mPASSED[0m function addressable: dashboard_draw
+[92mPASSED[0m dashboard point inside
+[92mPASSED[0m dashboard copy
+[92mPASSED[0m dashboard equals CI
+[92mPASSED[0m dashboard contains CI
+[92mPASSED[0m dashboard CSV parse
+[92mPASSED[0m dashboard unescapes newline
+[92mPASSED[0m dashboard coordinate parser
+[92mPASSED[0m dashboard case color deterministic
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+Found Rafael Micro R820T tuner
+[92mPASSED[0m dashboard initializes map
+[92mPASSED[0m dashboard event smoke
+[93mSKIPPED[0m dashboard draw smoke — SDL/TTF renderer unavailable
+
+MapDashboard.c summary: [92m61 passed[0m, [91m0 failed[0m, [93m1 skipped[0m

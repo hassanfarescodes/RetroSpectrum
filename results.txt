@@ -1,0 +1,1940 @@
+Building the normal application first...
+make: Entering directory '/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5'
+Reading build configuration...
+Found 15 source files and 1 asset step.
+[33mBuild progress [------------------------------]   0%[0m[KCompiling: src/RetroSpectrum.c -> build/RetroSpectrum.o
+[33mBuild progress [------------------------------]   0%[0m[33mBuild progress [#-----------------------------]   5%[0m[KCompiling: src/AuthScreen.c -> build/AuthScreen.o
+[33mBuild progress [#-----------------------------]   5%[0m[33mBuild progress [###---------------------------]  11%[0m[KCompiling: src/AuthAdmin.c -> build/AuthAdmin.o
+[33mBuild progress [###---------------------------]  11%[0m[33mBuild progress [#####-------------------------]  17%[0m[KCompiling: src/ServerIdentity.c -> build/ServerIdentity.o
+[33mBuild progress [#####-------------------------]  17%[0m[33mBuild progress [######------------------------]  23%[0m[KCompiling: src/SecureNetwork.c -> build/SecureNetwork.o
+[33mBuild progress [######------------------------]  23%[0m[33mBuild progress [########----------------------]  29%[0m[KCompiling: src/DatabaseCrypto.c -> build/DatabaseCrypto.o
+[33mBuild progress [########----------------------]  29%[0m[33mBuild progress [##########--------------------]  35%[0m[KCompiling: src/DataStore.c -> build/DataStore.o
+[33mBuild progress [##########--------------------]  35%[0m[33mBuild progress [############------------------]  41%[0m[KCompiling: src/MapDashboard.c -> build/MapDashboard.o
+[33mBuild progress [############------------------]  41%[0m[33mBuild progress [##############----------------]  47%[0m[KCompiling: src/GUIs.c -> build/GUIs.o
+[33mBuild progress [##############----------------]  47%[0m[33mBuild progress [###############---------------]  52%[0m[KCompiling: src/AnalysisWorkstation.c -> build/AnalysisWorkstation.o
+[33mBuild progress [###############---------------]  52%[0m[33mBuild progress [#################-------------]  58%[0m[KCompiling: src/ClassificationWorkstation.c -> build/ClassificationWorkstation.o
+[33mBuild progress [#################-------------]  58%[0m[33mBuild progress [###################-----------]  64%[0m[KCompiling: src/CaseManagementWorkstation.c -> build/CaseManagementWorkstation.o
+[33mBuild progress [###################-----------]  64%[0m[33mBuild progress [#####################---------]  70%[0m[KCompiling: src/DecodeWorkstation.c -> build/DecodeWorkstation.o
+[33mBuild progress [#####################---------]  70%[0m[33mBuild progress [######################--------]  76%[0m[KCompiling: src/CorrelationWorkstation.c -> build/CorrelationWorkstation.o
+[33mBuild progress [######################--------]  76%[0m[33mBuild progress [########################------]  82%[0m[KCompiling: src/SecureFunctions.c -> build/SecureFunctions.o
+[33mBuild progress [########################------]  82%[0m[33mBuild progress [##########################----]  88%[0m[KLinking executable: build/retrospectrum
+[33mBuild progress [##########################----]  88%[0m[33mBuild progress [############################--]  94%[0m[KInstalling runtime assets...
+[33mBuild progress [############################--]  94%[0m[KCopying: src/world_map.bin -> build/world_map.bin
+[33mBuild progress [############################--]  94%[0m[KCopying: src/flags -> build/flags
+[33mBuild progress [############################--]  94%[0m[32mBuild progress [##############################] 100%[0m[32mBuild progress [##############################] 100%[0m
+Build complete: build/retrospectrum
+make: Leaving directory '/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5'
+[92mPASSED[0m normal RetroSpectrum build
+[92mPASSED[0m all production object files found
+Project include directories used by tests:
+  /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src
+  /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5
+  /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/include
+[92mPASSED[0m compiler and dependency flags resolved
+[92mPASSED[0m test-only RetroSpectrum object with renamed main
+
+=== AnalysisWorkstation.c ===
+[92mPASSED[0m AnalysisWorkstation.c test compilation
+[92mPASSED[0m AnalysisWorkstation.c test linking
+
+RetroSpectrum target: AnalysisWorkstation.c
+Expected function definitions: 218
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: ANALYSIS_get_adjusted_mouse_state
+[92mPASSED[0m function addressable: ANALYSIS_secure_clear
+[92mPASSED[0m function addressable: ANALYSIS_limit_double
+[92mPASSED[0m function addressable: ANALYSIS_set_context
+[92mPASSED[0m function addressable: ANALYSIS_invalidate_constellation_cache
+[92mPASSED[0m function addressable: ANALYSIS_constellation_cache_matches
+[92mPASSED[0m function addressable: ANALYSIS_restore_constellation_cache
+[92mPASSED[0m function addressable: ANALYSIS_store_constellation_cache
+[92mPASSED[0m function addressable: ANALYSIS_save_workspace_state
+[92mPASSED[0m function addressable: ANALYSIS_load_workspace_state
+[92mPASSED[0m function addressable: ANALYSIS_switch_workspace
+[92mPASSED[0m function addressable: ANALYSIS_name_compare
+[92mPASSED[0m function addressable: ANALYSIS_is_complex16_file
+[92mPASSED[0m function addressable: ANALYSIS_clear_loaded_file
+[92mPASSED[0m function addressable: ANALYSIS_clear_current_workspace
+[92mPASSED[0m function addressable: ANALYSIS_parse_recording_metadata
+[92mPASSED[0m function addressable: ANALYSIS_scan_recordings
+[92mPASSED[0m function addressable: ANALYSIS_open_selected_recording
+[92mPASSED[0m function addressable: ANALYSIS_path_file_name
+[92mPASSED[0m function addressable: ANALYSIS_workspace_is_empty
+[92mPASSED[0m function addressable: ANALYSIS_initialize_workspaces_for_export
+[92mPASSED[0m function addressable: ANALYSIS_get_recording_workspace
+[92mPASSED[0m function addressable: ANALYSIS_get_available_workspace_count
+[92mPASSED[0m function addressable: ANALYSIS_export_recording_to_workspace
+[92mPASSED[0m function addressable: ANALYSIS_select_relative
+[92mPASSED[0m function addressable: ANALYSIS_zoom_at_fraction
+[92mPASSED[0m function addressable: ANALYSIS_drag_move_view
+[92mPASSED[0m function addressable: ANALYSIS_get_layout
+[92mPASSED[0m function addressable: ANALYSIS_get_hover_graph_layout
+[92mPASSED[0m function addressable: ANALYSIS_get_constellation_mode_button_rects
+[92mPASSED[0m function addressable: ANALYSIS_draw_constellation_mode_buttons
+[92mPASSED[0m function addressable: ANALYSIS_get_constellation_psk_prompt_rects
+[92mPASSED[0m function addressable: ANALYSIS_draw_constellation_psk_prompt
+[92mPASSED[0m function addressable: ANALYSIS_handle_constellation_psk_prompt_event
+[92mPASSED[0m function addressable: ANALYSIS_handle_constellation_mode_click
+[92mPASSED[0m function addressable: ANALYSIS_draw_hover_sync_line
+[92mPASSED[0m function addressable: ANALYSIS_freq_frac_from_mouse_y
+[92mPASSED[0m function addressable: ANALYSIS_update_filter_from_mouse
+[92mPASSED[0m function addressable: ANALYSIS_apply_filter_selection
+[92mPASSED[0m function addressable: ANALYSIS_clear_filter
+[92mPASSED[0m function addressable: ANALYSIS_frequency_from_spec_frac
+[92mPASSED[0m function addressable: ANALYSIS_get_filter_label
+[92mPASSED[0m function addressable: ANALYSIS_set_marker_from_mouse
+[92mPASSED[0m function addressable: ANALYSIS_time_frac_from_mouse_x
+[92mPASSED[0m function addressable: ANALYSIS_update_column_selection_from_mouse
+[92mPASSED[0m function addressable: ANALYSIS_apply_column_selection
+[92mPASSED[0m function addressable: ANALYSIS_crop_button_rect
+[92mPASSED[0m function addressable: ANALYSIS_clear_workspace_button_rect
+[92mPASSED[0m function addressable: ANALYSIS_draw_crop_button
+[92mPASSED[0m function addressable: ANALYSIS_draw_clear_workspace_button
+[92mPASSED[0m function addressable: ANALYSIS_noise_graph_from_point
+[92mPASSED[0m function addressable: ANALYSIS_noise_frac_from_mouse_y
+[92mPASSED[0m function addressable: ANALYSIS_update_noise_selection_from_mouse
+[92mPASSED[0m function addressable: ANALYSIS_apply_noise_selection
+[92mPASSED[0m function addressable: ANALYSIS_clear_noise_filter
+[92mPASSED[0m function addressable: ANALYSIS_noise_value_range
+[92mPASSED[0m function addressable: ANALYSIS_noise_value_matches
+[92mPASSED[0m function addressable: ANALYSIS_update_noise_column_mask
+[92mPASSED[0m function addressable: ANALYSIS_apply_noise_filter_to_rendered_lines
+[92mPASSED[0m function addressable: ANALYSIS_draw_noise_filter_overlay
+[92mPASSED[0m function addressable: ANALYSIS_export_classification_fields
+[92mPASSED[0m function addressable: ANALYSIS_signal_menu_available
+[92mPASSED[0m function addressable: ANALYSIS_selected_file_name
+[92mPASSED[0m function addressable: ANALYSIS_short_text
+[92mPASSED[0m function addressable: ANALYSIS_file_search_matches
+[92mPASSED[0m function addressable: ANALYSIS_file_search_filtered_count
+[92mPASSED[0m function addressable: ANALYSIS_file_search_filtered_index_at
+[92mPASSED[0m function addressable: ANALYSIS_file_search_popup_rect
+[92mPASSED[0m function addressable: ANALYSIS_file_search_input_rect
+[92mPASSED[0m function addressable: ANALYSIS_file_search_button_rect
+[92mPASSED[0m function addressable: ANALYSIS_file_search_clamp_scroll
+[92mPASSED[0m function addressable: ANALYSIS_open_file_search_menu
+[92mPASSED[0m function addressable: ANALYSIS_close_file_search_menu
+[92mPASSED[0m function addressable: ANALYSIS_file_search_select_index
+[92mPASSED[0m function addressable: ANALYSIS_file_search_insert_text
+[92mPASSED[0m function addressable: ANALYSIS_file_search_backspace
+[92mPASSED[0m function addressable: ANALYSIS_file_search_delete
+[92mPASSED[0m function addressable: ANALYSIS_draw_modal_button
+[92mPASSED[0m function addressable: ANALYSIS_handle_file_search_event
+[92mPASSED[0m function addressable: ANALYSIS_draw_file_search_button
+[92mPASSED[0m function addressable: ANALYSIS_draw_file_search_popup
+[92mPASSED[0m function addressable: ANALYSIS_draw_wrapped_text
+[92mPASSED[0m function addressable: ANALYSIS_draw_wrapped_text_limited
+[92mPASSED[0m function addressable: ANALYSIS_format_transmit_live_conversion
+[92mPASSED[0m function addressable: ANALYSIS_signal_clamp_file_cursor
+[92mPASSED[0m function addressable: ANALYSIS_signal_clear_file_selection
+[92mPASSED[0m function addressable: ANALYSIS_signal_file_has_selection
+[92mPASSED[0m function addressable: ANALYSIS_signal_get_file_selection_range
+[92mPASSED[0m function addressable: ANALYSIS_signal_delete_file_selection
+[92mPASSED[0m function addressable: ANALYSIS_signal_text_width_range
+[92mPASSED[0m function addressable: ANALYSIS_signal_filename_wrap_lines
+[92mPASSED[0m function addressable: ANALYSIS_signal_insert_file_cursor_text
+[92mPASSED[0m function addressable: ANALYSIS_signal_backspace_file_cursor_text
+[92mPASSED[0m function addressable: ANALYSIS_signal_delete_file_cursor_text
+[92mPASSED[0m function addressable: ANALYSIS_signal_set_file_cursor_from_mouse
+[92mPASSED[0m function addressable: ANALYSIS_signal_draw_filename_field_text
+[92mPASSED[0m function addressable: ANALYSIS_signal_append_text
+[92mPASSED[0m function addressable: ANALYSIS_signal_backspace_text
+[92mPASSED[0m function addressable: ANALYSIS_signal_clear_active_text
+[92mPASSED[0m function addressable: ANALYSIS_get_signal_icon_rect
+[92mPASSED[0m function addressable: ANALYSIS_get_transmit_rect
+[92mPASSED[0m function addressable: ANALYSIS_get_multithread_rect
+[92mPASSED[0m function addressable: ANALYSIS_get_signal_trash_rect
+[92mPASSED[0m function addressable: ANALYSIS_get_signal_menu_rects
+[92mPASSED[0m function addressable: ANALYSIS_get_signal_marker_rects
+[92mPASSED[0m function addressable: ANALYSIS_signal_set_time_field_from_marker
+[92mPASSED[0m function addressable: ANALYSIS_draw_signal_marker_button
+[92mPASSED[0m function addressable: ANALYSIS_signal_menu_prefill
+[92mPASSED[0m function addressable: ANALYSIS_draw_thick_line
+[92mPASSED[0m function addressable: ANALYSIS_draw_circle_outline
+[92mPASSED[0m function addressable: ANALYSIS_draw_signal_gear_shape
+[92mPASSED[0m function addressable: ANALYSIS_draw_signal_settings_icon
+[92mPASSED[0m function addressable: ANALYSIS_draw_signal_trash_shape
+[92mPASSED[0m function addressable: ANALYSIS_draw_signal_trash_icon
+[92mPASSED[0m function addressable: ANALYSIS_draw_multithread_icon
+[92mPASSED[0m function addressable: ANALYSIS_draw_transmit_shape
+[92mPASSED[0m function addressable: ANALYSIS_draw_transmit_icon
+[92mPASSED[0m function addressable: ANALYSIS_get_transmit_auth_rects
+[92mPASSED[0m function addressable: ANALYSIS_get_transmit_config_rects
+[92mPASSED[0m function addressable: ANALYSIS_get_transmit_progress_rects
+[92mPASSED[0m function addressable: ANALYSIS_get_transmit_result_rects
+[92mPASSED[0m function addressable: ANALYSIS_draw_transmit_text_field
+[92mPASSED[0m function addressable: ANALYSIS_transmit_clamp_cursor
+[92mPASSED[0m function addressable: ANALYSIS_transmit_insert_text
+[92mPASSED[0m function addressable: ANALYSIS_transmit_backspace
+[92mPASSED[0m function addressable: ANALYSIS_transmit_delete
+[92mPASSED[0m function addressable: ANALYSIS_close_transmit_prompts
+[92mPASSED[0m function addressable: ANALYSIS_prefill_transmit_fields
+[92mPASSED[0m function addressable: ANALYSIS_open_transmit_config_prompt
+[92mPASSED[0m function addressable: ANALYSIS_open_transmit_auth_prompt
+[92mPASSED[0m function addressable: ANALYSIS_authorize_transmission
+[92mPASSED[0m function addressable: ANALYSIS_parse_transmit_integer
+[92mPASSED[0m function addressable: ANALYSIS_parse_transmit_signed_integer
+[92mPASSED[0m function addressable: ANALYSIS_submit_transmission_settings
+[92mPASSED[0m function addressable: ANALYSIS_update_transmission_state
+[92mPASSED[0m function addressable: ANALYSIS_draw_transmit_auth_prompt
+[92mPASSED[0m function addressable: ANALYSIS_draw_transmit_config_prompt
+[92mPASSED[0m function addressable: ANALYSIS_draw_animated_transmit_waves
+[92mPASSED[0m function addressable: ANALYSIS_draw_transmit_progress_prompt
+[92mPASSED[0m function addressable: ANALYSIS_close_transmit_result
+[92mPASSED[0m function addressable: ANALYSIS_draw_transmit_result_prompt
+[92mPASSED[0m function addressable: ANALYSIS_handle_transmit_auth_event
+[92mPASSED[0m function addressable: ANALYSIS_handle_transmit_config_event
+[92mPASSED[0m function addressable: ANALYSIS_handle_transmit_progress_event
+[92mPASSED[0m function addressable: ANALYSIS_handle_transmit_result_event
+[92mPASSED[0m function addressable: ANALYSIS_get_multithread_prompt_rects
+[92mPASSED[0m function addressable: ANALYSIS_draw_multithread_prompt
+[92mPASSED[0m function addressable: ANALYSIS_set_multithread_enabled
+[92mPASSED[0m function addressable: ANALYSIS_handle_multithread_prompt_event
+[92mPASSED[0m function addressable: ANALYSIS_get_delete_confirm_rects
+[92mPASSED[0m function addressable: ANALYSIS_draw_delete_confirm_menu
+[92mPASSED[0m function addressable: ANALYSIS_open_delete_confirm
+[92mPASSED[0m function addressable: ANALYSIS_delete_confirmed_file
+[92mPASSED[0m function addressable: ANALYSIS_handle_delete_confirm_event
+[92mPASSED[0m function addressable: ANALYSIS_draw_signal_menu
+[92mPASSED[0m function addressable: ANALYSIS_signal_parse_double_field
+[92mPASSED[0m function addressable: ANALYSIS_signal_make_base_name
+[92mPASSED[0m function addressable: ANALYSIS_signal_sanitize_output_filename
+[92mPASSED[0m function addressable: ANALYSIS_signal_copy_component
+[92mPASSED[0m function addressable: ANALYSIS_signal_build_live_filename
+[92mPASSED[0m function addressable: ANALYSIS_signal_refresh_filename_if_auto
+[92mPASSED[0m function addressable: ANALYSIS_draw_centered_button_text
+[92mPASSED[0m function addressable: ANALYSIS_signal_copy_crop
+[92mPASSED[0m function addressable: ANALYSIS_signal_apply_crop_settings
+[92mPASSED[0m function addressable: ANALYSIS_get_current_time_range
+[92mPASSED[0m function addressable: ANALYSIS_get_current_filter_bins
+[92mPASSED[0m function addressable: ANALYSIS_noise_sample_is_muted
+[92mPASSED[0m function addressable: ANALYSIS_zero_noise_samples
+[92mPASSED[0m function addressable: ANALYSIS_copy_crop_with_optional_noise
+[92mPASSED[0m function addressable: ANALYSIS_process_crop_frequency_and_noise
+[92mPASSED[0m function addressable: ANALYSIS_build_crop_filename
+[92mPASSED[0m function addressable: ANALYSIS_crop_current_selection
+[92mPASSED[0m function addressable: ANALYSIS_handle_signal_menu_event
+[92mPASSED[0m function addressable: ANALYSIS_draw_workstation_overlays
+[92mPASSED[0m function addressable: ANALYSIS_wrap_phase
+[92mPASSED[0m function addressable: ANALYSIS_gray
+[92mPASSED[0m function addressable: ANALYSIS_is_center_display_bin
+[92mPASSED[0m function addressable: ANALYSIS_spectrogram_display_db
+[92mPASSED[0m function addressable: ANALYSIS_load_iq_blocks_worker
+[92mPASSED[0m function addressable: ANALYSIS_load_iq_blocks_multithreaded
+[92mPASSED[0m function addressable: ANALYSIS_constellation_double_compare
+[92mPASSED[0m function addressable: ANALYSIS_constellation_next_power_of_two
+[92mPASSED[0m function addressable: ANALYSIS_constellation_apply_frequency_correction
+[92mPASSED[0m function addressable: ANALYSIS_constellation_complex_power
+[92mPASSED[0m function addressable: ANALYSIS_constellation_estimate_mth_frequency
+[92mPASSED[0m function addressable: ANALYSIS_constellation_mth_coherence
+[92mPASSED[0m function addressable: ANALYSIS_constellation_estimate_direct_frequency
+[92mPASSED[0m function addressable: ANALYSIS_constellation_prepare_samples
+[92mPASSED[0m function addressable: ANALYSIS_constellation_kmeans_1d
+[92mPASSED[0m function addressable: ANALYSIS_constellation_psk_score
+[92mPASSED[0m function addressable: ANALYSIS_constellation_qam_score
+[92mPASSED[0m function addressable: ANALYSIS_constellation_ask_score
+[92mPASSED[0m function addressable: ANALYSIS_constellation_collect_candidate
+[92mPASSED[0m function addressable: ANALYSIS_constellation_transition_timing_score
+[92mPASSED[0m function addressable: ANALYSIS_constellation_find_symbol_timing
+[92mPASSED[0m function addressable: ANALYSIS_constellation_normalize_output
+[92mPASSED[0m function addressable: ANALYSIS_constellation_estimate_psk_frequency_fft
+[92mPASSED[0m function addressable: ANALYSIS_constellation_estimate_qam_frequency_fft
+[92mPASSED[0m function addressable: ANALYSIS_constellation_estimate_spectral_center
+[92mPASSED[0m function addressable: ANALYSIS_constellation_estimate_symbol_rate
+[92mPASSED[0m function addressable: ANALYSIS_constellation_find_center_offset
+[92mPASSED[0m function addressable: ANALYSIS_constellation_find_symbol_timing_v2
+[92mPASSED[0m function addressable: ANALYSIS_constellation_psk_residual_frequency
+[92mPASSED[0m function addressable: ANALYSIS_constellation_qam_residual_frequency
+[92mPASSED[0m function addressable: ANALYSIS_constellation_build_linear_family
+[92mPASSED[0m function addressable: ANALYSIS_constellation_fsk_kmeans_1d
+[92mPASSED[0m function addressable: ANALYSIS_constellation_build_fsk_family
+[92mPASSED[0m function addressable: ANALYSIS_constellation_ofdm_cp_score
+[92mPASSED[0m function addressable: ANALYSIS_constellation_build_ofdm_family_generic
+[92mPASSED[0m function addressable: ANALYSIS_constellation_ofdm_cp_metrics
+[92mPASSED[0m function addressable: ANALYSIS_constellation_ofdm_has_periodic_neighbor
+[92mPASSED[0m function addressable: ANALYSIS_constellation_build_known_ofdm_qpsk
+[92mPASSED[0m function addressable: ANALYSIS_constellation_build_ofdm_family
+[92mPASSED[0m function addressable: ANALYSIS_build_selected_constellation
+[92mPASSED[0m function addressable: ANALYSIS_render_workstation_data
+[92mPASSED[0m function addressable: ANALYSIS_enter_mode
+[92mPASSED[0m function addressable: ANALYSIS_is_text_entry_active
+[92mPASSED[0m function addressable: ANALYSIS_handle_event
+[92mPASSED[0m analysis clamp low
+[92mPASSED[0m analysis clamp high
+[92mPASSED[0m analysis secure clear
+[92mPASSED[0m analysis parses center frequency
+[92mPASSED[0m analysis parses sample rate
+[92mPASSED[0m analysis synthetic recording
+[92mPASSED[0m analysis scans recording directory
+[92mPASSED[0m analysis parses TX unsigned
+[92mPASSED[0m analysis parses TX signed
+[92mPASSED[0m analysis enters mode
+[92mPASSED[0m analysis text-entry state valid
+[92mPASSED[0m analysis render data smoke
+
+AnalysisWorkstation.c summary: [92m232 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m AnalysisWorkstation.c runtime suite
+
+=== AuthAdmin.c ===
+[92mPASSED[0m AuthAdmin.c test compilation
+[92mPASSED[0m AuthAdmin.c test linking
+
+RetroSpectrum target: AuthAdmin.c
+Expected function definitions: 46
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: admin_role_name
+[92mPASSED[0m function addressable: admin_role_color
+[92mPASSED[0m function addressable: admin_role_is_privileged
+[92mPASSED[0m function addressable: admin_secure_zero
+[92mPASSED[0m function addressable: admin_copy
+[92mPASSED[0m function addressable: admin_point_in_rect
+[92mPASSED[0m function addressable: admin_fill
+[92mPASSED[0m function addressable: admin_outline
+[92mPASSED[0m function addressable: admin_text
+[92mPASSED[0m function addressable: admin_centered
+[92mPASSED[0m function addressable: admin_button
+[92mPASSED[0m function addressable: admin_mask
+[92mPASSED[0m function addressable: admin_field
+[92mPASSED[0m function addressable: admin_set_status
+[92mPASSED[0m function addressable: admin_clear_form
+[92mPASSED[0m function addressable: admin_refresh_users
+[92mPASSED[0m function addressable: admin_selected_valid
+[92mPASSED[0m function addressable: admin_can_modify_selected
+[92mPASSED[0m function addressable: admin_can_delete_selected
+[92mPASSED[0m function addressable: admin_can_change_selected_role
+[92mPASSED[0m function addressable: admin_username_valid
+[92mPASSED[0m function addressable: admin_main_panel
+[92mPASSED[0m function addressable: admin_form_panel
+[92mPASSED[0m function addressable: admin_form_field
+[92mPASSED[0m function addressable: admin_render_users
+[92mPASSED[0m function addressable: admin_render_create
+[92mPASSED[0m function addressable: admin_group_secret
+[92mPASSED[0m function addressable: admin_render_totp
+[92mPASSED[0m function addressable: admin_render_reset
+[92mPASSED[0m function addressable: admin_render_remove_totp
+[92mPASSED[0m function addressable: admin_render_delete
+[92mPASSED[0m function addressable: admin_render
+[92mPASSED[0m function addressable: admin_append
+[92mPASSED[0m function addressable: admin_backspace
+[92mPASSED[0m function addressable: admin_handle_text
+[92mPASSED[0m function addressable: admin_handle_backspace
+[92mPASSED[0m function addressable: admin_cycle
+[92mPASSED[0m function addressable: admin_submit_create
+[92mPASSED[0m function addressable: admin_submit_totp
+[92mPASSED[0m function addressable: admin_submit_set_totp
+[92mPASSED[0m function addressable: admin_submit_remove_totp
+[92mPASSED[0m function addressable: admin_submit_reset
+[92mPASSED[0m function addressable: admin_submit_role
+[92mPASSED[0m function addressable: admin_submit_delete
+[92mPASSED[0m function addressable: admin_handle_mouse
+[92mPASSED[0m function addressable: AUTH_ADMIN_run
+[92mPASSED[0m admin role name
+[92mPASSED[0m co-admin role name
+[92mPASSED[0m user role name
+[92mPASSED[0m admin privileged
+[92mPASSED[0m co-admin privileged
+[92mPASSED[0m user not privileged
+[92mPASSED[0m role colors differ
+[92mPASSED[0m admin copy
+[92mPASSED[0m admin point inside
+[92mPASSED[0m admin point outside
+[92mPASSED[0m admin username valid
+[92mPASSED[0m admin username rejects short
+[92mPASSED[0m admin username rejects spaces
+
+AuthAdmin.c summary: [92m61 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m AuthAdmin.c runtime suite
+
+=== AuthScreen.c ===
+[92mPASSED[0m AuthScreen.c test compilation
+[92mPASSED[0m AuthScreen.c test linking
+
+RetroSpectrum target: AuthScreen.c
+Expected function definitions: 127
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: auth_point_in_rect
+[92mPASSED[0m function addressable: auth_secure_zero
+[92mPASSED[0m function addressable: auth_constant_time_equal
+[92mPASSED[0m function addressable: auth_copy_text
+[92mPASSED[0m function addressable: auth_set_status
+[92mPASSED[0m function addressable: auth_utf8_previous_index
+[92mPASSED[0m function addressable: auth_utf8_next_index
+[92mPASSED[0m function addressable: auth_import_path_clamp_cursor
+[92mPASSED[0m function addressable: auth_import_path_replace_selection
+[92mPASSED[0m function addressable: auth_import_path_insert
+[92mPASSED[0m function addressable: auth_import_path_backspace
+[92mPASSED[0m function addressable: auth_import_path_delete
+[92mPASSED[0m function addressable: auth_import_path_copy
+[92mPASSED[0m function addressable: auth_import_path_paste
+[92mPASSED[0m function addressable: auth_clear_sensitive
+[92mPASSED[0m function addressable: auth_draw_text
+[92mPASSED[0m function addressable: auth_draw_centered_text
+[92mPASSED[0m function addressable: auth_fill_rect
+[92mPASSED[0m function addressable: auth_outline_rect
+[92mPASSED[0m function addressable: auth_draw_grid
+[92mPASSED[0m function addressable: auth_top_right_button_rect
+[92mPASSED[0m function addressable: auth_top_left_button_rect
+[92mPASSED[0m function addressable: auth_database_key_button_rect
+[92mPASSED[0m function addressable: auth_make_panel
+[92mPASSED[0m function addressable: auth_field_rect
+[92mPASSED[0m function addressable: auth_primary_button_rect
+[92mPASSED[0m function addressable: auth_checkbox_rect
+[92mPASSED[0m function addressable: auth_copy_secret_button_rect
+[92mPASSED[0m function addressable: auth_create_two_factor_code_rect
+[92mPASSED[0m function addressable: auth_mask_text
+[92mPASSED[0m function addressable: auth_draw_field
+[92mPASSED[0m function addressable: auth_path_line_end
+[92mPASSED[0m function addressable: auth_draw_import_path_field
+[92mPASSED[0m function addressable: auth_draw_button
+[92mPASSED[0m function addressable: auth_draw_danger_button
+[92mPASSED[0m function addressable: auth_draw_trusted_server_header
+[92mPASSED[0m function addressable: auth_format_12_hour_time
+[92mPASSED[0m function addressable: auth_draw_lock_icon
+[92mPASSED[0m function addressable: auth_draw_identity_status
+[92mPASSED[0m function addressable: auth_base32_encode
+[92mPASSED[0m function addressable: auth_group_secret
+[92mPASSED[0m function addressable: auth_render
+[92mPASSED[0m function addressable: auth_append_text
+[92mPASSED[0m function addressable: auth_backspace
+[92mPASSED[0m function addressable: auth_ensure_directory
+[92mPASSED[0m function addressable: auth_database_path
+[92mPASSED[0m function addressable: auth_totp_master_key_path
+[92mPASSED[0m function addressable: auth_read_exact_fd
+[92mPASSED[0m function addressable: auth_write_exact_fd
+[92mPASSED[0m function addressable: auth_load_existing_totp_master_key
+[92mPASSED[0m function addressable: auth_load_or_create_totp_master_key
+[92mPASSED[0m function addressable: auth_derive_server_totp_key
+[92mPASSED[0m function addressable: auth_execute_sql
+[92mPASSED[0m function addressable: auth_ensure_admin_column
+[92mPASSED[0m function addressable: auth_table_has_column
+[92mPASSED[0m function addressable: auth_ensure_role_column
+[92mPASSED[0m function addressable: auth_ensure_password_columns
+[92mPASSED[0m function addressable: auth_rate_limit_scope
+[92mPASSED[0m function addressable: auth_rate_limit_remaining
+[92mPASSED[0m function addressable: auth_rate_limit_failure
+[92mPASSED[0m function addressable: auth_rate_limit_success
+[92mPASSED[0m function addressable: auth_rate_limit_guard
+[92mPASSED[0m function addressable: auth_rate_limit_note_failure
+[92mPASSED[0m function addressable: auth_open_database
+[92mPASSED[0m function addressable: auth_count_users
+[92mPASSED[0m function addressable: auth_username_valid
+[92mPASSED[0m function addressable: auth_user_exists
+[92mPASSED[0m function addressable: auth_pbkdf2_derive_key_with_digest
+[92mPASSED[0m function addressable: auth_pbkdf2_derive_key
+[92mPASSED[0m function addressable: auth_digest_from_name
+[92mPASSED[0m function addressable: auth_totp_kdf_valid
+[92mPASSED[0m function addressable: auth_hash_password_argon2id
+[92mPASSED[0m function addressable: auth_verify_argon2id
+[92mPASSED[0m function addressable: auth_dummy_password_work
+[92mPASSED[0m function addressable: auth_derive_totp_encryption_key
+[92mPASSED[0m function addressable: auth_encrypt_totp_secret
+[92mPASSED[0m function addressable: auth_decrypt_totp_secret
+[92mPASSED[0m function addressable: auth_store_server_wrapped_totp
+[92mPASSED[0m function addressable: auth_migrate_totp_to_server_key
+[92mPASSED[0m function addressable: auth_load_user
+[92mPASSED[0m function addressable: auth_upgrade_legacy_password
+[92mPASSED[0m function addressable: auth_verify_password
+[92mPASSED[0m function addressable: auth_insert_user
+[92mPASSED[0m function addressable: auth_totp_at_counter
+[92mPASSED[0m function addressable: auth_verify_totp_counter_with_algorithm
+[92mPASSED[0m function addressable: auth_verify_totp_with_algorithm
+[92mPASSED[0m function addressable: auth_verify_totp
+[92mPASSED[0m function addressable: auth_reset_for_login
+[92mPASSED[0m function addressable: auth_reset_for_create
+[92mPASSED[0m function addressable: auth_reset_for_authorization
+[92mPASSED[0m function addressable: auth_submit_login
+[92mPASSED[0m function addressable: auth_submit_login_two_factor
+[92mPASSED[0m function addressable: auth_submit_authorize_create
+[92mPASSED[0m function addressable: auth_submit_authorize_create_two_factor
+[92mPASSED[0m function addressable: auth_submit_create
+[92mPASSED[0m function addressable: auth_submit_create_two_factor
+[92mPASSED[0m function addressable: AUTH_set_client_only_mode
+[92mPASSED[0m function addressable: auth_submit_remote
+[92mPASSED[0m function addressable: auth_submit
+[92mPASSED[0m function addressable: auth_run_transition
+[92mPASSED[0m function addressable: auth_cycle_field
+[92mPASSED[0m function addressable: auth_handle_text_input
+[92mPASSED[0m function addressable: auth_handle_backspace
+[92mPASSED[0m function addressable: auth_handle_mouse
+[92mPASSED[0m function addressable: AUTH_get_server_id
+[92mPASSED[0m function addressable: AUTH_get_server_name
+[92mPASSED[0m function addressable: AUTH_get_current_username
+[92mPASSED[0m function addressable: AUTH_run
+[92mPASSED[0m function addressable: auth_public_error
+[92mPASSED[0m function addressable: auth_role_is_privileged
+[92mPASSED[0m function addressable: auth_get_user_role
+[92mPASSED[0m function addressable: auth_authorize_account_management
+[92mPASSED[0m function addressable: AUTH_SERVER_authenticate
+[92mPASSED[0m function addressable: AUTH_SERVER_verify_password
+[92mPASSED[0m function addressable: AUTH_verify_current_password
+[92mPASSED[0m function addressable: AUTH_DB_server_list_users
+[92mPASSED[0m function addressable: AUTH_DB_list_users
+[92mPASSED[0m function addressable: AUTH_DB_create_user
+[92mPASSED[0m function addressable: AUTH_DB_reset_password
+[92mPASSED[0m function addressable: AUTH_DB_set_totp
+[92mPASSED[0m function addressable: AUTH_DB_remove_totp
+[92mPASSED[0m function addressable: AUTH_DB_set_role
+[92mPASSED[0m function addressable: AUTH_DB_delete_user
+[92mPASSED[0m function addressable: AUTH_DB_user_count
+[92mPASSED[0m function addressable: AUTH_TOTP_generate_secret
+[92mPASSED[0m function addressable: AUTH_TOTP_verify
+[92mPASSED[0m function addressable: AUTH_TOTP_base32
+[92mPASSED[0m auth point inside
+[92mPASSED[0m auth point outside
+[92mPASSED[0m auth constant-time equal
+[92mPASSED[0m auth constant-time unequal
+[92mPASSED[0m auth text copy
+[92mPASSED[0m auth UTF-8 previous ASCII
+[92mPASSED[0m auth UTF-8 next ASCII
+[92mPASSED[0m auth username valid
+[92mPASSED[0m auth username invalid
+[92mPASSED[0m auth role privilege
+[92mPASSED[0m generate TOTP secret
+[92mPASSED[0m base32 TOTP secret
+[92mPASSED[0m verify current TOTP
+[92mPASSED[0m reject invalid TOTP
+[92mPASSED[0m unlock auth database
+[92mPASSED[0m create bootstrap administrator
+[92mPASSED[0m auth database user count
+[92mPASSED[0m local primary admin authentication
+[92mPASSED[0m remote primary admin restriction
+[92mPASSED[0m create ordinary verification user
+[92mPASSED[0m verify correct password
+[92mPASSED[0m reject wrong password
+[92mPASSED[0m primary admin reauthorization restriction
+
+AuthScreen.c summary: [92m152 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m AuthScreen.c runtime suite
+
+=== CaseManagementWorkstation.c ===
+[92mPASSED[0m CaseManagementWorkstation.c test compilation
+[92mPASSED[0m CaseManagementWorkstation.c test linking
+
+RetroSpectrum target: CaseManagementWorkstation.c
+Expected function definitions: 229
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: case_country_count
+[92mPASSED[0m function addressable: case_country_index_by_name
+[92mPASSED[0m function addressable: case_country_flag_texture
+[92mPASSED[0m function addressable: case_get_adjusted_mouse_state
+[92mPASSED[0m function addressable: case_is_complex16_file
+[92mPASSED[0m function addressable: case_name_compare
+[92mPASSED[0m function addressable: case_scan_source_files
+[92mPASSED[0m function addressable: case_point_in_rect
+[92mPASSED[0m function addressable: case_copy_text
+[92mPASSED[0m function addressable: case_limit_double
+[92mPASSED[0m function addressable: case_set_status
+[92mPASSED[0m function addressable: case_draw_text_centered
+[92mPASSED[0m function addressable: case_draw_button
+[92mPASSED[0m function addressable: case_shorten
+[92mPASSED[0m function addressable: case_find_block_index_by_id
+[92mPASSED[0m function addressable: case_clear_block_selection
+[92mPASSED[0m function addressable: case_is_block_selected
+[92mPASSED[0m function addressable: case_selected_block_count
+[92mPASSED[0m function addressable: case_sync_primary_selection
+[92mPASSED[0m function addressable: case_select_only_block
+[92mPASSED[0m function addressable: case_toggle_block_selection
+[92mPASSED[0m function addressable: case_selected_block_is_case
+[92mPASSED[0m function addressable: case_push_undo_state
+[92mPASSED[0m function addressable: case_undo_last_change
+[92mPASSED[0m function addressable: case_should_show_field
+[92mPASSED[0m function addressable: case_rect_is_valid
+[92mPASSED[0m function addressable: case_rects_intersect
+[92mPASSED[0m function addressable: case_make_normalized_rect
+[92mPASSED[0m function addressable: case_select_blocks_in_rect
+[92mPASSED[0m function addressable: case_canvas_rect
+[92mPASSED[0m function addressable: case_editor_rect
+[92mPASSED[0m function addressable: case_ensure_view
+[92mPASSED[0m function addressable: case_world_to_screen_x
+[92mPASSED[0m function addressable: case_world_to_screen_y
+[92mPASSED[0m function addressable: case_screen_to_world_x
+[92mPASSED[0m function addressable: case_screen_to_world_y
+[92mPASSED[0m function addressable: case_block_world_rect
+[92mPASSED[0m function addressable: case_block_screen_rect
+[92mPASSED[0m function addressable: case_connector_px
+[92mPASSED[0m function addressable: case_block_endpoint_rect
+[92mPASSED[0m function addressable: case_endpoint_center
+[92mPASSED[0m function addressable: case_endpoint_at
+[92mPASSED[0m function addressable: case_nearest_endpoint
+[92mPASSED[0m function addressable: case_block_at
+[92mPASSED[0m function addressable: case_status_color
+[92mPASSED[0m function addressable: case_priority_color
+[92mPASSED[0m function addressable: case_make_timeline_text
+[92mPASSED[0m function addressable: case_seed_default_blocks
+[92mPASSED[0m function addressable: case_csv_write_field
+[92mPASSED[0m function addressable: case_csv_write_multiline_field
+[92mPASSED[0m function addressable: case_unescape_multiline
+[92mPASSED[0m function addressable: case_has_extension
+[92mPASSED[0m function addressable: case_normalize_file_name
+[92mPASSED[0m function addressable: case_is_case_graph_file
+[92mPASSED[0m function addressable: case_scan_case_graph_files
+[92mPASSED[0m function addressable: case_write_blocks_csv
+[92mPASSED[0m function addressable: case_write_links_csv
+[92mPASSED[0m function addressable: case_database_case_number
+[92mPASSED[0m function addressable: case_serialize
+[92mPASSED[0m function addressable: case_save
+[92mPASSED[0m function addressable: case_reset_graph_for_load
+[92mPASSED[0m function addressable: case_read_csv_field
+[92mPASSED[0m function addressable: case_text_equals_ci
+[92mPASSED[0m function addressable: case_text_contains_ci
+[92mPASSED[0m function addressable: case_trim_text
+[92mPASSED[0m function addressable: case_case_option_exists
+[92mPASSED[0m function addressable: case_add_case_option
+[92mPASSED[0m function addressable: case_scan_case_files
+[92mPASSED[0m function addressable: case_build_case_matches
+[92mPASSED[0m function addressable: case_build_country_matches
+[92mPASSED[0m function addressable: case_scan_users
+[92mPASSED[0m function addressable: case_build_user_matches
+[92mPASSED[0m function addressable: case_clamp_user_scroll
+[92mPASSED[0m function addressable: case_select_user_option
+[92mPASSED[0m function addressable: case_select_case_option
+[92mPASSED[0m function addressable: case_select_country_option
+[92mPASSED[0m function addressable: case_parse_block_line
+[92mPASSED[0m function addressable: case_parse_link_line
+[92mPASSED[0m function addressable: case_load_stream
+[92mPASSED[0m function addressable: case_load_current_file
+[92mPASSED[0m function addressable: case_load
+[92mPASSED[0m function addressable: case_add_block_typed
+[92mPASSED[0m function addressable: case_add_block
+[92mPASSED[0m function addressable: case_duplicate_selected_block
+[92mPASSED[0m function addressable: case_link_exists
+[92mPASSED[0m function addressable: case_add_link
+[92mPASSED[0m function addressable: case_id_is_marked_for_removal
+[92mPASSED[0m function addressable: case_delete_selected
+[92mPASSED[0m function addressable: case_selected_field_text
+[92mPASSED[0m function addressable: case_field_max_len
+[92mPASSED[0m function addressable: case_field_storage_size
+[92mPASSED[0m function addressable: case_text_allowed_for_field
+[92mPASSED[0m function addressable: case_description_range_width
+[92mPASSED[0m function addressable: case_auto_wrap_description_text
+[92mPASSED[0m function addressable: case_insert_text
+[92mPASSED[0m function addressable: case_backspace
+[92mPASSED[0m function addressable: case_delete_at_cursor
+[92mPASSED[0m function addressable: case_description_clear_selection
+[92mPASSED[0m function addressable: case_description_selection_range
+[92mPASSED[0m function addressable: case_description_delete_selection
+[92mPASSED[0m function addressable: case_description_start_selection_at_cursor
+[92mPASSED[0m function addressable: case_description_update_selection_to_cursor
+[92mPASSED[0m function addressable: case_description_build_lines
+[92mPASSED[0m function addressable: case_description_move_horizontal
+[92mPASSED[0m function addressable: case_description_move_vertical
+[92mPASSED[0m function addressable: case_set_description_cursor_from_mouse
+[92mPASSED[0m function addressable: case_cycle_status
+[92mPASSED[0m function addressable: case_days_in_month
+[92mPASSED[0m function addressable: case_first_weekday
+[92mPASSED[0m function addressable: case_today_month_year
+[92mPASSED[0m function addressable: case_parse_mmddyyyy
+[92mPASSED[0m function addressable: case_open_calendar_for_field
+[92mPASSED[0m function addressable: case_shift_calendar_month
+[92mPASSED[0m function addressable: case_set_calendar_day
+[92mPASSED[0m function addressable: case_paste_description_from_clipboard
+[92mPASSED[0m function addressable: CASE_MANAGEMENT_enter_mode
+[92mPASSED[0m function addressable: CASE_MANAGEMENT_exit_mode
+[92mPASSED[0m function addressable: CASE_MANAGEMENT_is_text_entry_active
+[92mPASSED[0m function addressable: case_toolbar_rects
+[92mPASSED[0m function addressable: case_editor_field_rects
+[92mPASSED[0m function addressable: case_field_hit_rect
+[92mPASSED[0m function addressable: case_description_open_button_rect
+[92mPASSED[0m function addressable: case_status_dropdown_rect
+[92mPASSED[0m function addressable: case_calendar_rect
+[92mPASSED[0m function addressable: case_source_popup_rect
+[92mPASSED[0m function addressable: case_file_search_popup_rect
+[92mPASSED[0m function addressable: case_file_search_input_rect
+[92mPASSED[0m function addressable: case_description_popup_rect
+[92mPASSED[0m function addressable: case_file_search_matches
+[92mPASSED[0m function addressable: case_file_search_filtered_count
+[92mPASSED[0m function addressable: case_file_search_filtered_index_at
+[92mPASSED[0m function addressable: case_file_search_clamp_scroll
+[92mPASSED[0m function addressable: case_close_file_search_menu
+[92mPASSED[0m function addressable: case_open_file_search_menu
+[92mPASSED[0m function addressable: case_file_search_select_index
+[92mPASSED[0m function addressable: case_file_search_insert_text
+[92mPASSED[0m function addressable: case_file_search_backspace
+[92mPASSED[0m function addressable: case_file_search_delete
+[92mPASSED[0m function addressable: case_file_name_insert_text
+[92mPASSED[0m function addressable: case_file_name_backspace
+[92mPASSED[0m function addressable: case_file_name_delete
+[92mPASSED[0m function addressable: case_handle_file_search_event
+[92mPASSED[0m function addressable: case_clamp_description_scroll
+[92mPASSED[0m function addressable: case_set_description_cursor_from_mouse_scrolled
+[92mPASSED[0m function addressable: case_source_name_matches_search
+[92mPASSED[0m function addressable: case_source_filtered_count
+[92mPASSED[0m function addressable: case_source_filtered_index_at
+[92mPASSED[0m function addressable: case_source_search_rect
+[92mPASSED[0m function addressable: case_clamp_source_scroll
+[92mPASSED[0m function addressable: case_source_short_text
+[92mPASSED[0m function addressable: case_draw_source_modal_button
+[92mPASSED[0m function addressable: case_close_source_file_search_menu
+[92mPASSED[0m function addressable: case_open_source_file_search_menu
+[92mPASSED[0m function addressable: case_source_file_search_select_index
+[92mPASSED[0m function addressable: case_handle_source_popup_click
+[92mPASSED[0m function addressable: case_handle_status_dropdown_click
+[92mPASSED[0m function addressable: case_handle_calendar_click
+[92mPASSED[0m function addressable: case_case_dropdown_rect
+[92mPASSED[0m function addressable: case_country_dropdown_rect
+[92mPASSED[0m function addressable: case_user_dropdown_rect
+[92mPASSED[0m function addressable: case_handle_case_dropdown_click
+[92mPASSED[0m function addressable: case_handle_country_dropdown_click
+[92mPASSED[0m function addressable: case_handle_user_dropdown_click
+[92mPASSED[0m function addressable: case_clamp_case_scroll
+[92mPASSED[0m function addressable: case_clamp_country_scroll
+[92mPASSED[0m function addressable: case_metadata_is_document_name
+[92mPASSED[0m function addressable: case_metadata_hash
+[92mPASSED[0m function addressable: case_metadata_document_name
+[92mPASSED[0m function addressable: case_metadata_compare
+[92mPASSED[0m function addressable: case_metadata_find
+[92mPASSED[0m function addressable: case_metadata_add
+[92mPASSED[0m function addressable: case_metadata_parse_content
+[92mPASSED[0m function addressable: case_metadata_load_legacy_descriptions
+[92mPASSED[0m function addressable: case_metadata_sync_editor
+[92mPASSED[0m function addressable: case_metadata_refresh
+[92mPASSED[0m function addressable: case_metadata_filtered_index_at
+[92mPASSED[0m function addressable: case_metadata_filtered_count
+[92mPASSED[0m function addressable: case_metadata_clamp_scroll
+[92mPASSED[0m function addressable: case_metadata_select
+[92mPASSED[0m function addressable: case_metadata_begin_create
+[92mPASSED[0m function addressable: case_metadata_begin_rename
+[92mPASSED[0m function addressable: case_metadata_save_document
+[92mPASSED[0m function addressable: case_metadata_first_csv_field_end
+[92mPASSED[0m function addressable: case_metadata_rewrite_classification
+[92mPASSED[0m function addressable: case_metadata_classification_name
+[92mPASSED[0m function addressable: case_metadata_rename_classifications
+[92mPASSED[0m function addressable: case_metadata_rewrite_graph
+[92mPASSED[0m function addressable: case_metadata_rename_graphs
+[92mPASSED[0m function addressable: case_metadata_rename_selected
+[92mPASSED[0m function addressable: case_metadata_save_current
+[92mPASSED[0m function addressable: case_metadata_delete_case
+[92mPASSED[0m function addressable: case_metadata_insert_text
+[92mPASSED[0m function addressable: case_metadata_backspace
+[92mPASSED[0m function addressable: case_metadata_delete_at_cursor
+[92mPASSED[0m function addressable: case_metadata_paste
+[92mPASSED[0m function addressable: case_metadata_draw_input
+[92mPASSED[0m function addressable: case_metadata_draw_description
+[92mPASSED[0m function addressable: case_draw_case_browser
+[92mPASSED[0m function addressable: case_metadata_cancel_edit
+[92mPASSED[0m function addressable: case_metadata_handle_delete_confirmation
+[92mPASSED[0m function addressable: case_metadata_handle_event
+[92mPASSED[0m function addressable: case_metadata_draw_delete_confirmation
+[92mPASSED[0m function addressable: CASE_MANAGEMENT_handle_event
+[92mPASSED[0m function addressable: case_draw_grid
+[92mPASSED[0m function addressable: case_draw_selection_box
+[92mPASSED[0m function addressable: case_side_vector
+[92mPASSED[0m function addressable: case_guess_end_side_for_preview
+[92mPASSED[0m function addressable: case_route_points
+[92mPASSED[0m function addressable: case_link_points
+[92mPASSED[0m function addressable: case_segment_distance2
+[92mPASSED[0m function addressable: case_link_at
+[92mPASSED[0m function addressable: case_draw_link
+[92mPASSED[0m function addressable: case_draw_arrow_head
+[92mPASSED[0m function addressable: case_draw_link_preview
+[92mPASSED[0m function addressable: case_draw_block
+[92mPASSED[0m function addressable: case_draw_input
+[92mPASSED[0m function addressable: case_draw_status_dropdown
+[92mPASSED[0m function addressable: case_draw_calendar
+[92mPASSED[0m function addressable: case_text_width
+[92mPASSED[0m function addressable: case_draw_description_selection
+[92mPASSED[0m function addressable: case_draw_description_box
+[92mPASSED[0m function addressable: case_draw_source_popup
+[92mPASSED[0m function addressable: case_draw_description_popup
+[92mPASSED[0m function addressable: case_draw_file_search_popup
+[92mPASSED[0m function addressable: case_draw_case_dropdown
+[92mPASSED[0m function addressable: case_draw_country_dropdown
+[92mPASSED[0m function addressable: case_draw_user_dropdown
+[92mPASSED[0m function addressable: case_draw_editor
+[92mPASSED[0m function addressable: CASE_MANAGEMENT_draw_workstation
+[92mPASSED[0m case complex16 extension
+[92mPASSED[0m case complex16 extension is case-sensitive
+[92mPASSED[0m case point inside
+[92mPASSED[0m case copy text
+[92mPASSED[0m case clamp
+[92mPASSED[0m case normalized rectangle
+[92mPASSED[0m case extension helper
+[92mPASSED[0m case extension helper rejects extensionless name
+[92mPASSED[0m case filename normalization
+[92mPASSED[0m case text equals CI
+[92mPASSED[0m case text contains CI
+[92mPASSED[0m case trim
+[92mPASSED[0m case date parse
+[92mPASSED[0m case metadata document marker
+[92mPASSED[0m case metadata hash deterministic
+[92mPASSED[0m case route points
+[92mPASSED[0m case management text state valid
+[92mPASSED[0m case event smoke
+[93mSKIPPED[0m case draw smoke — SDL/TTF renderer unavailable
+
+CaseManagementWorkstation.c summary: [92m249 passed[0m, [91m0 failed[0m, [93m1 skipped[0m
+[92mPASSED[0m CaseManagementWorkstation.c runtime suite
+
+=== ClassificationWorkstation.c ===
+[92mPASSED[0m ClassificationWorkstation.c test compilation
+[92mPASSED[0m ClassificationWorkstation.c test linking
+
+RetroSpectrum target: ClassificationWorkstation.c
+Expected function definitions: 81
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: CLASSIFICATION_get_adjusted_mouse_state
+[92mPASSED[0m function addressable: CLASSIFICATION_country_count
+[92mPASSED[0m function addressable: CLASSIFICATION_char_lower
+[92mPASSED[0m function addressable: CLASSIFICATION_text_contains_ci
+[92mPASSED[0m function addressable: CLASSIFICATION_text_equals_ci
+[92mPASSED[0m function addressable: CLASSIFICATION_trim_text
+[92mPASSED[0m function addressable: CLASSIFICATION_case_option_exists
+[92mPASSED[0m function addressable: CLASSIFICATION_add_case_option
+[92mPASSED[0m function addressable: CLASSIFICATION_scan_case_files
+[92mPASSED[0m function addressable: CLASSIFICATION_build_case_matches
+[92mPASSED[0m function addressable: CLASSIFICATION_select_case
+[92mPASSED[0m function addressable: CLASSIFICATION_find_country_exact
+[92mPASSED[0m function addressable: CLASSIFICATION_build_country_matches
+[92mPASSED[0m function addressable: CLASSIFICATION_select_country
+[92mPASSED[0m function addressable: CLASSIFICATION_get_flag_texture
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_flag_box
+[92mPASSED[0m function addressable: CLASSIFICATION_is_dropdown_field
+[92mPASSED[0m function addressable: CLASSIFICATION_option_count_for_field
+[92mPASSED[0m function addressable: CLASSIFICATION_option_for_field
+[92mPASSED[0m function addressable: CLASSIFICATION_clamp_dropdown_scroll
+[92mPASSED[0m function addressable: CLASSIFICATION_dropdown_visible_count
+[92mPASSED[0m function addressable: CLASSIFICATION_name_compare
+[92mPASSED[0m function addressable: CLASSIFICATION_is_complex16_file
+[92mPASSED[0m function addressable: CLASSIFICATION_append_text
+[92mPASSED[0m function addressable: CLASSIFICATION_backspace_text
+[92mPASSED[0m function addressable: CLASSIFICATION_text_range_width
+[92mPASSED[0m function addressable: CLASSIFICATION_clamp_notes_cursor
+[92mPASSED[0m function addressable: CLASSIFICATION_clear_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_selection_range
+[92mPASSED[0m function addressable: CLASSIFICATION_delete_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_insert_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_auto_wrap_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_paste_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_backspace_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_delete_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_build_lines
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_move_horizontal
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_move_vertical
+[92mPASSED[0m function addressable: CLASSIFICATION_set_notes_cursor_from_mouse
+[92mPASSED[0m function addressable: CLASSIFICATION_start_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_update_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_short_text
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_multiline_notes
+[92mPASSED[0m function addressable: CLASSIFICATION_get_layout
+[92mPASSED[0m function addressable: CLASSIFICATION_csv_escape
+[92mPASSED[0m function addressable: CLASSIFICATION_parse_file_metadata
+[92mPASSED[0m function addressable: CLASSIFICATION_load_selected_file_into_fields
+[92mPASSED[0m function addressable: CLASSIFICATION_prefill_from_analysis_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_scan_recordings
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_matches
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_filtered_count
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_filtered_index_at
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_popup_rect
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_input_rect
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_button_rect
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_clamp_scroll
+[92mPASSED[0m function addressable: CLASSIFICATION_open_file_search_menu
+[92mPASSED[0m function addressable: CLASSIFICATION_close_file_search_menu
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_select_index
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_insert_text
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_backspace
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_delete
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_modal_button
+[92mPASSED[0m function addressable: CLASSIFICATION_handle_file_search_event
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_file_search_button
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_file_search_popup
+[92mPASSED[0m function addressable: CLASSIFICATION_make_filename_safe
+[92mPASSED[0m function addressable: CLASSIFICATION_get_signal_datetime
+[92mPASSED[0m function addressable: CLASSIFICATION_append_csv_row
+[92mPASSED[0m function addressable: CLASSIFICATION_is_text_entry_active
+[92mPASSED[0m function addressable: CLASSIFICATION_enter_mode
+[92mPASSED[0m function addressable: CLASSIFICATION_exit_mode
+[92mPASSED[0m function addressable: CLASSIFICATION_handle_event
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_panel
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_selectable_row
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_input_field
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_dropdown
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_case_suggestions
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_country_suggestions
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_save_button
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_workstation
+[92mPASSED[0m classification lowercase
+[92mPASSED[0m classification contains CI
+[92mPASSED[0m classification equals CI
+[92mPASSED[0m classification trim
+[92mPASSED[0m classification parses frequency
+[92mPASSED[0m classification parses bandwidth
+[92mPASSED[0m classification text state valid
+[92mPASSED[0m classification event smoke
+[93mSKIPPED[0m classification draw smoke — SDL/TTF renderer unavailable
+
+ClassificationWorkstation.c summary: [92m91 passed[0m, [91m0 failed[0m, [93m1 skipped[0m
+[92mPASSED[0m ClassificationWorkstation.c runtime suite
+
+=== CorrelationWorkstation.c ===
+[92mPASSED[0m CorrelationWorkstation.c test compilation
+[92mPASSED[0m CorrelationWorkstation.c test linking
+
+RetroSpectrum target: CorrelationWorkstation.c
+Expected function definitions: 76
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: correlation_point_in_rect
+[92mPASSED[0m function addressable: correlation_clamp_double
+[92mPASSED[0m function addressable: correlation_set_status
+[92mPASSED[0m function addressable: correlation_worker_checkpoint
+[92mPASSED[0m function addressable: correlation_name_compare
+[92mPASSED[0m function addressable: correlation_result_compare
+[92mPASSED[0m function addressable: correlation_double_compare
+[92mPASSED[0m function addressable: correlation_has_iq_extension
+[92mPASSED[0m function addressable: correlation_parse_recording_metadata
+[92mPASSED[0m function addressable: correlation_scan_recordings
+[92mPASSED[0m function addressable: correlation_cache_path
+[92mPASSED[0m function addressable: correlation_parse_cache_buffer
+[92mPASSED[0m function addressable: correlation_serialize_cache
+[92mPASSED[0m function addressable: correlation_load_local_cache
+[92mPASSED[0m function addressable: correlation_load_server_cache_once
+[92mPASSED[0m function addressable: correlation_save_cache
+[92mPASSED[0m function addressable: correlation_find_cache_entry
+[92mPASSED[0m function addressable: correlation_prune_cache
+[92mPASSED[0m function addressable: correlation_normalize_trend
+[92mPASSED[0m function addressable: correlation_detect_ranges
+[92mPASSED[0m function addressable: correlation_estimate_occupied_bandwidth
+[92mPASSED[0m function addressable: correlation_build_signature
+[92mPASSED[0m function addressable: correlation_extract_file_signatures
+[92mPASSED[0m function addressable: correlation_maximum_normalized_cross_correlation
+[92mPASSED[0m function addressable: correlation_bandwidth_similarity
+[92mPASSED[0m function addressable: correlation_signature_energy
+[92mPASSED[0m function addressable: correlation_prepare_work_item
+[92mPASSED[0m function addressable: correlation_get_or_build_entry
+[92mPASSED[0m function addressable: correlation_calculate_score
+[92mPASSED[0m function addressable: correlation_rescore_results
+[92mPASSED[0m function addressable: correlation_worker
+[92mPASSED[0m function addressable: correlation_start_worker
+[92mPASSED[0m function addressable: correlation_clear_cache
+[92mPASSED[0m function addressable: correlation_get_layout
+[92mPASSED[0m function addressable: correlation_get_engine_controls
+[92mPASSED[0m function addressable: correlation_get_clear_cache_dialog
+[92mPASSED[0m function addressable: correlation_draw_centered_text
+[92mPASSED[0m function addressable: correlation_draw_button
+[92mPASSED[0m function addressable: correlation_get_result_controls
+[92mPASSED[0m function addressable: correlation_text_width
+[92mPASSED[0m function addressable: correlation_draw_wrapped_text
+[92mPASSED[0m function addressable: correlation_draw_trend_line
+[92mPASSED[0m function addressable: correlation_draw_trend_pair
+[92mPASSED[0m function addressable: correlation_short_text
+[92mPASSED[0m function addressable: correlation_interpolate_color
+[92mPASSED[0m function addressable: correlation_score_color
+[92mPASSED[0m function addressable: correlation_active_weight_buffer
+[92mPASSED[0m function addressable: correlation_sync_text_input
+[92mPASSED[0m function addressable: correlation_parse_nonnegative_scalar
+[92mPASSED[0m function addressable: correlation_parse_trend_points
+[92mPASSED[0m function addressable: correlation_restore_weight_text
+[92mPASSED[0m function addressable: correlation_apply_weight_inputs
+[92mPASSED[0m function addressable: correlation_weight_insert_text
+[92mPASSED[0m function addressable: correlation_weight_backspace
+[92mPASSED[0m function addressable: correlation_weight_delete
+[92mPASSED[0m function addressable: correlation_activate_weight_field
+[92mPASSED[0m function addressable: correlation_file_search_matches
+[92mPASSED[0m function addressable: correlation_file_search_filtered_count
+[92mPASSED[0m function addressable: correlation_file_search_filtered_index_at
+[92mPASSED[0m function addressable: correlation_file_search_popup_rect
+[92mPASSED[0m function addressable: correlation_file_search_input_rect
+[92mPASSED[0m function addressable: correlation_file_search_clamp_scroll
+[92mPASSED[0m function addressable: correlation_open_file_search
+[92mPASSED[0m function addressable: correlation_close_file_search
+[92mPASSED[0m function addressable: correlation_select_recording
+[92mPASSED[0m function addressable: correlation_file_search_insert_text
+[92mPASSED[0m function addressable: correlation_file_search_backspace
+[92mPASSED[0m function addressable: correlation_file_search_delete
+[92mPASSED[0m function addressable: correlation_handle_file_search_event
+[92mPASSED[0m function addressable: correlation_draw_file_search_popup
+[92mPASSED[0m function addressable: CORRELATION_enter_mode
+[92mPASSED[0m function addressable: CORRELATION_exit_mode
+[92mPASSED[0m function addressable: CORRELATION_shutdown
+[92mPASSED[0m function addressable: CORRELATION_is_text_entry_active
+[92mPASSED[0m function addressable: CORRELATION_handle_event
+[92mPASSED[0m function addressable: CORRELATION_draw_workstation
+[92mPASSED[0m correlation point inside
+[92mPASSED[0m correlation clamp
+[92mPASSED[0m correlation IQ extension
+[92mPASSED[0m correlation rejects unsupported IQ suffix
+[92mPASSED[0m correlation parses sample rate
+[92mPASSED[0m correlation parses center
+[92mPASSED[0m correlation identical trend score
+[92mPASSED[0m correlation weighted score bounds
+[92mPASSED[0m correlation scalar parser
+[92mPASSED[0m correlation trend-point parser
+[92mPASSED[0m correlation score color opaque
+[92mPASSED[0m correlation text state valid
+[92mPASSED[0m correlation event smoke
+[93mSKIPPED[0m correlation draw smoke — SDL/TTF renderer unavailable
+
+CorrelationWorkstation.c summary: [92m91 passed[0m, [91m0 failed[0m, [93m1 skipped[0m
+[92mPASSED[0m CorrelationWorkstation.c runtime suite
+
+=== DataStore.c ===
+[92mPASSED[0m DataStore.c test compilation
+[92mPASSED[0m DataStore.c test linking
+
+RetroSpectrum target: DataStore.c
+Expected function definitions: 18
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: datastore_set_error
+[92mPASSED[0m function addressable: datastore_copy_text
+[92mPASSED[0m function addressable: datastore_is_valid_kind
+[92mPASSED[0m function addressable: datastore_make_directory
+[92mPASSED[0m function addressable: datastore_config_directory
+[92mPASSED[0m function addressable: DATASTORE_get_path
+[92mPASSED[0m function addressable: datastore_execute
+[92mPASSED[0m function addressable: datastore_open
+[92mPASSED[0m function addressable: datastore_sha512
+[92mPASSED[0m function addressable: DATASTORE_server_save_content
+[92mPASSED[0m function addressable: DATASTORE_server_load_content
+[92mPASSED[0m function addressable: DATASTORE_free_content
+[92mPASSED[0m function addressable: DATASTORE_server_list_documents
+[92mPASSED[0m function addressable: DATASTORE_server_delete_content
+[92mPASSED[0m function addressable: DATASTORE_save_content
+[92mPASSED[0m function addressable: DATASTORE_load_content
+[92mPASSED[0m function addressable: DATASTORE_list_documents
+[92mPASSED[0m function addressable: DATASTORE_delete_content
+[92mPASSED[0m datastore default error text
+[92mPASSED[0m datastore_copy_text copies
+[92mPASSED[0m datastore_copy_text detects truncation
+[92mPASSED[0m datastore valid case kind
+[92mPASSED[0m datastore valid classification kind
+[92mPASSED[0m datastore valid correlation kind
+[92mPASSED[0m datastore valid bitstream kind
+[92mPASSED[0m datastore invalid kind
+[92mPASSED[0m datastore SHA-512
+[92mPASSED[0m datastore path creation
+[92mPASSED[0m database unlock for datastore
+[92mPASSED[0m datastore rejects invalid save
+[92mPASSED[0m datastore saves content
+[92mPASSED[0m datastore loads content
+[92mPASSED[0m datastore loaded bytes match
+[92mPASSED[0m datastore lists content
+[92mPASSED[0m datastore deletes content
+[92mPASSED[0m datastore confirms deletion
+
+DataStore.c summary: [92m38 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m DataStore.c runtime suite
+
+=== DatabaseCrypto.c ===
+[92mPASSED[0m DatabaseCrypto.c test compilation
+[92mPASSED[0m DatabaseCrypto.c test linking
+
+RetroSpectrum target: DatabaseCrypto.c
+Expected function definitions: 42
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: database_crypto_error
+[92mPASSED[0m function addressable: database_crypto_write_all
+[92mPASSED[0m function addressable: database_crypto_read_all
+[92mPASSED[0m function addressable: database_crypto_ensure_directory
+[92mPASSED[0m function addressable: database_crypto_directory
+[92mPASSED[0m function addressable: database_crypto_path
+[92mPASSED[0m function addressable: database_crypto_validate_key_file
+[92mPASSED[0m function addressable: database_crypto_cleanup_cached_master
+[92mPASSED[0m function addressable: database_crypto_cache_master
+[92mPASSED[0m function addressable: database_crypto_copy_cached_master
+[92mPASSED[0m function addressable: database_crypto_default_key_path
+[92mPASSED[0m function addressable: database_crypto_read_saved_key_path
+[92mPASSED[0m function addressable: database_crypto_resolve_key_path
+[92mPASSED[0m function addressable: database_crypto_load_key_file
+[92mPASSED[0m function addressable: database_crypto_any_database_exists
+[92mPASSED[0m function addressable: database_crypto_create_default_master
+[92mPASSED[0m function addressable: database_crypto_load_or_create_master
+[92mPASSED[0m function addressable: database_crypto_derive_from_master
+[92mPASSED[0m function addressable: database_crypto_derive_key
+[92mPASSED[0m function addressable: database_crypto_hex
+[92mPASSED[0m function addressable: database_crypto_parse_version
+[92mPASSED[0m function addressable: database_crypto_version_supported
+[92mPASSED[0m function addressable: database_crypto_has_sqlcipher
+[92mPASSED[0m function addressable: database_crypto_exec
+[92mPASSED[0m function addressable: database_crypto_validate_database_file
+[92mPASSED[0m function addressable: database_crypto_apply_key
+[92mPASSED[0m function addressable: database_crypto_key_opens_database
+[92mPASSED[0m function addressable: database_crypto_write_saved_key_path
+[92mPASSED[0m function addressable: database_crypto_file_is_plaintext
+[92mPASSED[0m function addressable: database_crypto_parent_directory_writable
+[92mPASSED[0m function addressable: database_crypto_create_secure_empty_file
+[92mPASSED[0m function addressable: database_crypto_export_plaintext
+[92mPASSED[0m function addressable: database_crypto_verify_encrypted_copy
+[92mPASSED[0m function addressable: database_crypto_fsync_file
+[92mPASSED[0m function addressable: database_crypto_fsync_parent_directory
+[92mPASSED[0m function addressable: database_crypto_migrate_plaintext
+[92mPASSED[0m function addressable: database_crypto_open
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_open_auth
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_open_data
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_set_key_path
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_is_unlocked
+[92mPASSED[0m function addressable: DATABASE_CRYPTO_key_path
+[92mPASSED[0m parse SQLCipher version
+[92mPASSED[0m reject malformed SQLCipher version
+[92mPASSED[0m database crypto directory
+[92mPASSED[0m database crypto path
+[92mPASSED[0m plaintext detection missing file false
+[92mPASSED[0m write database master key
+[92mPASSED[0m set database key path
+[92mPASSED[0m database reports unlocked
+[92mPASSED[0m database cached key available
+[92mPASSED[0m database key path retained
+[92mPASSED[0m open encrypted auth database
+[92mPASSED[0m auth database permission
+[92mPASSED[0m open encrypted data database
+[92mPASSED[0m data database is not plaintext header
+[92mPASSED[0m database cleanup locks state
+[92mPASSED[0m reject nonexistent key path
+
+DatabaseCrypto.c summary: [92m60 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m DatabaseCrypto.c runtime suite
+
+=== DecodeWorkstation.c ===
+[92mPASSED[0m DecodeWorkstation.c test compilation
+[92mPASSED[0m DecodeWorkstation.c test linking
+
+RetroSpectrum target: DecodeWorkstation.c
+Expected function definitions: 105
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: decode_get_adjusted_mouse_state
+[92mPASSED[0m function addressable: decode_preamble_search_thread_entry
+[92mPASSED[0m function addressable: decode_start_preamble_search_thread
+[92mPASSED[0m function addressable: decode_point_in_rect
+[92mPASSED[0m function addressable: decode_copy_text
+[92mPASSED[0m function addressable: decode_classifier_add_label_internal
+[92mPASSED[0m function addressable: decode_classifier_document_clear_selection
+[92mPASSED[0m function addressable: decode_classifier_document_get_selection
+[92mPASSED[0m function addressable: decode_classifier_document_delete_selection
+[92mPASSED[0m function addressable: decode_classifier_document_update_metrics
+[92mPASSED[0m function addressable: decode_classifier_document_index_from_x
+[92mPASSED[0m function addressable: decode_classifier_get_active_text_target
+[92mPASSED[0m function addressable: decode_classifier_sync_rgb_from_selected
+[92mPASSED[0m function addressable: decode_classifier_parse_rgb_component
+[92mPASSED[0m function addressable: decode_classifier_apply_custom_rgb
+[92mPASSED[0m function addressable: decode_classifier_initialize
+[92mPASSED[0m function addressable: decode_classifier_has_assignments
+[92mPASSED[0m function addressable: decode_classifier_clear_assignments
+[92mPASSED[0m function addressable: decode_classifier_invalidate_assignments
+[92mPASSED[0m function addressable: decode_classifier_trim_text
+[92mPASSED[0m function addressable: decode_classifier_derive_document_name
+[92mPASSED[0m function addressable: decode_classifier_segment_count
+[92mPASSED[0m function addressable: decode_classifier_label_bit_count
+[92mPASSED[0m function addressable: decode_classifier_apply_selected_label
+[92mPASSED[0m function addressable: decode_classifier_remove_selected_tag
+[92mPASSED[0m function addressable: decode_classifier_add_custom_label
+[92mPASSED[0m function addressable: decode_classifier_store_u32
+[92mPASSED[0m function addressable: decode_classifier_read_u32
+[92mPASSED[0m function addressable: decode_classifier_save
+[92mPASSED[0m function addressable: decode_classifier_load
+[92mPASSED[0m function addressable: decode_classifier_split_bits_rect
+[92mPASSED[0m function addressable: decode_classifier_get_layout
+[92mPASSED[0m function addressable: decode_classifier_clamp_label_scroll
+[92mPASSED[0m function addressable: decode_name_compare
+[92mPASSED[0m function addressable: decode_has_complex16_extension
+[92mPASSED[0m function addressable: decode_text_contains_ci
+[92mPASSED[0m function addressable: decode_get_layout
+[92mPASSED[0m function addressable: decode_short_text
+[92mPASSED[0m function addressable: decode_set_status
+[92mPASSED[0m function addressable: decode_get_progress_font
+[92mPASSED[0m function addressable: decode_draw_centered_text
+[92mPASSED[0m function addressable: decode_get_bit_selection
+[92mPASSED[0m function addressable: decode_clear_bit_selection
+[92mPASSED[0m function addressable: decode_clamp_bit_cursor
+[92mPASSED[0m function addressable: decode_set_bit_cursor_visible
+[92mPASSED[0m function addressable: decode_delete_selected_bits
+[92mPASSED[0m function addressable: decode_insert_bit_text
+[92mPASSED[0m function addressable: decode_backspace_bitstream
+[92mPASSED[0m function addressable: decode_delete_bitstream
+[92mPASSED[0m function addressable: decode_update_ascii_from_bitstream
+[92mPASSED[0m function addressable: decode_copy_bitstream_to_clipboard
+[92mPASSED[0m function addressable: decode_parse_int_field
+[92mPASSED[0m function addressable: decode_update_bits_per_symbol_from_modulation
+[92mPASSED[0m function addressable: decode_mod_arg
+[92mPASSED[0m function addressable: decode_find_gnuradio_helper
+[92mPASSED[0m function addressable: decode_shell_quote
+[92mPASSED[0m function addressable: decode_scan_files
+[92mPASSED[0m function addressable: decode_open_file_search_menu
+[92mPASSED[0m function addressable: decode_close_file_search_menu
+[92mPASSED[0m function addressable: decode_file_search_clamp_scroll
+[92mPASSED[0m function addressable: decode_file_search_select_index
+[92mPASSED[0m function addressable: decode_selected_file_path
+[92mPASSED[0m function addressable: decode_append_bit
+[92mPASSED[0m function addressable: decode_run_helper_capture_bits
+[92mPASSED[0m function addressable: decode_pattern_has_zero_and_one
+[92mPASSED[0m function addressable: decode_find_repeated_preamble_in_bits
+[92mPASSED[0m function addressable: decode_preamble_search_next
+[92mPASSED[0m function addressable: decode_export_preamble_candidate_to_decoder
+[92mPASSED[0m function addressable: decode_run_selected_file
+[92mPASSED[0m function addressable: decode_insert_text
+[92mPASSED[0m function addressable: decode_backspace_text
+[92mPASSED[0m function addressable: decode_delete_text
+[92mPASSED[0m function addressable: decode_clamp_cursor
+[92mPASSED[0m function addressable: decode_filtered_index_to_file_index
+[92mPASSED[0m function addressable: decode_filtered_file_count
+[92mPASSED[0m function addressable: decode_draw_modal_button
+[92mPASSED[0m function addressable: decode_file_search_button_rect
+[92mPASSED[0m function addressable: decode_file_search_popup_rect
+[92mPASSED[0m function addressable: decode_file_search_input_rect
+[92mPASSED[0m function addressable: decode_handle_file_search_event
+[92mPASSED[0m function addressable: decode_draw_file_search_popup
+[92mPASSED[0m function addressable: decode_classifier_filtered_document_count
+[92mPASSED[0m function addressable: decode_classifier_filtered_index_to_document_index
+[92mPASSED[0m function addressable: decode_classifier_search_clamp_scroll
+[92mPASSED[0m function addressable: decode_classifier_refresh_search_documents
+[92mPASSED[0m function addressable: decode_classifier_close_search_menu
+[92mPASSED[0m function addressable: decode_classifier_open_search_menu
+[92mPASSED[0m function addressable: decode_classifier_search_select_index
+[92mPASSED[0m function addressable: decode_classifier_handle_search_event
+[92mPASSED[0m function addressable: decode_classifier_draw_search_popup
+[92mPASSED[0m function addressable: decode_draw_input_field
+[92mPASSED[0m function addressable: decode_draw_checkbox
+[92mPASSED[0m function addressable: decode_bit_metrics
+[92mPASSED[0m function addressable: decode_bit_index_from_point
+[92mPASSED[0m function addressable: decode_draw_wrapped_bits
+[92mPASSED[0m function addressable: decode_classifier_draw_text_field
+[92mPASSED[0m function addressable: decode_classifier_draw_rgb_field
+[92mPASSED[0m function addressable: decode_classifier_draw_panel
+[92mPASSED[0m function addressable: decode_classifier_handle_panel_click
+[92mPASSED[0m function addressable: DECODE_enter_mode
+[92mPASSED[0m function addressable: DECODE_exit_mode
+[92mPASSED[0m function addressable: DECODE_is_text_entry_active
+[92mPASSED[0m function addressable: decode_draw_ascii_panel
+[92mPASSED[0m function addressable: DECODE_handle_event
+[92mPASSED[0m function addressable: DECODE_draw_workstation
+[92mPASSED[0m decode point inside
+[92mPASSED[0m decode copy
+[92mPASSED[0m decode RGB component
+[92mPASSED[0m decode RGB rejects overflow
+[92mPASSED[0m decode trim
+[92mPASSED[0m decode u32 serialization
+[92mPASSED[0m decode extension
+[92mPASSED[0m decode contains CI
+[92mPASSED[0m decode preamble pattern validation
+[92mPASSED[0m decode repeated preamble
+[92mPASSED[0m decode shell quote
+[92mPASSED[0m decode classifier built-ins
+[92mPASSED[0m decode custom label
+[92mPASSED[0m decode custom RGB applied
+[92mPASSED[0m decode classifier assigns bits
+[92mPASSED[0m decode classifier removes assignment
+[92mPASSED[0m decode database unlocked
+[92mPASSED[0m decode classifier database roundtrip
+[92mPASSED[0m decode text state valid
+[92mPASSED[0m decode event smoke
+[93mSKIPPED[0m decode draw smoke — SDL/TTF renderer unavailable
+
+DecodeWorkstation.c summary: [92m127 passed[0m, [91m0 failed[0m, [93m1 skipped[0m
+[92mPASSED[0m DecodeWorkstation.c runtime suite
+
+=== GUIs.c ===
+[92mPASSED[0m GUIs.c test compilation
+[92mPASSED[0m GUIs.c test linking
+
+RetroSpectrum target: GUIs.c
+Expected function definitions: 38
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: load_font
+[92mPASSED[0m function addressable: draw_text
+[92mPASSED[0m function addressable: rgb
+[92mPASSED[0m function addressable: toggle_fullscreen
+[92mPASSED[0m function addressable: set_status
+[92mPASSED[0m function addressable: draw_filled_rect
+[92mPASSED[0m function addressable: draw_outline_rect
+[92mPASSED[0m function addressable: draw_made_in_usa
+[92mPASSED[0m function addressable: draw_button
+[92mPASSED[0m function addressable: point_in_rect
+[92mPASSED[0m function addressable: near_px
+[92mPASSED[0m function addressable: draw_input_box
+[92mPASSED[0m function addressable: draw_checkbox
+[92mPASSED[0m function addressable: layout_controls
+[92mPASSED[0m function addressable: draw_control_panel
+[92mPASSED[0m function addressable: draw_frequency_axis
+[92mPASSED[0m function addressable: draw_border
+[92mPASSED[0m function addressable: draw_selection_overlay
+[92mPASSED[0m function addressable: draw_selector_bandwidth
+[92mPASSED[0m function addressable: update_selection_from_mouse
+[92mPASSED[0m function addressable: draw_antenna_recommendation
+[92mPASSED[0m function addressable: power_to_color_relative
+[92mPASSED[0m function addressable: clear_waterfall
+[92mPASSED[0m function addressable: reset_prev_col_db
+[92mPASSED[0m function addressable: append_text
+[92mPASSED[0m function addressable: backspace_text
+[92mPASSED[0m function addressable: cmp_double_for_qsort
+[92mPASSED[0m function addressable: get_visible_bin_range
+[92mPASSED[0m function addressable: estimate_noise_floor_median_visible
+[92mPASSED[0m function addressable: add_fft_line_to_waterfall
+[92mPASSED[0m function addressable: ANALYSIS_draw_line_plot
+[92mPASSED[0m function addressable: ANALYSIS_draw_constellation_plot
+[92mPASSED[0m function addressable: ANALYSIS_make_ellipsis_text
+[92mPASSED[0m function addressable: ANALYSIS_draw_loading_indicator
+[92mPASSED[0m function addressable: ANALYSIS_draw_file_list
+[92mPASSED[0m function addressable: ANALYSIS_draw_filter_overlay
+[92mPASSED[0m function addressable: ANALYSIS_draw_workstation
+[92mPASSED[0m function addressable: ANALYSIS_exit_mode
+[92mPASSED[0m rgb packs red
+[92mPASSED[0m GUI point inside
+[92mPASSED[0m GUI point edge outside
+[92mPASSED[0m near_px true
+[92mPASSED[0m near_px false
+[92mPASSED[0m append_text
+[92mPASSED[0m backspace_text
+[92mPASSED[0m double comparator
+[92mPASSED[0m power color stable
+[92mPASSED[0m clear waterfall
+
+GUIs.c summary: [92m50 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m GUIs.c runtime suite
+
+=== MapDashboard.c ===
+[92mPASSED[0m MapDashboard.c test compilation
+[92mPASSED[0m MapDashboard.c test linking
+[INFO] [UHD] linux; GNU C++ version 14.2.0; Boost_108300; UHD_4.8.0.0+ds1-2
+[1m[31m[ERROR] avahi_service_browser_new() failed: Bad state[0m
+
+RetroSpectrum target: MapDashboard.c
+Expected function definitions: 49
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: dashboard_sdr_selector_rects
+[92mPASSED[0m function addressable: dashboard_sdr_copy_truncated
+[92mPASSED[0m function addressable: dashboard_refresh_sdr_options
+[92mPASSED[0m function addressable: dashboard_draw_sdr_selector
+[92mPASSED[0m function addressable: dashboard_handle_sdr_selector_event
+[92mPASSED[0m function addressable: dashboard_point_in_rect
+[92mPASSED[0m function addressable: dashboard_update_timestamp
+[92mPASSED[0m function addressable: dashboard_copy_text
+[92mPASSED[0m function addressable: dashboard_draw_text_centered
+[92mPASSED[0m function addressable: dashboard_draw_grid
+[92mPASSED[0m function addressable: dashboard_top_rect
+[92mPASSED[0m function addressable: dashboard_content_rect
+[92mPASSED[0m function addressable: dashboard_make_tabs
+[92mPASSED[0m function addressable: dashboard_draw_tab
+[92mPASSED[0m function addressable: dashboard_draw_top_bar
+[92mPASSED[0m function addressable: dashboard_draw_station_card
+[92mPASSED[0m function addressable: dashboard_hash_string
+[92mPASSED[0m function addressable: dashboard_ascii_equal_ci
+[92mPASSED[0m function addressable: dashboard_ascii_contains_ci
+[92mPASSED[0m function addressable: dashboard_case_color
+[92mPASSED[0m function addressable: dashboard_find_case_index
+[92mPASSED[0m function addressable: dashboard_case_index_for
+[92mPASSED[0m function addressable: dashboard_csv_parse_line
+[92mPASSED[0m function addressable: dashboard_unescape_multiline_text
+[92mPASSED[0m function addressable: dashboard_load_case_descriptions
+[92mPASSED[0m function addressable: dashboard_load_case_metadata
+[92mPASSED[0m function addressable: dashboard_parse_coordinate
+[92mPASSED[0m function addressable: dashboard_load_case_content
+[92mPASSED[0m function addressable: dashboard_reload_cases
+[92mPASSED[0m function addressable: dashboard_lonlat_to_screen
+[92mPASSED[0m function addressable: dashboard_draw_circle_outline
+[92mPASSED[0m function addressable: dashboard_draw_case_dot
+[92mPASSED[0m function addressable: dashboard_case_matches_search
+[92mPASSED[0m function addressable: dashboard_draw_case_points
+[92mPASSED[0m function addressable: dashboard_select_case_at
+[92mPASSED[0m function addressable: dashboard_wrap_text
+[92mPASSED[0m function addressable: dashboard_case_country_matches
+[92mPASSED[0m function addressable: dashboard_collect_cases_for_country
+[92mPASSED[0m function addressable: dashboard_draw_hover_country_cases
+[92mPASSED[0m function addressable: dashboard_draw_case_search
+[92mPASSED[0m function addressable: dashboard_draw_case_sidebar
+[92mPASSED[0m function addressable: dashboard_handle_case_search_event
+[92mPASSED[0m function addressable: dashboard_handle_case_sidebar_event
+[92mPASSED[0m function addressable: dashboard_handle_top_tab_event
+[92mPASSED[0m function addressable: dashboard_init
+[92mPASSED[0m function addressable: dashboard_shutdown
+[92mPASSED[0m function addressable: dashboard_find_country_screen_point
+[92mPASSED[0m function addressable: dashboard_handle_event
+[92mPASSED[0m function addressable: dashboard_draw
+[92mPASSED[0m dashboard point inside
+[92mPASSED[0m dashboard copy
+[92mPASSED[0m dashboard equals CI
+[92mPASSED[0m dashboard contains CI
+[92mPASSED[0m dashboard CSV parse
+[92mPASSED[0m dashboard unescapes newline
+[92mPASSED[0m dashboard coordinate parser
+[92mPASSED[0m dashboard case color deterministic
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+
+RtApi::getDeviceInfo: deviceId argument not found.
+
+Found Rafael Micro R820T tuner
+[92mPASSED[0m dashboard initializes map
+[92mPASSED[0m dashboard event smoke
+[93mSKIPPED[0m dashboard draw smoke — SDL/TTF renderer unavailable
+
+MapDashboard.c summary: [92m61 passed[0m, [91m0 failed[0m, [93m1 skipped[0m
+[92mPASSED[0m MapDashboard.c runtime suite
+
+=== RetroSpectrum.c ===
+[92mPASSED[0m RetroSpectrum.c test compilation
+[92mPASSED[0m RetroSpectrum.c test linking
+
+RetroSpectrum target: RetroSpectrum.c
+Expected function definitions: 107
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: handle_sigint
+[92mPASSED[0m function addressable: draw_thick_line
+[92mPASSED[0m function addressable: draw_cubic_cable
+[92mPASSED[0m function addressable: draw_sdr_disconnected
+[92mPASSED[0m function addressable: limit_double
+[92mPASSED[0m function addressable: ensure_record_dir_exists
+[92mPASSED[0m function addressable: selection_center_Hz
+[92mPASSED[0m function addressable: selection_BW_Hz
+[92mPASSED[0m function addressable: configure_recording_filter
+[92mPASSED[0m function addressable: pre_cache_init
+[92mPASSED[0m function addressable: pre_cache_free
+[92mPASSED[0m function addressable: pre_cache_resize
+[92mPASSED[0m function addressable: pre_cache_write
+[92mPASSED[0m function addressable: pre_cache_snapshot_locked
+[92mPASSED[0m function addressable: rec_queue_init
+[92mPASSED[0m function addressable: rec_queue_resize
+[92mPASSED[0m function addressable: rec_queue_free
+[92mPASSED[0m function addressable: rec_queue_available_locked
+[92mPASSED[0m function addressable: rec_queue_reset
+[92mPASSED[0m function addressable: rec_queue_push_block
+[92mPASSED[0m function addressable: rec_queue_pop_block
+[92mPASSED[0m function addressable: rec_queue_request_stop
+[92mPASSED[0m function addressable: recorder_reset_processing_state
+[92mPASSED[0m function addressable: recorder_write_sample
+[92mPASSED[0m function addressable: recorder_thread_main
+[92mPASSED[0m function addressable: stop_recording
+[92mPASSED[0m function addressable: start_recording
+[92mPASSED[0m function addressable: ring_available_locked
+[92mPASSED[0m function addressable: ring_clear
+[92mPASSED[0m function addressable: ring_write_sample
+[92mPASSED[0m function addressable: ring_read_block
+[92mPASSED[0m function addressable: sdr_name_equals
+[92mPASSED[0m function addressable: sdr_nearest_supported_value
+[92mPASSED[0m function addressable: sdr_clamp_frequency
+[92mPASSED[0m function addressable: sdr_clamp_sample_rate
+[92mPASSED[0m function addressable: sdr_clamp_bandwidth
+[92mPASSED[0m function addressable: sdr_clamp_gain
+[92mPASSED[0m function addressable: sdr_copy_identity
+[92mPASSED[0m function addressable: sdr_discover_gain_controls
+[92mPASSED[0m function addressable: sdr_channel_has_gain_controls
+[92mPASSED[0m function addressable: sdr_apply_rx_gain_controls
+[92mPASSED[0m function addressable: sdr_cache_selected_label
+[92mPASSED[0m function addressable: sdr_open_selected_device
+[92mPASSED[0m function addressable: process_rx_samples
+[92mPASSED[0m function addressable: sdr_rx_thread_main
+[92mPASSED[0m function addressable: compute_DB_from_FFT
+[92mPASSED[0m function addressable: parse_positive_double
+[92mPASSED[0m function addressable: parse_nonnegative_int
+[92mPASSED[0m function addressable: normalize_lna_gain
+[92mPASSED[0m function addressable: normalize_vga_gain
+[92mPASSED[0m function addressable: normalize_fps
+[92mPASSED[0m function addressable: normalize_rows_per_frame
+[92mPASSED[0m function addressable: stop_radio
+[92mPASSED[0m function addressable: start_radio
+[92mPASSED[0m function addressable: recommended_antenna_length_inches
+[92mPASSED[0m function addressable: apply_radio_settings
+[92mPASSED[0m function addressable: RETROSPECTRUM_sdr_selected_label
+[92mPASSED[0m function addressable: RETROSPECTRUM_sdr_args_is_selected
+[92mPASSED[0m function addressable: RETROSPECTRUM_select_sdr_args
+[92mPASSED[0m function addressable: retrospectrum_tx_thread_main
+[92mPASSED[0m function addressable: retrospectrum_close_transmit_file_locked
+[92mPASSED[0m function addressable: retrospectrum_restore_receive_settings
+[92mPASSED[0m function addressable: retrospectrum_finalize_transmission
+[92mPASSED[0m function addressable: retrospectrum_pump_transmission
+[92mPASSED[0m function addressable: RETROSPECTRUM_start_file_transmission
+[92mPASSED[0m function addressable: RETROSPECTUnknown argument: --definitely-invalid
+Usage:
+  retrospectrum -S -o record_dir [--database-key absolute_path]
+  retrospectrum -C -o record_dir
+  retrospectrum -S --cli [--database-key absolute_path]
+
+Options:
+  -S, --server           Run as the centralized server and listen on TCP 47742.
+  -C, --client           Run as an endpoint client without starting a server.
+  -o record_dir          Required recording directory in GUI mode.
+  --cli, --admin-cli     Run the headless server administration CLI.
+  --database-key path    Select an existing 32-byte SQLCipher master-key file.
+  -h, --help             Show this help text.
+RUM_cancel_file_transmission
+[92mPASSED[0m function addressable: RETROSPECTRUM_get_transmission_status
+[92mPASSED[0m function addressable: RETROSPECTRUM_acknowledge_transmission_result
+[92mPASSED[0m function addressable: RETROSPECTRUM_transmission_is_active
+[92mPASSED[0m function addressable: apply_from_inputs
+[92mPASSED[0m function addressable: main_field_index
+[92mPASSED[0m function addressable: main_field_text_by_index
+[92mPASSED[0m function addressable: main_field_text
+[92mPASSED[0m function addressable: main_clamp_cursor_for_text
+[92mPASSED[0m function addressable: main_reset_input_cursors
+[92mPASSED[0m function addressable: main_set_active_cursor_end
+[92mPASSED[0m function addressable: main_insert_text_at_cursor
+[92mPASSED[0m function addressable: main_backspace_at_cursor
+[92mPASSED[0m function addressable: main_move_active_cursor
+[92mPASSED[0m function addressable: main_make_cursor_box
+[92mPASSED[0m function addressable: cli_secure_zero
+[92mPASSED[0m function addressable: cli_trim_line
+[92mPASSED[0m function addressable: cli_read_line
+[92mPASSED[0m function addressable: cli_prompt_yes_no
+[92mPASSED[0m function addressable: cli_prompt_password_twice
+[92mPASSED[0m function addressable: cli_role_name
+[92mPASSED[0m function addressable: cli_role_is_privileged
+[92mPASSED[0m function addressable: cli_load_users
+[92mPASSED[0m function addressable: cli_lookup_user
+[92mPASSED[0m function addressable: cli_print_users
+[92mPASSED[0m function addressable: cli_enroll_totp
+[92mPASSED[0m function addressable: cli_bootstrap_primary_admin
+[92mPASSED[0m function addressable: cli_authenticate
+[92mPASSED[0m function addressable: cli_read_target_username
+[92mPASSED[0m function addressable: cli_create_user
+[92mPASSED[0m function addressable: cli_reset_password
+[92mPASSED[0m function addressable: cli_enable_totp
+[92mPASSED[0m function addressable: cli_disable_totp
+[92mPASSED[0m function addressable: cli_set_role
+[92mPASSED[0m function addressable: cli_delete_user
+[92mPASSED[0m function addressable: cli_print_privileged_commands
+[92mPASSED[0m function addressable: cli_print_user_commands
+[92mPASSED[0m function addressable: cli_run_session
+[92mPASSED[0m function addressable: run_management_cli
+[92mPASSED[0m function addressable: print_command_line_usage
+[92mPASSED[0m function addressable: parse_command_line_args
+[92mPASSED[0m function addressable: retrospectrum_application_main
+[92mPASSED[0m limit_double lower
+[92mPASSED[0m limit_double middle
+[92mPASSED[0m limit_double upper
+[92mPASSED[0m antenna recommendation positive
+[92mPASSED[0m SDR selected label available
+[92mPASSED[0m SDR empty args not selected
+[92mPASSED[0m reject empty SDR selection
+[92mPASSED[0m parse positive double
+[92mPASSED[0m reject zero positive double
+[92mPASSED[0m parse nonnegative integer
+[92mPASSED[0m normalize LNA
+[92mPASSED[0m normalize VGA
+[92mPASSED[0m normalize FPS
+[92mPASSED[0m normalize rows
+[92mPASSED[0m main cursor insert
+[92mPASSED[0m main cursor backspace
+[92mPASSED[0m CLI trims line
+[92mPASSED[0m CLI role name
+[92mPASSED[0m CLI privileged role
+Usage:
+  retrospectrum -S -o record_dir [--database-key absolute_path]
+  retrospectrum -C -o record_dir
+  retrospectrum -S --cli [--database-key absolute_path]
+
+Options:
+  -S, --server           Run as the centralized server and listen on TCP 47742.
+  -C, --client           Run as an endpoint client without starting a server.
+  -o record_dir          Required recording directory in GUI mode.
+  --cli, --admin-cli     Run the headless server administration CLI.
+  --database-key path    Select an existing 32-byte SQLCipher master-key file.
+  -h, --help             Show this help text.
+[92mPASSED[0m parse help command line
+[92mPASSED[0m reject unknown command line
+
+RetroSpectrum.c summary: [92m130 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m RetroSpectrum.c runtime suite
+
+=== SecureFunctions.c ===
+[92mPASSED[0m SecureFunctions.c test compilation
+[92mPASSED[0m SecureFunctions.c test linking
+
+RetroSpectrum target: SecureFunctions.c
+Expected function definitions: 20
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: sec_sprintf
+[92mPASSED[0m function addressable: sec_strcpy
+[92mPASSED[0m function addressable: sec_strcat
+[92mPASSED[0m function addressable: sec_memcpy
+[92mPASSED[0m function addressable: sec_memmove
+[92mPASSED[0m function addressable: sec_str_memcpy
+[92mPASSED[0m function addressable: sec_memzero
+[92mPASSED[0m function addressable: sec_mul_bound
+[92mPASSED[0m function addressable: sec_calloc_array
+[92mPASSED[0m function addressable: sec_str_to_int
+[92mPASSED[0m function addressable: sec_str_to_double
+[92mPASSED[0m function addressable: sec_popen_read
+[92mPASSED[0m function addressable: sec_has_extension
+[92mPASSED[0m function addressable: sec_fopen_complex16
+[92mPASSED[0m function addressable: sec_str_to_int_bound
+[92mPASSED[0m function addressable: sec_str_to_double_bound
+[92mPASSED[0m function addressable: sec_normalize_directory_path
+[92mPASSED[0m function addressable: sec_directory_fd_is_secure
+[92mPASSED[0m function addressable: sec_ensure_private_directory
+[92mPASSED[0m function addressable: sec_fopen_exclusive_in_directory
+[92mPASSED[0m sec_sprintf formats
+[92mPASSED[0m sec_sprintf rejects truncation
+[92mPASSED[0m sec_strcpy copies
+[92mPASSED[0m sec_strcpy rejects truncation
+[92mPASSED[0m sec_strcat appends
+[92mPASSED[0m sec_memcpy copies
+[92mPASSED[0m sec_memcpy bounds
+[92mPASSED[0m sec_memmove overlap
+[92mPASSED[0m sec_str_memcpy terminates
+[92mPASSED[0m sec_memzero clears
+[92mPASSED[0m sec_mul_bound accepts safe product
+[92mPASSED[0m sec_mul_bound rejects overflow
+[92mPASSED[0m sec_calloc_array allocates
+[92mPASSED[0m sec_calloc_array enforces max
+[92mPASSED[0m sec_str_to_int parses
+[92mPASSED[0m sec_str_to_int rejects suffix
+[92mPASSED[0m sec_str_to_double parses
+[92mPASSED[0m sec_str_to_double rejects nonfinite
+[92mPASSED[0m sec_str_to_int_bound accepts
+[92mPASSED[0m sec_str_to_int_bound rejects
+[92mPASSED[0m sec_str_to_double_bound accepts
+[92mPASSED[0m sec_str_to_double_bound rejects
+[92mPASSED[0m sec_has_extension matches exact suffix
+[92mPASSED[0m sec_has_extension is case-sensitive
+[92mPASSED[0m sec_has_extension rejects wrong suffix
+[92mPASSED[0m sec_popen_read captures output
+[92mPASSED[0m create synthetic complex16
+[92mPASSED[0m sec_fopen_complex16 opens valid file
+[92mPASSED[0m write invalid complex16
+[92mPASSED[0m sec_fopen_complex16 rejects odd size
+[92mPASSED[0m sec_ensure_private_directory creates
+[92mPASSED[0m private directory mode
+[92mPASSED[0m normalize directory path
+[92mPASSED[0m exclusive file create
+[92mPASSED[0m exclusive file refuses overwrite
+
+SecureFunctions.c summary: [92m57 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m SecureFunctions.c runtime suite
+
+=== SecureNetwork.c ===
+[92mPASSED[0m SecureNetwork.c test compilation
+[92mPASSED[0m SecureNetwork.c test linking
+
+RetroSpectrum target: SecureNetwork.c
+Expected function definitions: 61
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: secure_network_set_error
+[92mPASSED[0m function addressable: secure_network_set_status
+[92mPASSED[0m function addressable: secure_network_store_u16
+[92mPASSED[0m function addressable: secure_network_store_u32
+[92mPASSED[0m function addressable: secure_network_store_u64
+[92mPASSED[0m function addressable: secure_network_load_u16
+[92mPASSED[0m function addressable: secure_network_load_u32
+[92mPASSED[0m function addressable: secure_network_load_u64
+[92mPASSED[0m function addressable: secure_network_ssl_write_all
+[92mPASSED[0m function addressable: secure_network_ssl_read_all
+[92mPASSED[0m function addressable: secure_network_send_frame
+[92mPASSED[0m function addressable: secure_network_receive_frame
+[92mPASSED[0m function addressable: secure_network_generate_tls_key
+[92mPASSED[0m function addressable: secure_network_generate_tls_certificate
+[92mPASSED[0m function addressable: secure_network_configure_context
+[92mPASSED[0m function addressable: secure_network_create_server_context
+[92mPASSED[0m function addressable: secure_network_create_client_context
+[92mPASSED[0m function addressable: secure_network_validate_negotiated_tls
+[92mPASSED[0m function addressable: secure_network_export_binding
+[92mPASSED[0m function addressable: secure_network_build_proof_message
+[92mPASSED[0m function addressable: secure_network_server_identity_proof
+[92mPASSED[0m function addressable: secure_network_client_identity_proof
+[92mPASSED[0m function addressable: secure_network_handshake_allowed
+[92mPASSED[0m function addressable: secure_network_send_status
+[92mPASSED[0m function addressable: secure_network_parse_auth
+[92mPASSED[0m function addressable: secure_network_handle_auth
+[92mPASSED[0m function addressable: secure_network_handle_save
+[92mPASSED[0m function addressable: secure_network_handle_load
+[92mPASSED[0m function addressable: secure_network_handle_delete
+[92mPASSED[0m function addressable: secure_network_handle_list
+[92mPASSED[0m function addressable: secure_network_handle_user_list
+[92mPASSED[0m function addressable: secure_network_handle_user_admin
+[92mPASSED[0m function addressable: secure_network_client_thread
+[92mPASSED[0m function addressable: secure_network_server_thread
+[92mPASSED[0m function addressable: SECURE_NETWORK_start_server
+[92mPASSED[0m function addressable: SECURE_NETWORK_server_is_running
+[92mPASSED[0m function addressable: SECURE_NETWORK_stop_server
+[92mPASSED[0m function addressable: secure_network_close_client_locked
+[92mPASSED[0m function addressable: secure_network_abort_client_locked
+[92mPASSED[0m function addressable: secure_network_configure_client_keepalive
+[92mPASSED[0m function addressable: SECURE_NETWORK_disconnect
+[92mPASSED[0m function addressable: secure_network_connect_locked
+[92mPASSED[0m function addressable: secure_network_receive_status_locked
+[92mPASSED[0m function addressable: SECURE_NETWORK_authenticate
+[92mPASSED[0m function addressable: SECURE_NETWORK_verify_password
+[92mPASSED[0m function addressable: SECURE_NETWORK_is_authenticated_remote
+[92mPASSED[0m function addressable: SECURE_NETWORK_remote_connection_lost
+[92mPASSED[0m function addressable: SECURE_NETWORK_status
+[92mPASSED[0m function addressable: secure_network_request_locked
+[92mPASSED[0m function addressable: SECURE_NETWORK_save_document
+[92mPASSED[0m function addressable: SECURE_NETWORK_load_document
+[92mPASSED[0m function addressable: SECURE_NETWORK_delete_document
+[92mPASSED[0m function addressable: SECURE_NETWORK_list_documents
+[92mPASSED[0m function addressable: SECURE_NETWORK_list_users
+[92mPASSED[0m function addressable: secure_network_admin_request
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_create_user
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_reset_password
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_set_totp
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_remove_totp
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_set_role
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_delete_user
+[92mPASSED[0m network u16 roundtrip
+[92mPASSED[0m network u32 roundtrip
+[92mPASSED[0m network u64 roundtrip
+[92mPASSED[0m network status is available
+[92mPASSED[0m network starts disconnected
+[92mPASSED[0m network invalid authentication rejected
+[92mPASSED[0m network invalid password verification rejected
+[92mPASSED[0m network invalid save rejected
+[92mPASSED[0m network invalid load rejected
+[92mPASSED[0m network invalid delete rejected
+[92mPASSED[0m network disconnect is idempotent
+[92mPASSED[0m TLS server start
+[92mPASSED[0m TLS server stop
+
+SecureNetwork.c summary: [92m76 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m SecureNetwork.c runtime suite
+
+=== ServerIdentity.c ===
+[92mPASSED[0m ServerIdentity.c test compilation
+[92mPASSED[0m ServerIdentity.c test linking
+
+RetroSpectrum target: ServerIdentity.c
+Expected function definitions: 67
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: server_identity_secure_zero
+[92mPASSED[0m function addressable: server_identity_set_status
+[92mPASSED[0m function addressable: server_identity_ensure_directory
+[92mPASSED[0m function addressable: server_identity_key_path
+[92mPASSED[0m function addressable: server_identity_named_path
+[92mPASSED[0m function addressable: server_identity_name_valid
+[92mPASSED[0m function addressable: server_identity_default_name
+[92mPASSED[0m function addressable: server_identity_write_name_file
+[92mPASSED[0m function addressable: server_identity_load_or_create_name
+[92mPASSED[0m function addressable: server_identity_generate_keypair
+[92mPASSED[0m function addressable: server_identity_sha512_parts
+[92mPASSED[0m function addressable: server_identity_key_file_digest
+[92mPASSED[0m function addressable: server_identity_write_all
+[92mPASSED[0m function addressable: server_identity_read_all
+[92mPASSED[0m function addressable: server_identity_write_key_file
+[92mPASSED[0m function addressable: server_identity_read_key_file
+[92mPASSED[0m function addressable: server_identity_private_pkey
+[92mPASSED[0m function addressable: server_identity_public_pkey
+[92mPASSED[0m function addressable: server_identity_sign_with_private
+[92mPASSED[0m function addressable: server_identity_verify_signature
+[92mPASSED[0m function addressable: server_identity_verify_keypair
+[92mPASSED[0m function addressable: server_identity_load_or_create_key
+[92mPASSED[0m function addressable: server_identity_hash_public_key
+[92mPASSED[0m function addressable: server_identity_id_from_public_key
+[92mPASSED[0m function addressable: server_identity_fingerprint_from_public_key
+[92mPASSED[0m function addressable: server_identity_public_file_digest
+[92mPASSED[0m function addressable: server_identity_write_u16
+[92mPASSED[0m function addressable: server_identity_read_u16
+[92mPASSED[0m function addressable: server_identity_encode_public_file
+[92mPASSED[0m function addressable: server_identity_decode_public_file
+[92mPASSED[0m function addressable: server_identity_read_public_file
+[92mPASSED[0m function addressable: server_identity_write_public_file
+[92mPASSED[0m function addressable: server_identity_set_trusted
+[92mPASSED[0m function addressable: server_identity_initialize_public_files
+[92mPASSED[0m function addressable: server_identity_write_u64
+[92mPASSED[0m function addressable: server_identity_read_u64
+[92mPASSED[0m function addressable: server_identity_build_packet
+[92mPASSED[0m function addressable: server_identity_packet_valid
+[92mPASSED[0m function addressable: server_identity_mark_conflict
+[92mPASSED[0m function addressable: server_identity_refresh_local_validation
+[92mPASSED[0m function addressable: server_identity_send_broadcast
+[92mPASSED[0m function addressable: server_identity_handle_packet
+[92mPASSED[0m function addressable: server_identity_thread_main
+[92mPASSED[0m function addressable: server_identity_open_socket
+[92mPASSED[0m function addressable: SERVER_IDENTITY_set_server_mode
+[92mPASSED[0m function addressable: SERVER_IDENTITY_start
+[92mPASSED[0m function addressable: SERVER_IDENTITY_stop
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_id
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_fingerprint
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_algorithm
+[92mPASSED[0m function addressable: SERVER_IDENTITY_has_conflict
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_local_name
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_name
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_fingerprint
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_public_file_path
+[92mPASSED[0m function addressable: SERVER_IDENTITY_trusted_is_local
+[92mPASSED[0m function addressable: server_identity_resolve_import_path
+[92mPASSED[0m function addressable: SERVER_IDENTITY_preview_public_file
+[92mPASSED[0m function addressable: SERVER_IDENTITY_import_public_file
+[92mPASSED[0m function addressable: SERVER_IDENTITY_validate_target
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_host
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_public
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_local_public
+[92mPASSED[0m function addressable: SERVER_IDENTITY_sign_local
+[92mPASSED[0m function addressable: SERVER_IDENTITY_verify_trusted
+[92mPASSED[0m function addressable: SERVER_IDENTITY_last_verified_at
+[92mPASSED[0m function addressable: SERVER_IDENTITY_status
+[92mPASSED[0m identity secure zero
+[92mPASSED[0m identity name accepts normal
+[92mPASSED[0m identity name rejects control characters
+[92mPASSED[0m identity algorithm label
+[92mPASSED[0m identity service starts
+[92mPASSED[0m identity id generated
+[92mPASSED[0m identity fingerprint generated
+[92mPASSED[0m identity local public key available
+[92mPASSED[0m identity signs message
+[92mPASSED[0m identity verifies trusted signature
+[92mPASSED[0m identity validates local target
+[92mPASSED[0m identity public file preview
+[92mPASSED[0m identity status available
+
+ServerIdentity.c summary: [92m82 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m ServerIdentity.c runtime suite
+
+=== world_map_bin_loader.c ===
+[92mPASSED[0m world_map_bin_loader.c test compilation
+[92mPASSED[0m world_map_bin_loader.c test linking
+
+RetroSpectrum target: world_map_bin_loader.c
+Expected function definitions: 49
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: WM_destroy_render_cache
+[92mPASSED[0m function addressable: WM_read_exact
+[92mPASSED[0m function addressable: WM_read_u32
+[92mPASSED[0m function addressable: WM_read_u16
+[92mPASSED[0m function addressable: WM_read_i16
+[92mPASSED[0m function addressable: WM_recompute_bounds_from_points
+[92mPASSED[0m function addressable: WM_draw_text
+[92mPASSED[0m function addressable: WM_copy_text
+[92mPASSED[0m function addressable: WM_draw_text_wrapped
+[92mPASSED[0m function addressable: WORLD_MAP_free_flags
+[92mPASSED[0m function addressable: WORLD_MAP_reset_view
+[92mPASSED[0m function addressable: WORLD_MAP_free
+[92mPASSED[0m function addressable: WORLD_MAP_load
+[92mPASSED[0m function addressable: WM_ensure_loaded
+[92mPASSED[0m function addressable: WM_project_point
+[92mPASSED[0m function addressable: WM_screen_to_lonlat100
+[92mPASSED[0m function addressable: WM_point_in_polygon_lonlat
+[92mPASSED[0m function addressable: WM_polygon_intersects_view
+[92mPASSED[0m function addressable: WM_zoom_to_country
+[92mPASSED[0m function addressable: WM_clamp_view
+[92mPASSED[0m function addressable: WM_zoom_view_at
+[92mPASSED[0m function addressable: WM_pan_view_pixels
+[92mPASSED[0m function addressable: WORLD_MAP_is_dragging
+[92mPASSED[0m function addressable: WORLD_MAP_get_drag_offset
+[92mPASSED[0m function addressable: WORLD_MAP_take_clicked_country
+[92mPASSED[0m function addressable: WM_clamp_drag_offset
+[92mPASSED[0m function addressable: WM_update_drag_position
+[92mPASSED[0m function addressable: WM_finish_drag
+[92mPASSED[0m function addressable: WORLD_MAP_handle_event
+[92mPASSED[0m function addressable: WM_country_at
+[92mPASSED[0m function addressable: WM_fill_poly
+[92mPASSED[0m function addressable: WM_detail_segment_intersects_view
+[92mPASSED[0m function addressable: WM_lon_jump_crosses_dateline
+[92mPASSED[0m function addressable: WM_draw_detail_pair
+[92mPASSED[0m function addressable: WM_draw_detail_lines
+[92mPASSED[0m function addressable: WM_draw_hover_detail_lines
+[92mPASSED[0m function addressable: WM_draw_polygon
+[92mPASSED[0m function addressable: WM_fill_map_background
+[92mPASSED[0m function addressable: WM_draw_map_grid
+[92mPASSED[0m function addressable: WM_render_base_map_layer
+[92mPASSED[0m function addressable: WM_draw_hover_layer
+[92mPASSED[0m function addressable: WM_render_cache_factor
+[92mPASSED[0m function addressable: WM_render_cache_source_rect
+[92mPASSED[0m function addressable: WM_rebuild_render_cache
+[92mPASSED[0m function addressable: WM_draw_cached_base_map
+[92mPASSED[0m function addressable: WM_draw_dragged_cached_base_map
+[92mPASSED[0m function addressable: WM_load_flag
+[92mPASSED[0m function addressable: WM_draw_sidebar
+[92mPASSED[0m function addressable: WORLD_MAP_draw
+[92mPASSED[0m world-map text copy
+[92mPASSED[0m world-map projects origin
+[92mPASSED[0m world-map clamps drag
+[92mPASSED[0m world-map binary loads
+[92mPASSED[0m world-map has countries
+[92mPASSED[0m world-map geographic lookup
+[92mPASSED[0m world-map free
+
+world_map_bin_loader.c summary: [92m58 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
+[92mPASSED[0m world_map_bin_loader.c runtime suite
+
+=== Optional external analyzers ===
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+1/16 files checked 21% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AuthAdmin.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AuthAdmin.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+2/16 files checked 24% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AuthScreen.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AuthScreen.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+3/16 files checked 32% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/CaseManagementWorkstation.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/CaseManagementWorkstation.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+4/16 files checked 48% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/ClassificationWorkstation.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/ClassificationWorkstation.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+5/16 files checked 54% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/CorrelationWorkstation.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/CorrelationWorkstation.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+6/16 files checked 61% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DataStore.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DataStore.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+7/16 files checked 62% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DatabaseCrypto.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DatabaseCrypto.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+8/16 files checked 64% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DecodeWorkstation.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DecodeWorkstation.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+9/16 files checked 74% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/GUIs.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/GUIs.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+10/16 files checked 76% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/MapDashboard.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/MapDashboard.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+11/16 files checked 79% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/RetroSpectrum.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/RetroSpectrum.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+12/16 files checked 89% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/SecureFunctions.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/SecureFunctions.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+13/16 files checked 89% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/SecureNetwork.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/SecureNetwork.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+14/16 files checked 93% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/ServerIdentity.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/ServerIdentity.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+15/16 files checked 97% done
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/world_map_bin_loader.c ...
+Checking /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/world_map_bin_loader.c: OPENSSL_VERSION_NUMBER=0x30500000L...
+16/16 files checked 100% done
+[92mPASSED[0m cppcheck warning/performance/portability analysis
+[92mPASSED[0m Clang Static Analyzer across production sources
+
+[92mRetroSpectrum exhaustive test summary[0m
+  [92mPassed:  54[0m
+  [91mFailed:  0[0m
+  [93mSkipped: 0[0m
+  Detailed logs: /home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/build/full_tests

@@ -1,0 +1,98 @@
+
+RetroSpectrum target: CorrelationWorkstation.c
+Expected function definitions: 76
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: correlation_point_in_rect
+[92mPASSED[0m function addressable: correlation_clamp_double
+[92mPASSED[0m function addressable: correlation_set_status
+[92mPASSED[0m function addressable: correlation_worker_checkpoint
+[92mPASSED[0m function addressable: correlation_name_compare
+[92mPASSED[0m function addressable: correlation_result_compare
+[92mPASSED[0m function addressable: correlation_double_compare
+[92mPASSED[0m function addressable: correlation_has_iq_extension
+[92mPASSED[0m function addressable: correlation_parse_recording_metadata
+[92mPASSED[0m function addressable: correlation_scan_recordings
+[92mPASSED[0m function addressable: correlation_cache_path
+[92mPASSED[0m function addressable: correlation_parse_cache_buffer
+[92mPASSED[0m function addressable: correlation_serialize_cache
+[92mPASSED[0m function addressable: correlation_load_local_cache
+[92mPASSED[0m function addressable: correlation_load_server_cache_once
+[92mPASSED[0m function addressable: correlation_save_cache
+[92mPASSED[0m function addressable: correlation_find_cache_entry
+[92mPASSED[0m function addressable: correlation_prune_cache
+[92mPASSED[0m function addressable: correlation_normalize_trend
+[92mPASSED[0m function addressable: correlation_detect_ranges
+[92mPASSED[0m function addressable: correlation_estimate_occupied_bandwidth
+[92mPASSED[0m function addressable: correlation_build_signature
+[92mPASSED[0m function addressable: correlation_extract_file_signatures
+[92mPASSED[0m function addressable: correlation_maximum_normalized_cross_correlation
+[92mPASSED[0m function addressable: correlation_bandwidth_similarity
+[92mPASSED[0m function addressable: correlation_signature_energy
+[92mPASSED[0m function addressable: correlation_prepare_work_item
+[92mPASSED[0m function addressable: correlation_get_or_build_entry
+[92mPASSED[0m function addressable: correlation_calculate_score
+[92mPASSED[0m function addressable: correlation_rescore_results
+[92mPASSED[0m function addressable: correlation_worker
+[92mPASSED[0m function addressable: correlation_start_worker
+[92mPASSED[0m function addressable: correlation_clear_cache
+[92mPASSED[0m function addressable: correlation_get_layout
+[92mPASSED[0m function addressable: correlation_get_engine_controls
+[92mPASSED[0m function addressable: correlation_get_clear_cache_dialog
+[92mPASSED[0m function addressable: correlation_draw_centered_text
+[92mPASSED[0m function addressable: correlation_draw_button
+[92mPASSED[0m function addressable: correlation_get_result_controls
+[92mPASSED[0m function addressable: correlation_text_width
+[92mPASSED[0m function addressable: correlation_draw_wrapped_text
+[92mPASSED[0m function addressable: correlation_draw_trend_line
+[92mPASSED[0m function addressable: correlation_draw_trend_pair
+[92mPASSED[0m function addressable: correlation_short_text
+[92mPASSED[0m function addressable: correlation_interpolate_color
+[92mPASSED[0m function addressable: correlation_score_color
+[92mPASSED[0m function addressable: correlation_active_weight_buffer
+[92mPASSED[0m function addressable: correlation_sync_text_input
+[92mPASSED[0m function addressable: correlation_parse_nonnegative_scalar
+[92mPASSED[0m function addressable: correlation_parse_trend_points
+[92mPASSED[0m function addressable: correlation_restore_weight_text
+[92mPASSED[0m function addressable: correlation_apply_weight_inputs
+[92mPASSED[0m function addressable: correlation_weight_insert_text
+[92mPASSED[0m function addressable: correlation_weight_backspace
+[92mPASSED[0m function addressable: correlation_weight_delete
+[92mPASSED[0m function addressable: correlation_activate_weight_field
+[92mPASSED[0m function addressable: correlation_file_search_matches
+[92mPASSED[0m function addressable: correlation_file_search_filtered_count
+[92mPASSED[0m function addressable: correlation_file_search_filtered_index_at
+[92mPASSED[0m function addressable: correlation_file_search_popup_rect
+[92mPASSED[0m function addressable: correlation_file_search_input_rect
+[92mPASSED[0m function addressable: correlation_file_search_clamp_scroll
+[92mPASSED[0m function addressable: correlation_open_file_search
+[92mPASSED[0m function addressable: correlation_close_file_search
+[92mPASSED[0m function addressable: correlation_select_recording
+[92mPASSED[0m function addressable: correlation_file_search_insert_text
+[92mPASSED[0m function addressable: correlation_file_search_backspace
+[92mPASSED[0m function addressable: correlation_file_search_delete
+[92mPASSED[0m function addressable: correlation_handle_file_search_event
+[92mPASSED[0m function addressable: correlation_draw_file_search_popup
+[92mPASSED[0m function addressable: CORRELATION_enter_mode
+[92mPASSED[0m function addressable: CORRELATION_exit_mode
+[92mPASSED[0m function addressable: CORRELATION_shutdown
+[92mPASSED[0m function addressable: CORRELATION_is_text_entry_active
+[92mPASSED[0m function addressable: CORRELATION_handle_event
+[92mPASSED[0m function addressable: CORRELATION_draw_workstation
+[92mPASSED[0m correlation point inside
+[92mPASSED[0m correlation clamp
+[92mPASSED[0m correlation IQ extension
+[92mPASSED[0m correlation rejects unsupported IQ suffix
+[92mPASSED[0m correlation parses sample rate
+[92mPASSED[0m correlation parses center
+[92mPASSED[0m correlation identical trend score
+[92mPASSED[0m correlation weighted score bounds
+[92mPASSED[0m correlation scalar parser
+[92mPASSED[0m correlation trend-point parser
+[92mPASSED[0m correlation score color opaque
+[92mPASSED[0m correlation text state valid
+[92mPASSED[0m correlation event smoke
+[93mSKIPPED[0m correlation draw smoke — SDL/TTF renderer unavailable
+
+CorrelationWorkstation.c summary: [92m91 passed[0m, [91m0 failed[0m, [93m1 skipped[0m

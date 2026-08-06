@@ -4846,7 +4846,7 @@ void CLASSIFICATION_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int
             CLASSIFICATION_is_dropdown_field(i), i);
     }
 
-    draw_text(renderer, font, "Database record: CASE_<Case #>.csv  |  same Case # appends multiple signals",
+    draw_text(renderer, font, "Database storage: structured signal records  |  same Case # groups multiple signals",
               form_rect.x + 10, form_rect.y - 25, (SDL_Color){0, 255, 90, 255});
 
     if (Global_Classification_Open_Dropdown != CLASSIFICATION_DROPDOWN_NONE) {

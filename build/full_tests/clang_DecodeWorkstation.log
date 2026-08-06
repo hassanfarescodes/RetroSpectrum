@@ -1,0 +1,13 @@
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DecodeWorkstation.c:5014:13: warning: Value stored to 'cursor' during its initialization is never read [deadcode.DeadStores]
+ 5014 |         int cursor = Global_Decode_Bit_Cursor;
+      |             ^~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DecodeWorkstation.c:5014:13: note: Value stored to 'cursor' during its initialization is never read
+ 5014 |         int cursor = Global_Decode_Bit_Cursor;
+      |             ^~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DecodeWorkstation.c:5650:5: warning: Value stored to 'ascii_rect' is never read [deadcode.DeadStores]
+ 5650 |     ascii_rect = (SDL_Rect){output.x + 8, output.y + output.h - 68, output.w - 16, 58};
+      |     ^            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/DecodeWorkstation.c:5650:5: note: Value stored to 'ascii_rect' is never read
+ 5650 |     ascii_rect = (SDL_Rect){output.x + 8, output.y + output.h - 68, output.w - 16, 58};
+      |     ^            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2 warnings generated.

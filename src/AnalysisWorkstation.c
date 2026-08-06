@@ -4012,12 +4012,6 @@ static int ANALYSIS_draw_wrapped_text(SDL_Renderer *renderer, TTF_Font *font, co
         for (int n = 1; pos + n <= len && n < 1000; n++) {
             char tmp[1024];
 
-            if (n >= (int)sizeof(tmp)) {
-
-                break;
-
-            }
-
             memcpy(tmp, text + pos, (size_t)n);
             tmp[n] = '\0';
 
@@ -4130,11 +4124,6 @@ static int ANALYSIS_draw_wrapped_text_limited(SDL_Renderer *renderer, TTF_Font *
             int text_w = 0;
             int text_h = 0;
 
-            if (n >= (int)sizeof(candidate)) {
-
-                break;
-
-            }
 
             memcpy(candidate, text + pos, (size_t)n);
             candidate[n] = '\0';
@@ -4468,12 +4457,6 @@ static int ANALYSIS_signal_filename_wrap_lines(TTF_Font *font, const char *text,
 
         for (int n = 1; pos + n <= len && n < 1000; n++) {
             char tmp[1024];
-
-            if (n >= (int)sizeof(tmp)) {
-
-                break;
-
-            }
 
             memcpy(tmp, text + pos, (size_t)n);
             tmp[n] = '\0';

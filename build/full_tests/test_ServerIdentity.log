@@ -1,0 +1,88 @@
+
+RetroSpectrum target: ServerIdentity.c
+Expected function definitions: 67
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: server_identity_secure_zero
+[92mPASSED[0m function addressable: server_identity_set_status
+[92mPASSED[0m function addressable: server_identity_ensure_directory
+[92mPASSED[0m function addressable: server_identity_key_path
+[92mPASSED[0m function addressable: server_identity_named_path
+[92mPASSED[0m function addressable: server_identity_name_valid
+[92mPASSED[0m function addressable: server_identity_default_name
+[92mPASSED[0m function addressable: server_identity_write_name_file
+[92mPASSED[0m function addressable: server_identity_load_or_create_name
+[92mPASSED[0m function addressable: server_identity_generate_keypair
+[92mPASSED[0m function addressable: server_identity_sha512_parts
+[92mPASSED[0m function addressable: server_identity_key_file_digest
+[92mPASSED[0m function addressable: server_identity_write_all
+[92mPASSED[0m function addressable: server_identity_read_all
+[92mPASSED[0m function addressable: server_identity_write_key_file
+[92mPASSED[0m function addressable: server_identity_read_key_file
+[92mPASSED[0m function addressable: server_identity_private_pkey
+[92mPASSED[0m function addressable: server_identity_public_pkey
+[92mPASSED[0m function addressable: server_identity_sign_with_private
+[92mPASSED[0m function addressable: server_identity_verify_signature
+[92mPASSED[0m function addressable: server_identity_verify_keypair
+[92mPASSED[0m function addressable: server_identity_load_or_create_key
+[92mPASSED[0m function addressable: server_identity_hash_public_key
+[92mPASSED[0m function addressable: server_identity_id_from_public_key
+[92mPASSED[0m function addressable: server_identity_fingerprint_from_public_key
+[92mPASSED[0m function addressable: server_identity_public_file_digest
+[92mPASSED[0m function addressable: server_identity_write_u16
+[92mPASSED[0m function addressable: server_identity_read_u16
+[92mPASSED[0m function addressable: server_identity_encode_public_file
+[92mPASSED[0m function addressable: server_identity_decode_public_file
+[92mPASSED[0m function addressable: server_identity_read_public_file
+[92mPASSED[0m function addressable: server_identity_write_public_file
+[92mPASSED[0m function addressable: server_identity_set_trusted
+[92mPASSED[0m function addressable: server_identity_initialize_public_files
+[92mPASSED[0m function addressable: server_identity_write_u64
+[92mPASSED[0m function addressable: server_identity_read_u64
+[92mPASSED[0m function addressable: server_identity_build_packet
+[92mPASSED[0m function addressable: server_identity_packet_valid
+[92mPASSED[0m function addressable: server_identity_mark_conflict
+[92mPASSED[0m function addressable: server_identity_refresh_local_validation
+[92mPASSED[0m function addressable: server_identity_send_broadcast
+[92mPASSED[0m function addressable: server_identity_handle_packet
+[92mPASSED[0m function addressable: server_identity_thread_main
+[92mPASSED[0m function addressable: server_identity_open_socket
+[92mPASSED[0m function addressable: SERVER_IDENTITY_set_server_mode
+[92mPASSED[0m function addressable: SERVER_IDENTITY_start
+[92mPASSED[0m function addressable: SERVER_IDENTITY_stop
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_id
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_fingerprint
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_algorithm
+[92mPASSED[0m function addressable: SERVER_IDENTITY_has_conflict
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_local_name
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_name
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_fingerprint
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_public_file_path
+[92mPASSED[0m function addressable: SERVER_IDENTITY_trusted_is_local
+[92mPASSED[0m function addressable: server_identity_resolve_import_path
+[92mPASSED[0m function addressable: SERVER_IDENTITY_preview_public_file
+[92mPASSED[0m function addressable: SERVER_IDENTITY_import_public_file
+[92mPASSED[0m function addressable: SERVER_IDENTITY_validate_target
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_host
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_trusted_public
+[92mPASSED[0m function addressable: SERVER_IDENTITY_get_local_public
+[92mPASSED[0m function addressable: SERVER_IDENTITY_sign_local
+[92mPASSED[0m function addressable: SERVER_IDENTITY_verify_trusted
+[92mPASSED[0m function addressable: SERVER_IDENTITY_last_verified_at
+[92mPASSED[0m function addressable: SERVER_IDENTITY_status
+[92mPASSED[0m identity secure zero
+[92mPASSED[0m identity name accepts normal
+[92mPASSED[0m identity name rejects control characters
+[92mPASSED[0m identity algorithm label
+[92mPASSED[0m identity service starts
+[92mPASSED[0m identity id generated
+[92mPASSED[0m identity fingerprint generated
+[92mPASSED[0m identity local public key available
+[92mPASSED[0m identity signs message
+[92mPASSED[0m identity verifies trusted signature
+[92mPASSED[0m identity validates local target
+[92mPASSED[0m identity public file preview
+[92mPASSED[0m identity status available
+
+ServerIdentity.c summary: [92m82 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

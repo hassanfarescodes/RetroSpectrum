@@ -1666,7 +1666,7 @@ void ANALYSIS_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, SDL_Textu
     int work_y = list_rect.y + list_rect.h + MARGIN;
     int work_h = win_h - work_y - MARGIN;
 
-    if (work_w < 100 || work_h < 260) {
+    if (work_h < 260) {
 
         return;
 

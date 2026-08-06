@@ -1,0 +1,161 @@
+
+RetroSpectrum target: RetroSpectrum.c
+Expected function definitions: 107
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: handle_sigint
+[92mPASSED[0m function addressable: draw_thick_line
+[92mPASSED[0m function addressable: draw_cubic_cable
+[92mPASSED[0m function addressable: draw_sdr_disconnected
+[92mPASSED[0m function addressable: limit_double
+[92mPASSED[0m function addressable: ensure_record_dir_exists
+[92mPASSED[0m function addressable: selection_center_Hz
+[92mPASSED[0m function addressable: selection_BW_Hz
+[92mPASSED[0m function addressable: configure_recording_filter
+[92mPASSED[0m function addressable: pre_cache_init
+[92mPASSED[0m function addressable: pre_cache_free
+[92mPASSED[0m function addressable: pre_cache_resize
+[92mPASSED[0m function addressable: pre_cache_write
+[92mPASSED[0m function addressable: pre_cache_snapshot_locked
+[92mPASSED[0m function addressable: rec_queue_init
+[92mPASSED[0m function addressable: rec_queue_resize
+[92mPASSED[0m function addressable: rec_queue_free
+[92mPASSED[0m function addressable: rec_queue_available_locked
+[92mPASSED[0m function addressable: rec_queue_reset
+[92mPASSED[0m function addressable: rec_queue_push_block
+[92mPASSED[0m function addressable: rec_queue_pop_block
+[92mPASSED[0m function addressable: rec_queue_request_stop
+[92mPASSED[0m function addressable: recorder_reset_processing_state
+[92mPASSED[0m function addressable: recorder_write_sample
+[92mPASSED[0m function addressable: recorder_thread_main
+[92mPASSED[0m function addressable: stop_recording
+[92mPASSED[0m function addressable: start_recording
+[92mPASSED[0m function addressable: ring_available_locked
+[92mPASSED[0m function addressable: ring_clear
+[92mPASSED[0m function addressable: ring_write_sample
+[92mPASSED[0m function addressable: ring_read_block
+[92mPASSED[0m function addressable: sdr_name_equals
+[92mPASSED[0m function addressable: sdr_nearest_supported_value
+[92mPASSED[0m function addressable: sdr_clamp_frequency
+[92mPASSED[0m function addressable: sdr_clamp_sample_rate
+[92mPASSED[0m function addressable: sdr_clamp_bandwidth
+[92mPASSED[0m function addressable: sdr_clamp_gain
+[92mPASSED[0m function addressable: sdr_copy_identity
+[92mPASSED[0m function addressable: sdr_discover_gain_controls
+[92mPASSED[0m function addressable: sdr_channel_has_gain_controls
+[92mPASSED[0m function addressable: sdr_apply_rx_gain_controls
+[92mPASSED[0m function addressable: sdr_cache_selected_label
+[92mPASSED[0m function addressable: sdr_open_selected_device
+[92mPASSED[0m function addressable: process_rx_samples
+[92mPASSED[0m function addressable: sdr_rx_thread_main
+[92mPASSED[0m function addressable: compute_DB_from_FFT
+[92mPASSED[0m function addressable: parse_positive_double
+[92mPASSED[0m function addressable: parse_nonnegative_int
+[92mPASSED[0m function addressable: normalize_lna_gain
+[92mPASSED[0m function addressable: normalize_vga_gain
+[92mPASSED[0m function addressable: normalize_fps
+[92mPASSED[0m function addressable: normalize_rows_per_frame
+[92mPASSED[0m function addressable: stop_radio
+[92mPASSED[0m function addressable: start_radio
+[92mPASSED[0m function addressable: recommended_antenna_length_inches
+[92mPASSED[0m function addressable: apply_radio_settings
+[92mPASSED[0m function addressable: RETROSPECTRUM_sdr_selected_label
+[92mPASSED[0m function addressable: RETROSPECTRUM_sdr_args_is_selected
+[92mPASSED[0m function addressable: RETROSPECTRUM_select_sdr_args
+[92mPASSED[0m function addressable: retrospectrum_tx_thread_main
+[92mPASSED[0m function addressable: retrospectrum_close_transmit_file_locked
+[92mPASSED[0m function addressable: retrospectrum_restore_receive_settings
+[92mPASSED[0m function addressable: retrospectrum_finalize_transmission
+[92mPASSED[0m function addressable: retrospectrum_pump_transmission
+[92mPASSED[0m function addressable: RETROSPECTRUM_start_file_transmission
+[92mPASSED[0m function addressable: RETROSPECTUnknown argument: --definitely-invalid
+Usage:
+  retrospectrum -S -o record_dir [--database-key absolute_path]
+  retrospectrum -C -o record_dir
+  retrospectrum -S --cli [--database-key absolute_path]
+
+Options:
+  -S, --server           Run as the centralized server and listen on TCP 47742.
+  -C, --client           Run as an endpoint client without starting a server.
+  -o record_dir          Required recording directory in GUI mode.
+  --cli, --admin-cli     Run the headless server administration CLI.
+  --database-key path    Select an existing 32-byte SQLCipher master-key file.
+  -h, --help             Show this help text.
+RUM_cancel_file_transmission
+[92mPASSED[0m function addressable: RETROSPECTRUM_get_transmission_status
+[92mPASSED[0m function addressable: RETROSPECTRUM_acknowledge_transmission_result
+[92mPASSED[0m function addressable: RETROSPECTRUM_transmission_is_active
+[92mPASSED[0m function addressable: apply_from_inputs
+[92mPASSED[0m function addressable: main_field_index
+[92mPASSED[0m function addressable: main_field_text_by_index
+[92mPASSED[0m function addressable: main_field_text
+[92mPASSED[0m function addressable: main_clamp_cursor_for_text
+[92mPASSED[0m function addressable: main_reset_input_cursors
+[92mPASSED[0m function addressable: main_set_active_cursor_end
+[92mPASSED[0m function addressable: main_insert_text_at_cursor
+[92mPASSED[0m function addressable: main_backspace_at_cursor
+[92mPASSED[0m function addressable: main_move_active_cursor
+[92mPASSED[0m function addressable: main_make_cursor_box
+[92mPASSED[0m function addressable: cli_secure_zero
+[92mPASSED[0m function addressable: cli_trim_line
+[92mPASSED[0m function addressable: cli_read_line
+[92mPASSED[0m function addressable: cli_prompt_yes_no
+[92mPASSED[0m function addressable: cli_prompt_password_twice
+[92mPASSED[0m function addressable: cli_role_name
+[92mPASSED[0m function addressable: cli_role_is_privileged
+[92mPASSED[0m function addressable: cli_load_users
+[92mPASSED[0m function addressable: cli_lookup_user
+[92mPASSED[0m function addressable: cli_print_users
+[92mPASSED[0m function addressable: cli_enroll_totp
+[92mPASSED[0m function addressable: cli_bootstrap_primary_admin
+[92mPASSED[0m function addressable: cli_authenticate
+[92mPASSED[0m function addressable: cli_read_target_username
+[92mPASSED[0m function addressable: cli_create_user
+[92mPASSED[0m function addressable: cli_reset_password
+[92mPASSED[0m function addressable: cli_enable_totp
+[92mPASSED[0m function addressable: cli_disable_totp
+[92mPASSED[0m function addressable: cli_set_role
+[92mPASSED[0m function addressable: cli_delete_user
+[92mPASSED[0m function addressable: cli_print_privileged_commands
+[92mPASSED[0m function addressable: cli_print_user_commands
+[92mPASSED[0m function addressable: cli_run_session
+[92mPASSED[0m function addressable: run_management_cli
+[92mPASSED[0m function addressable: print_command_line_usage
+[92mPASSED[0m function addressable: parse_command_line_args
+[92mPASSED[0m function addressable: retrospectrum_application_main
+[92mPASSED[0m limit_double lower
+[92mPASSED[0m limit_double middle
+[92mPASSED[0m limit_double upper
+[92mPASSED[0m antenna recommendation positive
+[92mPASSED[0m SDR selected label available
+[92mPASSED[0m SDR empty args not selected
+[92mPASSED[0m reject empty SDR selection
+[92mPASSED[0m parse positive double
+[92mPASSED[0m reject zero positive double
+[92mPASSED[0m parse nonnegative integer
+[92mPASSED[0m normalize LNA
+[92mPASSED[0m normalize VGA
+[92mPASSED[0m normalize FPS
+[92mPASSED[0m normalize rows
+[92mPASSED[0m main cursor insert
+[92mPASSED[0m main cursor backspace
+[92mPASSED[0m CLI trims line
+[92mPASSED[0m CLI role name
+[92mPASSED[0m CLI privileged role
+Usage:
+  retrospectrum -S -o record_dir [--database-key absolute_path]
+  retrospectrum -C -o record_dir
+  retrospectrum -S --cli [--database-key absolute_path]
+
+Options:
+  -S, --server           Run as the centralized server and listen on TCP 47742.
+  -C, --client           Run as an endpoint client without starting a server.
+  -o record_dir          Required recording directory in GUI mode.
+  --cli, --admin-cli     Run the headless server administration CLI.
+  --database-key path    Select an existing 32-byte SQLCipher master-key file.
+  -h, --help             Show this help text.
+[92mPASSED[0m parse help command line
+[92mPASSED[0m reject unknown command line
+
+RetroSpectrum.c summary: [92m130 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

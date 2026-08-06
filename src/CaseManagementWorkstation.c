@@ -76,6 +76,10 @@ extern void SDL_free(void *mem);
 #define CASE_MGMT_METADATA_MAX_CASES 512
 #define CASE_MGMT_METADATA_DESCRIPTION_MAX 512
 #define CASE_MGMT_METADATA_PREFIX "__case_metadata_"
+#define CASE_MGMT_IMAGE_KIND "case_image"
+#define CASE_MGMT_IMAGE_PREFIX "__case_image_"
+#define CASE_MGMT_COLOR_KIND "case_color"
+#define CASE_MGMT_COLOR_PREFIX "__case_color_"
 #define CASE_MGMT_METADATA_VISIBLE_ROWS 4
 #define CASE_MGMT_LEGACY_DESCRIPTION_CSV "Classification/CASE_DESCRIPTIONS.csv"
 
@@ -898,12 +902,12 @@ static void case_shorten(const char *src, char *dst, size_t dst_size, size_t max
 
     }
 
-    while (src[len] && len < max_chars && len + 1 < dst_size) {
+    while (len < max_chars && len + 1 < dst_size && src[len]) {
         dst[len] = src[len];
         len++;
     }
 
-    if (src[len] && len + 4 < dst_size && max_chars > 3) {
+    if (len + 4 < dst_size && max_chars > 3 && src[len]) {
 
         dst[len++] = '.';
         dst[len++] = '.';
@@ -7140,6 +7144,77 @@ static void case_metadata_classification_name(const char *case_number, char *out
     snprintf(out, out_size, "CASE_%s.csv", safe);
 }
 
+static void case_metadata_asset_document_name(const char *prefix, const char *case_number,
+                                              char *document_name, size_t document_name_size) {
+    /*
+        Purpose: Builds a deterministic case asset document name
+        Returns: No value
+    */
+
+    if (!document_name || document_name_size == 0) {
+
+        return;
+
+    }
+
+    snprintf(document_name, document_name_size, "%s%s", prefix ? prefix : "",
+             case_number && case_number[0] ? case_number : "UNCASED");
+}
+
+static int case_metadata_rename_asset(const char *document_kind, const char *document_prefix,
+                                      const char *old_case, const char *new_case) {
+    /*
+        Purpose: Moves a name-keyed encrypted case asset during a case rename
+        Returns: Success status
+    */
+
+    unsigned char *content = NULL;
+    size_t content_size = 0;
+    int found = 0;
+    int deleted = 0;
+    char old_document[256];
+    char new_document[256];
+    char database_error[256] = "";
+
+    case_metadata_asset_document_name(document_prefix, old_case, old_document, sizeof(old_document));
+    case_metadata_asset_document_name(document_prefix, new_case, new_document, sizeof(new_document));
+
+    if (!DATASTORE_load_content(document_kind, old_document, &content, &content_size, &found,
+                                database_error, sizeof(database_error))) {
+
+        DATASTORE_free_content(content, content_size);
+        return 0;
+
+    }
+
+    if (!found) {
+
+        DATASTORE_free_content(content, content_size);
+        return 1;
+
+    }
+
+    if (!DATASTORE_save_content(document_kind, new_document, new_case, content, content_size,
+                                database_error, sizeof(database_error))) {
+
+        DATASTORE_free_content(content, content_size);
+        return 0;
+
+    }
+
+    DATASTORE_free_content(content, content_size);
+
+    if (strcmp(old_document, new_document) != 0 &&
+        !DATASTORE_delete_content(document_kind, old_document, &deleted,
+                                  database_error, sizeof(database_error))) {
+
+        return 0;
+
+    }
+
+    return 1;
+}
+
 static int case_metadata_rename_classifications(const char *old_case, const char *new_case) {
     /*
         Purpose: Renames classification database records for a case
@@ -7438,7 +7513,10 @@ static int case_metadata_rename_selected(void) {
 
     if (!case_metadata_save_document(new_case, Global_Case_Metadata_Edit_Description, new_document,
                                      sizeof(new_document)) ||
-        !case_metadata_rename_classifications(old_case, new_case) || !case_metadata_rename_graphs(old_case, new_case)) {
+        !case_metadata_rename_classifications(old_case, new_case) ||
+        !case_metadata_rename_graphs(old_case, new_case) ||
+        !case_metadata_rename_asset(CASE_MGMT_IMAGE_KIND, CASE_MGMT_IMAGE_PREFIX, old_case, new_case) ||
+        !case_metadata_rename_asset(CASE_MGMT_COLOR_KIND, CASE_MGMT_COLOR_PREFIX, old_case, new_case)) {
 
         case_set_status("Case rename stopped because a database update failed", Case_Red);
         return 0;
@@ -7579,6 +7657,26 @@ static int case_metadata_delete_case(const char *case_number) {
             deleted_total += deleted;
 
         }
+    }
+
+    {
+        char image_document[256];
+        int deleted = 0;
+
+        case_metadata_asset_document_name(CASE_MGMT_IMAGE_PREFIX, case_number,
+                                          image_document, sizeof(image_document));
+
+        if (!DATASTORE_delete_content(CASE_MGMT_IMAGE_KIND, image_document, &deleted,
+                                      database_error, sizeof(database_error))) {
+
+            char message[384];
+            snprintf(message, sizeof(message), "Unable to delete the case image: %.280s", database_error);
+            case_set_status(message, Case_Red);
+            return 0;
+
+        }
+
+        deleted_total += deleted;
     }
 
     for (int i = 0; i < Global_Case_Block_Count; i++) {

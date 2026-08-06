@@ -901,7 +901,6 @@ static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
 
     if (pthread_mutex_init(&q->lock, NULL) != 0) {
 
-
         free(q->I);
         free(q->Q);
         memset(q, 0, sizeof(*q));
@@ -920,8 +919,6 @@ static int rec_queue_init(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
     }
 
     return 1;
-
-
 }
 
 static int rec_queue_resize(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
@@ -982,7 +979,6 @@ static int rec_queue_resize(Type_Rec_Queue *q, uint32_t sample_rate_hz) {
     pthread_mutex_unlock(&q->lock);
 
     return 1;
-
 }
 
 static void rec_queue_free(Type_Rec_Queue *q) {
@@ -1941,7 +1937,9 @@ static void sdr_discover_gain_controls(SoapySDRDevice *dev) {
         if (Global_SDR_Gain_A[0] == '\0') {
 
             if (sec_strcpy(Global_SDR_Gain_A, sizeof(Global_SDR_Gain_A), gains[index])) {
+
                 continue;
+
             }
 
             Global_SDR_Gain_A[0] = '\0';
@@ -1952,7 +1950,9 @@ static void sdr_discover_gain_controls(SoapySDRDevice *dev) {
         if (Global_SDR_Gain_B[0] == '\0' && !sdr_name_equals(gains[index], Global_SDR_Gain_A)) {
 
             if (sec_strcpy(Global_SDR_Gain_B, sizeof(Global_SDR_Gain_B), gains[index])) {
+
                 break;
+
             }
 
             Global_SDR_Gain_B[0] = '\0';
@@ -2167,11 +2167,10 @@ static SoapySDRDevice *sdr_open_selected_device(void) {
     SoapySDRDevice *selected = NULL;
 
     for (size_t index = 0; index < device_count; index++) {
-
         selected = SoapySDRDevice_make(&devices[index]);
 
         if (!selected) {
-          
+
             continue;
 
         }
@@ -2205,7 +2204,6 @@ static SoapySDRDevice *sdr_open_selected_device(void) {
         SoapySDR_free(serialized);
         break;
     }
-
 
     SoapySDRKwargsList_clear(devices, device_count);
     return selected;
@@ -2819,7 +2817,6 @@ int RETROSPECTRUM_sdr_args_is_selected(const char *args) {
     }
 
     return strcmp(bounded_args, Global_SDR_Selected_Args) == 0;
-
 }
 
 int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_size) {
@@ -3014,7 +3011,7 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
 
             (void)sec_sprintf(error, error_size, "Unable to preserve the selected SDR arguments.");
 
-    }
+        }
 
         return 0;
 
@@ -3023,7 +3020,6 @@ int RETROSPECTRUM_select_sdr_args(const char *args, char *error, size_t error_si
     sdr_cache_selected_label(Global_SDR_Selected_Args);
     Global_SDR_Connected = 1;
     return 1;
-
 }
 
 static void *retrospectrum_tx_thread_main(void *context) {
@@ -3881,8 +3877,9 @@ static int apply_from_inputs(SoapySDRDevice *dev, Type_Input_Box *freq_box, Type
     double display_span_value = display_mhz * 1e6;
 
     if (!isfinite(center_hz_value) || center_hz_value <= 0.0 || center_hz_value > (double)UINT64_MAX ||
-        !isfinite(sample_rate_value) || sample_rate_value < 1000.0 || sample_rate_value > (double)RETROSPECTRUM_MAX_SAMPLE_RATE_HZ ||
-        !isfinite(display_span_value) || display_span_value < 1000.0 || display_span_value > (double)UINT32_MAX) {
+        !isfinite(sample_rate_value) || sample_rate_value < 1000.0 ||
+        sample_rate_value > (double)RETROSPECTRUM_MAX_SAMPLE_RATE_HZ || !isfinite(display_span_value) ||
+        display_span_value < 1000.0 || display_span_value > (double)UINT32_MAX) {
 
         return 0;
 
@@ -4076,7 +4073,7 @@ static int main_clamp_cursor_for_text(const char *text, size_t text_size, int *c
 
     }
 
-    if (*cursor < 0){
+    if (*cursor < 0) {
 
         *cursor = 0;
 
@@ -4089,7 +4086,6 @@ static int main_clamp_cursor_for_text(const char *text, size_t text_size, int *c
     }
 
     return 1;
-
 }
 
 static void main_reset_input_cursors(int cursors[7], Type_Input_Box *freq_box, Type_Input_Box *sr_box,
@@ -4101,7 +4097,6 @@ static void main_reset_input_cursors(int cursors[7], Type_Input_Box *freq_box, T
     */
 
     Type_Input_Box *boxes[7] = {freq_box, sr_box, display_box, lna_box, vga_box, fps_box, rows_box};
-
 
     for (int i = 0; i < 7; i++) {
 
@@ -4123,8 +4118,8 @@ static void main_reset_input_cursors(int cursors[7], Type_Input_Box *freq_box, T
         else {
 
             cursors[i] = (int)length;
-        }
 
+        }
     }
 }
 
@@ -4166,7 +4161,6 @@ static void main_set_active_cursor_end(Type_Active_Fields field, int cursors[7],
     }
 
     cursors[index] = (int)length;
-
 }
 
 static void main_insert_text_at_cursor(char *dst, size_t dst_size, int *cursor, const char *src) {
@@ -4182,7 +4176,6 @@ static void main_insert_text_at_cursor(char *dst, size_t dst_size, int *cursor, 
     }
 
     while (*src) {
-
         char character = *src++;
         size_t length;
         int position;
@@ -4216,7 +4209,7 @@ static void main_insert_text_at_cursor(char *dst, size_t dst_size, int *cursor, 
         }
 
         if (!sec_memmove(dst + position + 1, dst_size - ((size_t)position + 1U), dst + position,
-            length - (size_t)position + 1U)) {
+                         length - (size_t)position + 1U)) {
 
             return;
 
@@ -4236,8 +4229,7 @@ static void main_backspace_at_cursor(char *dst, size_t dst_size, int *cursor) {
     size_t length;
     int position;
 
-    if (!dst || dst_size == 0 || !cursor || !main_clamp_cursor_for_text(dst, dst_size, cursor) ||
-        *cursor <= 0) {
+    if (!dst || dst_size == 0 || !cursor || !main_clamp_cursor_for_text(dst, dst_size, cursor) || *cursor <= 0) {
 
         return;
 
@@ -4254,7 +4246,7 @@ static void main_backspace_at_cursor(char *dst, size_t dst_size, int *cursor) {
     position = *cursor;
 
     if (!sec_memmove(dst + position - 1, dst_size - ((size_t)position - 1U), dst + position,
-        length - (size_t)position + 1U)) {
+                     length - (size_t)position + 1U)) {
 
         return;
 
@@ -4419,15 +4411,11 @@ static int cli_trim_line(char *text, size_t text_size) {
     }
 
     while (length > 0 && isspace((unsigned char)text[length - 1])) {
-
         text[--length] = '\0';
-
     }
 
     while (start < length && isspace((unsigned char)text[start])) {
-
         start++;
-
     }
 
     if (start > 0 && !sec_memmove(text, text_size, text + start, length - start + 1U)) {
@@ -4439,7 +4427,6 @@ static int cli_trim_line(char *text, size_t text_size) {
     }
 
     return 1;
-
 }
 
 static int cli_read_line(const char *prompt, char *output, size_t output_size, int hidden) {
@@ -4935,7 +4922,7 @@ static int cli_authenticate(char *authenticated_username, size_t username_size, 
 
     }
 
-    if (!authenticated_username || username_size == 0 || !authenticated_role || 
+    if (!authenticated_username || username_size == 0 || !authenticated_role ||
         !sec_strcpy(authenticated_username, username_size, username)) {
 
         fprintf(stderr, "Authenticated username buffer is too small.\n");

@@ -309,11 +309,18 @@ static void auth_import_path_replace_selection(Type_Auth_State *state) {
         Returns: No value
     */
 
-    if (!state || !state->import_select_all) {
+    if (!state) {
 
         return;
 
     }
+
+    if (!state->import_select_all) {
+
+        return;
+
+    }
+
     state->import_path[0] = '\0';
     state->import_cursor = 0;
     state->import_select_all = 0;
@@ -3491,7 +3498,13 @@ static int auth_submit_login_two_factor(sqlite3 *database, Type_Auth_State *stat
 
     }
 
-    if (!state || !state->active_totp_secret_valid ||
+    if (!state) {
+
+        return 0;
+
+    }
+
+    if (!state->active_totp_secret_valid ||
         !auth_verify_totp_with_algorithm(state->active_totp_secret, state->active_totp_secret_bytes, state->code,
                                          state->active_totp_algorithm)) {
 
@@ -3600,7 +3613,13 @@ static void auth_submit_authorize_create_two_factor(sqlite3 *database, Type_Auth
 
     }
 
-    if (!state || !state->active_totp_secret_valid ||
+    if (!state) {
+
+        return;
+
+    }
+
+    if (!state->active_totp_secret_valid ||
         !auth_verify_totp_with_algorithm(state->active_totp_secret, state->active_totp_secret_bytes, state->code,
                                          state->active_totp_algorithm)) {
 
@@ -3698,7 +3717,13 @@ static int auth_submit_create_two_factor(sqlite3 *database, Type_Auth_State *sta
         Returns: Success status
     */
 
-    if (!state || !state->active_totp_secret_valid ||
+    if (!state) {
+
+        return 0;
+
+    }
+
+    if (!state->active_totp_secret_valid ||
         !auth_verify_totp_with_algorithm(state->active_totp_secret, state->active_totp_secret_bytes, state->code,
                                          state->active_totp_algorithm)) {
 

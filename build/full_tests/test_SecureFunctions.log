@@ -1,0 +1,63 @@
+
+RetroSpectrum target: SecureFunctions.c
+Expected function definitions: 20
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: sec_sprintf
+[92mPASSED[0m function addressable: sec_strcpy
+[92mPASSED[0m function addressable: sec_strcat
+[92mPASSED[0m function addressable: sec_memcpy
+[92mPASSED[0m function addressable: sec_memmove
+[92mPASSED[0m function addressable: sec_str_memcpy
+[92mPASSED[0m function addressable: sec_memzero
+[92mPASSED[0m function addressable: sec_mul_bound
+[92mPASSED[0m function addressable: sec_calloc_array
+[92mPASSED[0m function addressable: sec_str_to_int
+[92mPASSED[0m function addressable: sec_str_to_double
+[92mPASSED[0m function addressable: sec_popen_read
+[92mPASSED[0m function addressable: sec_has_extension
+[92mPASSED[0m function addressable: sec_fopen_complex16
+[92mPASSED[0m function addressable: sec_str_to_int_bound
+[92mPASSED[0m function addressable: sec_str_to_double_bound
+[92mPASSED[0m function addressable: sec_normalize_directory_path
+[92mPASSED[0m function addressable: sec_directory_fd_is_secure
+[92mPASSED[0m function addressable: sec_ensure_private_directory
+[92mPASSED[0m function addressable: sec_fopen_exclusive_in_directory
+[92mPASSED[0m sec_sprintf formats
+[92mPASSED[0m sec_sprintf rejects truncation
+[92mPASSED[0m sec_strcpy copies
+[92mPASSED[0m sec_strcpy rejects truncation
+[92mPASSED[0m sec_strcat appends
+[92mPASSED[0m sec_memcpy copies
+[92mPASSED[0m sec_memcpy bounds
+[92mPASSED[0m sec_memmove overlap
+[92mPASSED[0m sec_str_memcpy terminates
+[92mPASSED[0m sec_memzero clears
+[92mPASSED[0m sec_mul_bound accepts safe product
+[92mPASSED[0m sec_mul_bound rejects overflow
+[92mPASSED[0m sec_calloc_array allocates
+[92mPASSED[0m sec_calloc_array enforces max
+[92mPASSED[0m sec_str_to_int parses
+[92mPASSED[0m sec_str_to_int rejects suffix
+[92mPASSED[0m sec_str_to_double parses
+[92mPASSED[0m sec_str_to_double rejects nonfinite
+[92mPASSED[0m sec_str_to_int_bound accepts
+[92mPASSED[0m sec_str_to_int_bound rejects
+[92mPASSED[0m sec_str_to_double_bound accepts
+[92mPASSED[0m sec_str_to_double_bound rejects
+[92mPASSED[0m sec_has_extension matches exact suffix
+[92mPASSED[0m sec_has_extension is case-sensitive
+[92mPASSED[0m sec_has_extension rejects wrong suffix
+[92mPASSED[0m sec_popen_read captures output
+[92mPASSED[0m create synthetic complex16
+[92mPASSED[0m sec_fopen_complex16 opens valid file
+[92mPASSED[0m write invalid complex16
+[92mPASSED[0m sec_fopen_complex16 rejects odd size
+[92mPASSED[0m sec_ensure_private_directory creates
+[92mPASSED[0m private directory mode
+[92mPASSED[0m normalize directory path
+[92mPASSED[0m exclusive file create
+[92mPASSED[0m exclusive file refuses overwrite
+
+SecureFunctions.c summary: [92m57 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

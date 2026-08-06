@@ -1,0 +1,192 @@
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1547:9: warning: Value stored to 'spec_h' is never read [deadcode.DeadStores]
+ 1547 |         spec_h = 110;
+      |         ^        ~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1547:9: note: Value stored to 'spec_h' is never read
+ 1547 |         spec_h = 110;
+      |         ^        ~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1640:40: warning: The left operand of '-' is a garbage value [core.UndefinedBinaryOperatorResult]
+ 1640 |     int available_width = const_rect.w - title_reserve;
+      |                                        ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:9: note: Assuming 'event' is non-null
+ 15680 |     if (!event || !Global_Analysis_Mode) {
+       |         ^~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:9: note: Left side of '||' is false
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:19: note: Assuming 'Global_Analysis_Mode' is not equal to 0
+ 15680 |     if (!event || !Global_Analysis_Mode) {
+       |                   ^~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:5: note: Taking false branch
+ 15680 |     if (!event || !Global_Analysis_Mode) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15686:9: note: Assuming 'Global_Analysis_Constellation_PSK_Prompt_Open' is 0
+ 15686 |     if (Global_Analysis_Constellation_PSK_Prompt_Open) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15686:5: note: Taking false branch
+ 15686 |     if (Global_Analysis_Constellation_PSK_Prompt_Open) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15699:5: note: Taking false branch
+ 15699 |     if (ANALYSIS_handle_file_search_event(event, win_w, win_h)) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15710:9: note: Assuming the condition is false
+ 15710 |     if (ANALYSIS_handle_signal_menu_event(event, win_w, win_h)) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15710:5: note: Taking false branch
+ 15710 |     if (ANALYSIS_handle_signal_menu_event(event, win_w, win_h)) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15721:9: note: Assuming field 'type' is not equal to SDL_KEYDOWN
+ 15721 |     if (event->type == SDL_KEYDOWN) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15721:5: note: Taking false branch
+ 15721 |     if (event->type == SDL_KEYDOWN) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15837:9: note: Assuming field 'type' is not equal to SDL_KEYUP
+ 15837 |     if (event->type == SDL_KEYUP) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15837:5: note: Taking false branch
+ 15837 |     if (event->type == SDL_KEYUP) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15920:9: note: Assuming field 'type' is not equal to SDL_MOUSEWHEEL
+ 15920 |     if (event->type == SDL_MOUSEWHEEL) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15920:5: note: Taking false branch
+ 15920 |     if (event->type == SDL_MOUSEWHEEL) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15975:9: note: Assuming field 'type' is equal to SDL_MOUSEBUTTONDOWN
+ 15975 |     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15975:9: note: Left side of '&&' is true
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15975:47: note: Assuming field 'button' is not equal to SDL_BUTTON_RIGHT
+ 15975 |     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
+       |                                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15975:5: note: Taking false branch
+ 15975 |     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15996:16: note: Field 'type' is equal to SDL_MOUSEBUTTONDOWN
+ 15996 |     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+       |                ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15996:9: note: Left side of '&&' is true
+ 15996 |     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+       |         ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15996:47: note: Assuming field 'button' is equal to SDL_BUTTON_LEFT
+ 15996 |     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+       |                                               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15996:5: note: Taking true branch
+ 15996 |     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:16001:13: note: Assuming 'active' is null
+ 16001 |         if (active) {
+       |             ^~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:16001:9: note: Taking false branch
+ 16001 |         if (active) {
+       |         ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:16016:13: note: Calling 'ANALYSIS_handle_constellation_mode_click'
+ 16016 |         if (ANALYSIS_handle_constellation_mode_click(x, y, win_w, win_h)) {
+       |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1861:17: note: Calling 'ANALYSIS_get_constellation_mode_button_rects'
+ 1861 |     int count = ANALYSIS_get_constellation_mode_button_rects(win_w, win_h, rects);
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1616:10: note: 'rects' is non-null
+ 1616 |     if (!rects) {
+      |          ^~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1616:5: note: Taking false branch
+ 1616 |     if (!rects) {
+      |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1629:5: note: Calling 'ANALYSIS_get_hover_graph_layout'
+ 1629 |     ANALYSIS_get_hover_graph_layout(win_w, win_h, &psd_rect, &mag_rect, &phase_rect, &inst_rect, &const_rect,
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1630 |                                     &spec_rect);
+      |                                     ~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1489:9: note: Assuming 'selector_h' is >= 130
+ 1489 |     if (selector_h < 130) {
+      |         ^~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1489:5: note: Taking false branch
+ 1489 |     if (selector_h < 130) {
+      |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1502:9: note: Assuming 'work_w' is < 100
+ 1502 |     if (work_w < 100) {
+      |         ^~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1502:5: note: Taking true branch
+ 1502 |     if (work_w < 100) {
+      |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1504:9: note: Returning without writing to 'const_rect->w'
+ 1504 |         return;
+      |         ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1629:5: note: Returning from 'ANALYSIS_get_hover_graph_layout'
+ 1629 |     ANALYSIS_get_hover_graph_layout(win_w, win_h, &psd_rect, &mag_rect, &phase_rect, &inst_rect, &const_rect,
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1630 |                                     &spec_rect);
+      |                                     ~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:1640:40: note: The left operand of '-' is a garbage value
+ 1640 |     int available_width = const_rect.w - title_reserve;
+      |                           ~~~~~~~~~~~~ ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:2521:9: warning: Passed-by-value struct argument contains uninitialized data (e.g., field: 'x') [core.CallAndMessage]
+ 2521 |     if (point_in_rect(x, y, mag_rect)) {
+      |         ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:9: note: Assuming 'event' is non-null
+ 15680 |     if (!event || !Global_Analysis_Mode) {
+       |         ^~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:9: note: Left side of '||' is false
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:19: note: Assuming 'Global_Analysis_Mode' is not equal to 0
+ 15680 |     if (!event || !Global_Analysis_Mode) {
+       |                   ^~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15680:5: note: Taking false branch
+ 15680 |     if (!event || !Global_Analysis_Mode) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15686:9: note: Assuming 'Global_Analysis_Constellation_PSK_Prompt_Open' is 0
+ 15686 |     if (Global_Analysis_Constellation_PSK_Prompt_Open) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15686:5: note: Taking false branch
+ 15686 |     if (Global_Analysis_Constellation_PSK_Prompt_Open) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15699:5: note: Taking false branch
+ 15699 |     if (ANALYSIS_handle_file_search_event(event, win_w, win_h)) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15710:9: note: Assuming the condition is false
+ 15710 |     if (ANALYSIS_handle_signal_menu_event(event, win_w, win_h)) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15710:5: note: Taking false branch
+ 15710 |     if (ANALYSIS_handle_signal_menu_event(event, win_w, win_h)) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15721:9: note: Assuming field 'type' is not equal to SDL_KEYDOWN
+ 15721 |     if (event->type == SDL_KEYDOWN) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15721:5: note: Taking false branch
+ 15721 |     if (event->type == SDL_KEYDOWN) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15837:9: note: Assuming field 'type' is equal to SDL_KEYUP
+ 15837 |     if (event->type == SDL_KEYUP) {
+       |         ^~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15837:5: note: Taking true branch
+ 15837 |     if (event->type == SDL_KEYUP) {
+       |     ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15841:13: note: Assuming 'key' is not equal to SDLK_LCTRL
+ 15841 |         if (key == SDLK_LCTRL || key == SDLK_RCTRL) {
+       |             ^~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15841:13: note: Left side of '||' is false
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15841:34: note: Assuming 'key' is not equal to SDLK_RCTRL
+ 15841 |         if (key == SDLK_LCTRL || key == SDLK_RCTRL) {
+       |                                  ^~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15841:9: note: Taking false branch
+ 15841 |         if (key == SDLK_LCTRL || key == SDLK_RCTRL) {
+       |         ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15869:13: note: Assuming 'key' is equal to SDLK_n
+ 15869 |         if (key == SDLK_n) {
+       |             ^~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15869:9: note: Taking true branch
+ 15869 |         if (key == SDLK_n) {
+       |         ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15873:17: note: Assuming 'Global_Analysis_Noise_Selecting' is not equal to 0
+ 15873 |             if (Global_Analysis_Noise_Selecting) {
+       |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15873:13: note: Taking true branch
+ 15873 |             if (Global_Analysis_Noise_Selecting) {
+       |             ^
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:15881:21: note: Calling 'ANALYSIS_noise_graph_from_point'
+ 15881 |                 if (ANALYSIS_noise_graph_from_point(mx, my, win_w, win_h, &graph_rect) == ANALYSIS_NOISE_GRAPH_NONE) {
+       |                     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:2507:5: note: 'mag_rect' initialized here
+ 2507 |     SDL_Rect mag_rect;
+      |     ^~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/AnalysisWorkstation.c:2521:9: note: Passed-by-value struct argument contains uninitialized data (e.g., field: 'x')
+ 2521 |     if (point_in_rect(x, y, mag_rect)) {
+      |         ^                   ~~~~~~~~
+3 warnings generated.

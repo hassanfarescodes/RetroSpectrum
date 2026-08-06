@@ -1,0 +1,67 @@
+
+RetroSpectrum target: AuthAdmin.c
+Expected function definitions: 46
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: admin_role_name
+[92mPASSED[0m function addressable: admin_role_color
+[92mPASSED[0m function addressable: admin_role_is_privileged
+[92mPASSED[0m function addressable: admin_secure_zero
+[92mPASSED[0m function addressable: admin_copy
+[92mPASSED[0m function addressable: admin_point_in_rect
+[92mPASSED[0m function addressable: admin_fill
+[92mPASSED[0m function addressable: admin_outline
+[92mPASSED[0m function addressable: admin_text
+[92mPASSED[0m function addressable: admin_centered
+[92mPASSED[0m function addressable: admin_button
+[92mPASSED[0m function addressable: admin_mask
+[92mPASSED[0m function addressable: admin_field
+[92mPASSED[0m function addressable: admin_set_status
+[92mPASSED[0m function addressable: admin_clear_form
+[92mPASSED[0m function addressable: admin_refresh_users
+[92mPASSED[0m function addressable: admin_selected_valid
+[92mPASSED[0m function addressable: admin_can_modify_selected
+[92mPASSED[0m function addressable: admin_can_delete_selected
+[92mPASSED[0m function addressable: admin_can_change_selected_role
+[92mPASSED[0m function addressable: admin_username_valid
+[92mPASSED[0m function addressable: admin_main_panel
+[92mPASSED[0m function addressable: admin_form_panel
+[92mPASSED[0m function addressable: admin_form_field
+[92mPASSED[0m function addressable: admin_render_users
+[92mPASSED[0m function addressable: admin_render_create
+[92mPASSED[0m function addressable: admin_group_secret
+[92mPASSED[0m function addressable: admin_render_totp
+[92mPASSED[0m function addressable: admin_render_reset
+[92mPASSED[0m function addressable: admin_render_remove_totp
+[92mPASSED[0m function addressable: admin_render_delete
+[92mPASSED[0m function addressable: admin_render
+[92mPASSED[0m function addressable: admin_append
+[92mPASSED[0m function addressable: admin_backspace
+[92mPASSED[0m function addressable: admin_handle_text
+[92mPASSED[0m function addressable: admin_handle_backspace
+[92mPASSED[0m function addressable: admin_cycle
+[92mPASSED[0m function addressable: admin_submit_create
+[92mPASSED[0m function addressable: admin_submit_totp
+[92mPASSED[0m function addressable: admin_submit_set_totp
+[92mPASSED[0m function addressable: admin_submit_remove_totp
+[92mPASSED[0m function addressable: admin_submit_reset
+[92mPASSED[0m function addressable: admin_submit_role
+[92mPASSED[0m function addressable: admin_submit_delete
+[92mPASSED[0m function addressable: admin_handle_mouse
+[92mPASSED[0m function addressable: AUTH_ADMIN_run
+[92mPASSED[0m admin role name
+[92mPASSED[0m co-admin role name
+[92mPASSED[0m user role name
+[92mPASSED[0m admin privileged
+[92mPASSED[0m co-admin privileged
+[92mPASSED[0m user not privileged
+[92mPASSED[0m role colors differ
+[92mPASSED[0m admin copy
+[92mPASSED[0m admin point inside
+[92mPASSED[0m admin point outside
+[92mPASSED[0m admin username valid
+[92mPASSED[0m admin username rejects short
+[92mPASSED[0m admin username rejects spaces
+
+AuthAdmin.c summary: [92m61 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

@@ -1,0 +1,98 @@
+
+RetroSpectrum target: ClassificationWorkstation.c
+Expected function definitions: 81
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: CLASSIFICATION_get_adjusted_mouse_state
+[92mPASSED[0m function addressable: CLASSIFICATION_country_count
+[92mPASSED[0m function addressable: CLASSIFICATION_char_lower
+[92mPASSED[0m function addressable: CLASSIFICATION_text_contains_ci
+[92mPASSED[0m function addressable: CLASSIFICATION_text_equals_ci
+[92mPASSED[0m function addressable: CLASSIFICATION_trim_text
+[92mPASSED[0m function addressable: CLASSIFICATION_case_option_exists
+[92mPASSED[0m function addressable: CLASSIFICATION_add_case_option
+[92mPASSED[0m function addressable: CLASSIFICATION_scan_case_files
+[92mPASSED[0m function addressable: CLASSIFICATION_build_case_matches
+[92mPASSED[0m function addressable: CLASSIFICATION_select_case
+[92mPASSED[0m function addressable: CLASSIFICATION_find_country_exact
+[92mPASSED[0m function addressable: CLASSIFICATION_build_country_matches
+[92mPASSED[0m function addressable: CLASSIFICATION_select_country
+[92mPASSED[0m function addressable: CLASSIFICATION_get_flag_texture
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_flag_box
+[92mPASSED[0m function addressable: CLASSIFICATION_is_dropdown_field
+[92mPASSED[0m function addressable: CLASSIFICATION_option_count_for_field
+[92mPASSED[0m function addressable: CLASSIFICATION_option_for_field
+[92mPASSED[0m function addressable: CLASSIFICATION_clamp_dropdown_scroll
+[92mPASSED[0m function addressable: CLASSIFICATION_dropdown_visible_count
+[92mPASSED[0m function addressable: CLASSIFICATION_name_compare
+[92mPASSED[0m function addressable: CLASSIFICATION_is_complex16_file
+[92mPASSED[0m function addressable: CLASSIFICATION_append_text
+[92mPASSED[0m function addressable: CLASSIFICATION_backspace_text
+[92mPASSED[0m function addressable: CLASSIFICATION_text_range_width
+[92mPASSED[0m function addressable: CLASSIFICATION_clamp_notes_cursor
+[92mPASSED[0m function addressable: CLASSIFICATION_clear_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_selection_range
+[92mPASSED[0m function addressable: CLASSIFICATION_delete_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_insert_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_auto_wrap_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_paste_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_backspace_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_delete_notes_text
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_build_lines
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_move_horizontal
+[92mPASSED[0m function addressable: CLASSIFICATION_notes_move_vertical
+[92mPASSED[0m function addressable: CLASSIFICATION_set_notes_cursor_from_mouse
+[92mPASSED[0m function addressable: CLASSIFICATION_start_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_update_notes_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_short_text
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_multiline_notes
+[92mPASSED[0m function addressable: CLASSIFICATION_get_layout
+[92mPASSED[0m function addressable: CLASSIFICATION_csv_escape
+[92mPASSED[0m function addressable: CLASSIFICATION_parse_file_metadata
+[92mPASSED[0m function addressable: CLASSIFICATION_load_selected_file_into_fields
+[92mPASSED[0m function addressable: CLASSIFICATION_prefill_from_analysis_selection
+[92mPASSED[0m function addressable: CLASSIFICATION_scan_recordings
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_matches
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_filtered_count
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_filtered_index_at
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_popup_rect
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_input_rect
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_button_rect
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_clamp_scroll
+[92mPASSED[0m function addressable: CLASSIFICATION_open_file_search_menu
+[92mPASSED[0m function addressable: CLASSIFICATION_close_file_search_menu
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_select_index
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_insert_text
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_backspace
+[92mPASSED[0m function addressable: CLASSIFICATION_file_search_delete
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_modal_button
+[92mPASSED[0m function addressable: CLASSIFICATION_handle_file_search_event
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_file_search_button
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_file_search_popup
+[92mPASSED[0m function addressable: CLASSIFICATION_make_filename_safe
+[92mPASSED[0m function addressable: CLASSIFICATION_get_signal_datetime
+[92mPASSED[0m function addressable: CLASSIFICATION_append_csv_row
+[92mPASSED[0m function addressable: CLASSIFICATION_is_text_entry_active
+[92mPASSED[0m function addressable: CLASSIFICATION_enter_mode
+[92mPASSED[0m function addressable: CLASSIFICATION_exit_mode
+[92mPASSED[0m function addressable: CLASSIFICATION_handle_event
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_panel
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_selectable_row
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_input_field
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_dropdown
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_case_suggestions
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_country_suggestions
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_save_button
+[92mPASSED[0m function addressable: CLASSIFICATION_draw_workstation
+[92mPASSED[0m classification lowercase
+[92mPASSED[0m classification contains CI
+[92mPASSED[0m classification equals CI
+[92mPASSED[0m classification trim
+[92mPASSED[0m classification parses frequency
+[92mPASSED[0m classification parses bandwidth
+[92mPASSED[0m classification text state valid
+[92mPASSED[0m classification event smoke
+[93mSKIPPED[0m classification draw smoke — SDL/TTF renderer unavailable
+
+ClassificationWorkstation.c summary: [92m91 passed[0m, [91m0 failed[0m, [93m1 skipped[0m

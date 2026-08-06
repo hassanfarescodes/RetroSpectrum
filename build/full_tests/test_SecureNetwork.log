@@ -1,0 +1,82 @@
+
+RetroSpectrum target: SecureNetwork.c
+Expected function definitions: 61
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+[92mPASSED[0m function addressable: secure_network_set_error
+[92mPASSED[0m function addressable: secure_network_set_status
+[92mPASSED[0m function addressable: secure_network_store_u16
+[92mPASSED[0m function addressable: secure_network_store_u32
+[92mPASSED[0m function addressable: secure_network_store_u64
+[92mPASSED[0m function addressable: secure_network_load_u16
+[92mPASSED[0m function addressable: secure_network_load_u32
+[92mPASSED[0m function addressable: secure_network_load_u64
+[92mPASSED[0m function addressable: secure_network_ssl_write_all
+[92mPASSED[0m function addressable: secure_network_ssl_read_all
+[92mPASSED[0m function addressable: secure_network_send_frame
+[92mPASSED[0m function addressable: secure_network_receive_frame
+[92mPASSED[0m function addressable: secure_network_generate_tls_key
+[92mPASSED[0m function addressable: secure_network_generate_tls_certificate
+[92mPASSED[0m function addressable: secure_network_configure_context
+[92mPASSED[0m function addressable: secure_network_create_server_context
+[92mPASSED[0m function addressable: secure_network_create_client_context
+[92mPASSED[0m function addressable: secure_network_validate_negotiated_tls
+[92mPASSED[0m function addressable: secure_network_export_binding
+[92mPASSED[0m function addressable: secure_network_build_proof_message
+[92mPASSED[0m function addressable: secure_network_server_identity_proof
+[92mPASSED[0m function addressable: secure_network_client_identity_proof
+[92mPASSED[0m function addressable: secure_network_handshake_allowed
+[92mPASSED[0m function addressable: secure_network_send_status
+[92mPASSED[0m function addressable: secure_network_parse_auth
+[92mPASSED[0m function addressable: secure_network_handle_auth
+[92mPASSED[0m function addressable: secure_network_handle_save
+[92mPASSED[0m function addressable: secure_network_handle_load
+[92mPASSED[0m function addressable: secure_network_handle_delete
+[92mPASSED[0m function addressable: secure_network_handle_list
+[92mPASSED[0m function addressable: secure_network_handle_user_list
+[92mPASSED[0m function addressable: secure_network_handle_user_admin
+[92mPASSED[0m function addressable: secure_network_client_thread
+[92mPASSED[0m function addressable: secure_network_server_thread
+[92mPASSED[0m function addressable: SECURE_NETWORK_start_server
+[92mPASSED[0m function addressable: SECURE_NETWORK_server_is_running
+[92mPASSED[0m function addressable: SECURE_NETWORK_stop_server
+[92mPASSED[0m function addressable: secure_network_close_client_locked
+[92mPASSED[0m function addressable: secure_network_abort_client_locked
+[92mPASSED[0m function addressable: secure_network_configure_client_keepalive
+[92mPASSED[0m function addressable: SECURE_NETWORK_disconnect
+[92mPASSED[0m function addressable: secure_network_connect_locked
+[92mPASSED[0m function addressable: secure_network_receive_status_locked
+[92mPASSED[0m function addressable: SECURE_NETWORK_authenticate
+[92mPASSED[0m function addressable: SECURE_NETWORK_verify_password
+[92mPASSED[0m function addressable: SECURE_NETWORK_is_authenticated_remote
+[92mPASSED[0m function addressable: SECURE_NETWORK_remote_connection_lost
+[92mPASSED[0m function addressable: SECURE_NETWORK_status
+[92mPASSED[0m function addressable: secure_network_request_locked
+[92mPASSED[0m function addressable: SECURE_NETWORK_save_document
+[92mPASSED[0m function addressable: SECURE_NETWORK_load_document
+[92mPASSED[0m function addressable: SECURE_NETWORK_delete_document
+[92mPASSED[0m function addressable: SECURE_NETWORK_list_documents
+[92mPASSED[0m function addressable: SECURE_NETWORK_list_users
+[92mPASSED[0m function addressable: secure_network_admin_request
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_create_user
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_reset_password
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_set_totp
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_remove_totp
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_set_role
+[92mPASSED[0m function addressable: SECURE_NETWORK_admin_delete_user
+[92mPASSED[0m network u16 roundtrip
+[92mPASSED[0m network u32 roundtrip
+[92mPASSED[0m network u64 roundtrip
+[92mPASSED[0m network status is available
+[92mPASSED[0m network starts disconnected
+[92mPASSED[0m network invalid authentication rejected
+[92mPASSED[0m network invalid password verification rejected
+[92mPASSED[0m network invalid save rejected
+[92mPASSED[0m network invalid load rejected
+[92mPASSED[0m network invalid delete rejected
+[92mPASSED[0m network disconnect is idempotent
+[92mPASSED[0m TLS server start
+[92mPASSED[0m TLS server stop
+
+SecureNetwork.c summary: [92m76 passed[0m, [91m0 failed[0m, [93m0 skipped[0m
