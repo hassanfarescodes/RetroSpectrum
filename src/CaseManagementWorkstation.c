@@ -5895,6 +5895,123 @@ static void case_source_short_text(TTF_Font *font, const char *src, char *dst, s
     snprintf(dst, dst_size, "...");
 }
 
+static void case_wrap_block_text_two_lines(TTF_Font *font, const char *src, char *line_one,
+                                           size_t line_one_size, char *line_two, size_t line_two_size,
+                                           int max_px) {
+    /*
+        Purpose: Wraps block text across at most two rendered-width-limited lines
+        Returns: No value
+    */
+
+    char probe[CASE_MGMT_TEXT_MAX];
+    size_t src_len;
+    size_t fit = 0;
+    size_t last_space = 0;
+    size_t split;
+    size_t second_start;
+    int text_w = 0;
+    int text_h = 0;
+
+    if (!line_one || line_one_size == 0 || !line_two || line_two_size == 0) {
+
+        return;
+
+    }
+
+    line_one[0] = '\0';
+    line_two[0] = '\0';
+
+    if (!src || !src[0]) {
+
+        return;
+
+    }
+
+    if (!font || max_px <= 0) {
+
+        case_shorten(src, line_one, line_one_size, 30);
+        return;
+
+    }
+
+    src_len = strlen(src);
+
+    if (src_len >= sizeof(probe)) {
+
+        src_len = sizeof(probe) - 1;
+
+    }
+
+    memcpy(probe, src, src_len);
+    probe[src_len] = '\0';
+
+    if (TTF_SizeText(font, probe, &text_w, &text_h) == 0 && text_w <= max_px) {
+
+        case_copy_text(line_one, line_one_size, probe);
+        return;
+
+    }
+
+    for (size_t i = 1; i <= src_len; i++) {
+        char saved = probe[i];
+        probe[i] = '\0';
+
+        if (TTF_SizeText(font, probe, &text_w, &text_h) != 0 || text_w > max_px) {
+
+            probe[i] = saved;
+            break;
+
+        }
+
+        fit = i;
+
+        if (probe[i - 1] == ' ' || probe[i - 1] == '\t') {
+
+            last_space = i - 1;
+
+        }
+
+        probe[i] = saved;
+    }
+
+    if (fit == 0) {
+
+        fit = 1;
+
+    }
+
+    split = last_space > 0 ? last_space : fit;
+
+    while (split > 0 && (probe[split - 1] == ' ' || probe[split - 1] == '\t')) {
+
+        split--;
+
+    }
+
+    if (split >= line_one_size) {
+
+        split = line_one_size - 1;
+
+    }
+
+    memcpy(line_one, probe, split);
+    line_one[split] = '\0';
+
+    second_start = last_space > 0 ? last_space + 1 : fit;
+
+    while (second_start < src_len && (probe[second_start] == ' ' || probe[second_start] == '\t')) {
+
+        second_start++;
+
+    }
+
+    if (second_start < src_len) {
+
+        case_source_short_text(font, probe + second_start, line_two, line_two_size, max_px);
+
+    }
+}
+
 static void case_draw_source_modal_button(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *label,
                                           int hovered) {
     /*
@@ -7894,33 +8011,267 @@ static void case_metadata_draw_description(SDL_Renderer *renderer, TTF_Font *fon
         Returns: No value
     */
 
-    char local[CASE_MGMT_METADATA_DESCRIPTION_MAX];
-    char *line;
-    char *save = NULL;
-    int y = rect.y + 8;
+    int starts[128];
+    int ends[128];
     int line_count = 0;
+    int max_width = rect.w - 18;
+    int max_lines = (rect.h - 16) / 20;
+    int length = text ? (int)strlen(text) : 0;
+    int position = 0;
+    int cursor = Global_Case_Metadata_Description_Cursor;
+    int cursor_line = 0;
+    int first_line = 0;
 
-    // draw_text(renderer, font, "Description", rect.x, rect.y - 19, Case_Muted);
     draw_filled_rect(renderer, rect, active ? Case_Panel_2 : (SDL_Color){0, 7, 3, 255});
     draw_outline_rect(renderer, rect, active ? Case_Border_Hi : Case_Border);
 
-    case_copy_text(local, sizeof(local), text ? text : "");
-    line = strtok_r(local, "\n", &save);
+    if (max_width < 8) {
 
-    if (!line && (!text || !text[0])) {
-
-        draw_text(renderer, font, "Click to edit the case description", rect.x + 9, y, Case_Muted);
-        return;
+        max_width = 8;
 
     }
 
-    while (line && y + 20 <= rect.y + rect.h && line_count < 12) {
-        char shortened[CASE_MGMT_METADATA_DESCRIPTION_MAX];
-        case_shorten(line, shortened, sizeof(shortened), 38);
-        draw_text(renderer, font, shortened, rect.x + 9, y, Case_Text);
-        y += 20;
-        line_count++;
-        line = strtok_r(NULL, "\n", &save);
+    if (max_lines < 1) {
+
+        max_lines = 1;
+
+    }
+
+    if (!text || !text[0]) {
+
+        if (!active) {
+
+            draw_text(renderer, font, "Click to edit the case description", rect.x + 9, rect.y + 8, Case_Muted);
+            return;
+
+        }
+
+        starts[0] = 0;
+        ends[0] = 0;
+        line_count = 1;
+
+    }
+
+    while (position < length && line_count < 128) {
+        int paragraph_end = position;
+
+        while (paragraph_end < length && text[paragraph_end] != '\n') {
+
+            paragraph_end++;
+
+        }
+
+        if (position == paragraph_end) {
+
+            starts[line_count] = position;
+            ends[line_count] = position;
+            line_count++;
+
+        }
+
+        while (position < paragraph_end && line_count < 128) {
+            int fit = position;
+            int next_position;
+
+            for (int i = position + 1; i <= paragraph_end; i++) {
+
+                if (case_description_range_width(font, text, (size_t)position, (size_t)i) <= max_width) {
+
+                    fit = i;
+
+                }
+
+                else {
+
+                    break;
+
+                }
+            }
+
+            if (fit <= position) {
+
+                fit = position + 1;
+
+            }
+
+            if (fit < paragraph_end) {
+
+                int word_break = -1;
+
+                for (int i = fit; i > position; i--) {
+
+                    if (text[i - 1] == ' ' || text[i - 1] == '\t') {
+
+                        word_break = i - 1;
+                        break;
+
+                    }
+                }
+
+                if (word_break > position) {
+
+                    fit = word_break;
+
+                }
+
+            }
+
+            starts[line_count] = position;
+            ends[line_count] = fit;
+            line_count++;
+            next_position = fit;
+
+            while (next_position < paragraph_end &&
+                   (text[next_position] == ' ' || text[next_position] == '\t')) {
+
+                next_position++;
+
+            }
+
+            if (next_position <= position) {
+
+                next_position = position + 1;
+
+            }
+            position = next_position;
+        }
+
+        if (paragraph_end < length && text[paragraph_end] == '\n') {
+
+            position = paragraph_end + 1;
+
+            if (position == length && line_count < 128) {
+
+                starts[line_count] = position;
+                ends[line_count] = position;
+                line_count++;
+
+            }
+
+        }
+
+    }
+
+    if (line_count == 0) {
+
+        starts[0] = 0;
+        ends[0] = 0;
+        line_count = 1;
+
+    }
+
+    if (cursor < 0) {
+
+        cursor = 0;
+
+    }
+
+    if (cursor > length) {
+
+        cursor = length;
+
+    }
+
+    cursor_line = line_count - 1;
+
+    for (int i = 0; i < line_count; i++) {
+
+        if (cursor >= starts[i] && cursor < ends[i]) {
+
+            cursor_line = i;
+            break;
+
+        }
+
+        if (cursor == ends[i]) {
+
+            if (i + 1 < line_count && starts[i + 1] == cursor) {
+
+                cursor_line = i + 1;
+
+            }
+
+            else {
+
+                cursor_line = i;
+
+            }
+            break;
+
+        }
+
+        if (i + 1 < line_count && cursor > ends[i] && cursor < starts[i + 1]) {
+
+            cursor_line = i + 1;
+            break;
+
+        }
+    }
+
+    if (active && cursor_line >= max_lines) {
+
+        first_line = cursor_line - max_lines + 1;
+
+    }
+
+    for (int i = first_line; i < line_count && i < first_line + max_lines; i++) {
+        char line[CASE_MGMT_METADATA_DESCRIPTION_MAX];
+        int count = ends[i] - starts[i];
+        int y = rect.y + 8 + ((i - first_line) * 20);
+
+        if (count < 0) {
+
+            count = 0;
+
+        }
+
+        if (count >= (int)sizeof(line)) {
+
+            count = (int)sizeof(line) - 1;
+
+        }
+
+        if (count > 0) {
+
+            memcpy(line, text + starts[i], (size_t)count);
+
+        }
+        line[count] = '\0';
+
+        if (line[0]) {
+
+            draw_text(renderer, font, line, rect.x + 9, y, Case_Text);
+
+        }
+    }
+
+    if (active && cursor_line >= first_line && cursor_line < first_line + max_lines &&
+        ((SDL_GetTicks64() / 500ULL) % 2ULL) == 0ULL) {
+
+        int line_start = starts[cursor_line];
+        int line_end = ends[cursor_line];
+        int cursor_on_line = cursor;
+        int cursor_x;
+        int cursor_y;
+
+        if (cursor_on_line < line_start) {
+
+            cursor_on_line = line_start;
+
+        }
+
+        if (cursor_on_line > line_end) {
+
+            cursor_on_line = line_end;
+
+        }
+
+        cursor_x = rect.x + 9 + case_description_range_width(font, text, (size_t)line_start,
+                                                              (size_t)cursor_on_line);
+        cursor_y = rect.y + 7 + ((cursor_line - first_line) * 20);
+        SDL_SetRenderDrawColor(renderer, Case_Blue.r, Case_Blue.g, Case_Blue.b, Case_Blue.a);
+        SDL_RenderDrawLine(renderer, cursor_x, cursor_y, cursor_x, cursor_y + 17);
+
     }
 }
 
@@ -10585,19 +10936,23 @@ static void case_draw_block(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect can
     if (b->type == CASE_MGMT_BLOCK_CASE) {
 
         char id_label[64];
-        char case_text[128];
+        char case_line_one[128];
+        char case_line_two[128];
         char country_text[128];
         int country_index = case_country_index_by_name(b->country);
         SDL_Texture *flag = case_country_flag_texture(renderer, country_index);
 
         snprintf(id_label, sizeof(id_label), "CASE %03d", b->id);
-        case_shorten(b->case_number[0] ? b->case_number : "Case #", case_text, sizeof(case_text), compact ? 18 : 30);
-        case_shorten(b->country[0] ? b->country : "Country", country_text, sizeof(country_text), compact ? 18 : 30);
         draw_text(renderer, font, id_label, r.x + 10, r.y + 7, Case_Text);
 
         if (compact) {
+            int text_max_px = r.w - 20;
 
-            draw_text(renderer, font, case_text, r.x + 10, r.y + 34, Case_Text);
+            case_source_short_text(font, b->case_number[0] ? b->case_number : "Case #", case_line_one,
+                                   sizeof(case_line_one), text_max_px);
+            case_source_short_text(font, b->country[0] ? b->country : "Country", country_text,
+                                   sizeof(country_text), text_max_px);
+            draw_text(renderer, font, case_line_one, r.x + 10, r.y + 34, Case_Text);
 
             if (r.h > 62) {
 
@@ -10608,8 +10963,18 @@ static void case_draw_block(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect can
         }
 
         else {
-
+            const int case_value_x = r.x + 146;
+            const int country_value_x = r.x + 158;
+            const int case_value_max_px = r.x + r.w - 10 - case_value_x;
+            const int country_value_max_px = r.x + r.w - 10 - country_value_x;
             SDL_Rect flag_rect = {r.x + 12, r.y + 42, 54, 36};
+
+            case_wrap_block_text_two_lines(font, b->case_number[0] ? b->case_number : "Case #",
+                                           case_line_one, sizeof(case_line_one), case_line_two,
+                                           sizeof(case_line_two), case_value_max_px);
+            case_source_short_text(font, b->country[0] ? b->country : "Country", country_text,
+                                   sizeof(country_text), country_value_max_px);
+
             draw_filled_rect(renderer, flag_rect, (SDL_Color){0, 4, 8, 255});
             draw_outline_rect(renderer, flag_rect, country_index >= 0 ? Case_Blue : Case_Border);
 
@@ -10627,9 +10992,16 @@ static void case_draw_block(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect can
             }
 
             draw_text(renderer, font, "CASE #", r.x + 78, r.y + 42, Case_Muted);
-            draw_text(renderer, font, case_text, r.x + 146, r.y + 42, Case_Text);
-            draw_text(renderer, font, "COUNTRY", r.x + 78, r.y + 68, Case_Muted);
-            draw_text(renderer, font, country_text, r.x + 146, r.y + 68, Case_Blue);
+            draw_text(renderer, font, case_line_one, case_value_x, r.y + 42, Case_Text);
+
+            if (case_line_two[0]) {
+
+                draw_text(renderer, font, case_line_two, case_value_x, r.y + 62, Case_Text);
+
+            }
+
+            draw_text(renderer, font, "COUNTRY", r.x + 78, r.y + 92, Case_Muted);
+            draw_text(renderer, font, country_text, country_value_x, r.y + 92, Case_Blue);
 
         }
 

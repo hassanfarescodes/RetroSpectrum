@@ -113,6 +113,11 @@ static int Global_Classification_Notes_Selection_Start = -1;
 static int Global_Classification_Notes_Selection_End = -1;
 static TTF_Font *Global_Classification_Notes_Font = NULL;
 static int Global_Classification_Notes_Wrap_Px = 0;
+static int Global_Classification_Field_Cursor[CLASSIFICATION_FIELD_COUNT] = {0};
+static int Global_Classification_Field_Selecting = 0;
+static int Global_Classification_Field_Selection_Start = -1;
+static int Global_Classification_Field_Selection_End = -1;
+static TTF_Font *Global_Classification_Input_Font = NULL;
 static int Global_Classification_File_Search_Open = 0;
 static int Global_Classification_File_Search_Active = 0;
 static int Global_Classification_File_Search_Cursor = 0;
@@ -991,50 +996,6 @@ static int CLASSIFICATION_is_complex16_file(const char *name) {
     return strcmp(name + len - suffix_len, suffix) == 0;
 }
 
-static void CLASSIFICATION_append_text(char *dst, size_t dst_size, const char *src) {
-    /*
-        Purpose: Appends the text
-        Returns: No value
-    */
-
-    if (!dst || !src || dst_size == 0) {
-
-        return;
-
-    }
-
-    size_t used = strlen(dst);
-
-    if (used >= dst_size - 1) {
-
-        return;
-
-    }
-
-    strncat(dst, src, dst_size - used - 1);
-}
-
-static void CLASSIFICATION_backspace_text(char *dst) {
-    /*
-        Purpose: Removes the previous character from the text
-        Returns: No value
-    */
-
-    if (!dst) {
-
-        return;
-
-    }
-
-    size_t len = strlen(dst);
-
-    if (len > 0) {
-
-        dst[len - 1] = '\0';
-
-    }
-}
-
 static int CLASSIFICATION_text_range_width(TTF_Font *font, const char *text, size_t start, size_t end) {
     /*
         Purpose: Calculates the text range width
@@ -1067,6 +1028,528 @@ static int CLASSIFICATION_text_range_width(TTF_Font *font, const char *text, siz
     }
 
     return w;
+}
+
+static int CLASSIFICATION_is_single_line_text_field(int field) {
+    /*
+        Purpose: Checks whether a field uses the single-line text editor
+        Returns: Boolean status
+    */
+
+    return field >= 0 && field < CLASSIFICATION_FIELD_COUNT && field != CLASSIFICATION_FIELD_NOTES &&
+           !CLASSIFICATION_is_dropdown_field(field);
+}
+
+static void CLASSIFICATION_clamp_field_cursor(int field) {
+    /*
+        Purpose: Clamps a single-line field cursor
+        Returns: No value
+    */
+
+    if (!CLASSIFICATION_is_single_line_text_field(field)) {
+
+        return;
+
+    }
+
+    int len = (int)strlen(Global_Classification_Field_Text[field]);
+
+    if (Global_Classification_Field_Cursor[field] < 0) {
+
+        Global_Classification_Field_Cursor[field] = 0;
+
+    }
+
+    if (Global_Classification_Field_Cursor[field] > len) {
+
+        Global_Classification_Field_Cursor[field] = len;
+
+    }
+}
+
+static void CLASSIFICATION_clear_field_selection(void) {
+    /*
+        Purpose: Clears the single-line field selection
+        Returns: No value
+    */
+
+    Global_Classification_Field_Selecting = 0;
+    Global_Classification_Field_Selection_Start = -1;
+    Global_Classification_Field_Selection_End = -1;
+}
+
+static int CLASSIFICATION_field_selection_range(int field, int *a, int *b) {
+    /*
+        Purpose: Gets the active single-line field selection range
+        Returns: Success status
+    */
+
+    int s = Global_Classification_Field_Selection_Start;
+    int e = Global_Classification_Field_Selection_End;
+    int len;
+
+    if (!CLASSIFICATION_is_single_line_text_field(field) || s < 0 || e < 0 || s == e) {
+
+        return 0;
+
+    }
+
+    len = (int)strlen(Global_Classification_Field_Text[field]);
+
+    if (s > e) {
+
+        int tmp = s;
+        s = e;
+        e = tmp;
+
+    }
+
+    if (s < 0) {
+
+        s = 0;
+
+    }
+
+    if (e > len) {
+
+        e = len;
+
+    }
+
+    if (s >= e) {
+
+        return 0;
+
+    }
+
+    if (a) {
+
+        *a = s;
+
+    }
+
+    if (b) {
+
+        *b = e;
+
+    }
+    return 1;
+}
+
+static int CLASSIFICATION_delete_field_selection(int field) {
+    /*
+        Purpose: Deletes selected text from a single-line field
+        Returns: Success status
+    */
+
+    int a = 0;
+    int b = 0;
+    char *dst;
+    int len;
+
+    if (!CLASSIFICATION_field_selection_range(field, &a, &b)) {
+
+        return 0;
+
+    }
+
+    dst = Global_Classification_Field_Text[field];
+    len = (int)strlen(dst);
+    memmove(dst + a, dst + b, (size_t)(len - b) + 1U);
+    Global_Classification_Field_Cursor[field] = a;
+    CLASSIFICATION_clear_field_selection();
+    return 1;
+}
+
+static void CLASSIFICATION_insert_field_text(int field, const char *src) {
+    /*
+        Purpose: Inserts text at a single-line field cursor
+        Returns: No value
+    */
+
+    char filtered[CLASSIFICATION_MAX_TEXT];
+    size_t filtered_len = 0;
+    char *dst;
+    size_t len;
+    size_t add;
+    int cursor;
+
+    if (!CLASSIFICATION_is_single_line_text_field(field) || !src) {
+
+        return;
+
+    }
+
+    for (const unsigned char *p = (const unsigned char *)src;
+         *p && filtered_len + 1U < sizeof(filtered); p++) {
+
+        if (*p == '\r' || *p == '\n' || (*p < 32 && *p != '\t')) {
+
+            continue;
+
+        }
+        filtered[filtered_len++] = (char)*p;
+    }
+    filtered[filtered_len] = '\0';
+
+    CLASSIFICATION_clamp_field_cursor(field);
+    CLASSIFICATION_delete_field_selection(field);
+    CLASSIFICATION_clamp_field_cursor(field);
+
+    dst = Global_Classification_Field_Text[field];
+    len = strlen(dst);
+    add = strlen(filtered);
+    cursor = Global_Classification_Field_Cursor[field];
+
+    if (add == 0 || len >= CLASSIFICATION_MAX_TEXT - 1U) {
+
+        return;
+
+    }
+
+    if (add > (CLASSIFICATION_MAX_TEXT - 1U) - len) {
+
+        add = (CLASSIFICATION_MAX_TEXT - 1U) - len;
+
+    }
+
+    memmove(dst + cursor + add, dst + cursor, len - (size_t)cursor + 1U);
+    memcpy(dst + cursor, filtered, add);
+    Global_Classification_Field_Cursor[field] += (int)add;
+}
+
+static void CLASSIFICATION_backspace_field_text(int field) {
+    /*
+        Purpose: Removes text before a single-line field cursor
+        Returns: No value
+    */
+
+    char *dst;
+    int cursor;
+    size_t len;
+
+    if (!CLASSIFICATION_is_single_line_text_field(field)) {
+
+        return;
+
+    }
+
+    if (CLASSIFICATION_delete_field_selection(field)) {
+
+        return;
+
+    }
+
+    CLASSIFICATION_clamp_field_cursor(field);
+    cursor = Global_Classification_Field_Cursor[field];
+
+    if (cursor <= 0) {
+
+        return;
+
+    }
+
+    dst = Global_Classification_Field_Text[field];
+    len = strlen(dst);
+    memmove(dst + cursor - 1, dst + cursor, len - (size_t)cursor + 1U);
+    Global_Classification_Field_Cursor[field]--;
+}
+
+static void CLASSIFICATION_delete_field_text(int field) {
+    /*
+        Purpose: Removes text at a single-line field cursor
+        Returns: No value
+    */
+
+    char *dst;
+    int cursor;
+    size_t len;
+
+    if (!CLASSIFICATION_is_single_line_text_field(field)) {
+
+        return;
+
+    }
+
+    if (CLASSIFICATION_delete_field_selection(field)) {
+
+        return;
+
+    }
+
+    CLASSIFICATION_clamp_field_cursor(field);
+    dst = Global_Classification_Field_Text[field];
+    cursor = Global_Classification_Field_Cursor[field];
+    len = strlen(dst);
+
+    if ((size_t)cursor >= len) {
+
+        return;
+
+    }
+
+    memmove(dst + cursor, dst + cursor + 1, len - (size_t)cursor);
+}
+
+static void CLASSIFICATION_move_field_cursor(int field, int direction, int extend_selection) {
+    /*
+        Purpose: Moves a single-line field cursor
+        Returns: No value
+    */
+
+    int old_cursor;
+    int len;
+
+    if (!CLASSIFICATION_is_single_line_text_field(field)) {
+
+        return;
+
+    }
+
+    CLASSIFICATION_clamp_field_cursor(field);
+    old_cursor = Global_Classification_Field_Cursor[field];
+    len = (int)strlen(Global_Classification_Field_Text[field]);
+
+    if (extend_selection && Global_Classification_Field_Selection_Start < 0) {
+
+        Global_Classification_Field_Selection_Start = old_cursor;
+
+    }
+
+    if (direction < 0 && Global_Classification_Field_Cursor[field] > 0) {
+
+        Global_Classification_Field_Cursor[field]--;
+
+    }
+
+    if (direction > 0 && Global_Classification_Field_Cursor[field] < len) {
+
+        Global_Classification_Field_Cursor[field]++;
+
+    }
+
+    if (extend_selection) {
+
+        Global_Classification_Field_Selection_End = Global_Classification_Field_Cursor[field];
+
+    }
+
+    else {
+
+        CLASSIFICATION_clear_field_selection();
+
+    }
+}
+
+static void CLASSIFICATION_select_all_active_text(void) {
+    /*
+        Purpose: Selects all text in the active field
+        Returns: No value
+    */
+
+    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+
+        int len = (int)strlen(Global_Classification_Field_Text[CLASSIFICATION_FIELD_NOTES]);
+        Global_Classification_Notes_Cursor = len;
+        Global_Classification_Notes_Selecting = 0;
+        Global_Classification_Notes_Selection_Start = 0;
+        Global_Classification_Notes_Selection_End = len;
+        return;
+
+    }
+
+    if (CLASSIFICATION_is_single_line_text_field(Global_Classification_Active_Field)) {
+
+        int field = Global_Classification_Active_Field;
+        int len = (int)strlen(Global_Classification_Field_Text[field]);
+        Global_Classification_Field_Cursor[field] = len;
+        Global_Classification_Field_Selecting = 0;
+        Global_Classification_Field_Selection_Start = 0;
+        Global_Classification_Field_Selection_End = len;
+
+    }
+}
+
+static void CLASSIFICATION_paste_coordinate_text(int field) {
+    /*
+        Purpose: Pastes clipboard text into a coordinate field
+        Returns: No value
+    */
+
+    if (field != CLASSIFICATION_FIELD_LATITUDE && field != CLASSIFICATION_FIELD_LONGITUDE) {
+
+        return;
+
+    }
+
+    char *clip = SDL_GetClipboardText();
+
+    if (clip) {
+
+        CLASSIFICATION_insert_field_text(field, clip);
+        SDL_free(clip);
+
+    }
+}
+
+static void CLASSIFICATION_single_line_view(TTF_Font *font, const char *text, int cursor, int max_px, int *start,
+                                            int *end) {
+    /*
+        Purpose: Finds the visible range for an active single-line field
+        Returns: No value
+    */
+
+    int len = text ? (int)strlen(text) : 0;
+    int view_start = 0;
+    int view_end;
+
+    if (cursor < 0) {
+
+        cursor = 0;
+
+    }
+
+    if (cursor > len) {
+
+        cursor = len;
+
+    }
+
+    while (view_start < cursor &&
+           CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)cursor) > max_px) {
+
+        view_start++;
+
+    }
+
+    view_end = cursor;
+
+    while (view_end < len &&
+           CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)(view_end + 1)) <= max_px) {
+
+        view_end++;
+
+    }
+
+    if (start) {
+
+        *start = view_start;
+
+    }
+
+    if (end) {
+
+        *end = view_end;
+
+    }
+}
+
+static void CLASSIFICATION_set_field_cursor_from_mouse(int field, SDL_Rect rect, int mouse_x) {
+    /*
+        Purpose: Sets a single-line field cursor from the mouse
+        Returns: No value
+    */
+
+    const char *text;
+    int cursor;
+    int view_start = 0;
+    int view_end = 0;
+    int max_px;
+    int rel_x;
+
+    if (!CLASSIFICATION_is_single_line_text_field(field)) {
+
+        return;
+
+    }
+
+    CLASSIFICATION_clamp_field_cursor(field);
+    text = Global_Classification_Field_Text[field];
+    cursor = Global_Classification_Field_Cursor[field];
+    max_px = rect.w - 18;
+
+    if (field == CLASSIFICATION_FIELD_COUNTRY) {
+
+        max_px -= 78;
+
+    }
+
+    if (max_px < 8) {
+
+        max_px = 8;
+
+    }
+
+    CLASSIFICATION_single_line_view(Global_Classification_Input_Font, text, cursor, max_px, &view_start, &view_end);
+    rel_x = mouse_x - (rect.x + 9);
+
+    if (rel_x <= 0) {
+
+        Global_Classification_Field_Cursor[field] = view_start;
+        return;
+
+    }
+
+    for (int i = view_start; i <= view_end; i++) {
+        int w0 = CLASSIFICATION_text_range_width(Global_Classification_Input_Font, text, (size_t)view_start,
+                                                 (size_t)i);
+        int w1 = w0;
+
+        if (i < view_end) {
+
+            w1 = CLASSIFICATION_text_range_width(Global_Classification_Input_Font, text, (size_t)view_start,
+                                                 (size_t)(i + 1));
+
+        }
+
+        if (i == view_end || rel_x < (w0 + w1) / 2) {
+
+            Global_Classification_Field_Cursor[field] = i;
+            break;
+
+        }
+    }
+    CLASSIFICATION_clamp_field_cursor(field);
+}
+
+static void CLASSIFICATION_start_field_selection(int field) {
+    /*
+        Purpose: Starts a single-line field selection
+        Returns: No value
+    */
+
+    if (!CLASSIFICATION_is_single_line_text_field(field)) {
+
+        return;
+
+    }
+
+    CLASSIFICATION_clamp_field_cursor(field);
+    Global_Classification_Field_Selecting = 1;
+    Global_Classification_Field_Selection_Start = Global_Classification_Field_Cursor[field];
+    Global_Classification_Field_Selection_End = Global_Classification_Field_Cursor[field];
+}
+
+static void CLASSIFICATION_update_field_selection(int field) {
+    /*
+        Purpose: Updates a single-line field selection
+        Returns: No value
+    */
+
+    if (!CLASSIFICATION_is_single_line_text_field(field)) {
+
+        return;
+
+    }
+
+    CLASSIFICATION_clamp_field_cursor(field);
+
+    if (Global_Classification_Field_Selection_Start < 0) {
+
+        Global_Classification_Field_Selection_Start = Global_Classification_Field_Cursor[field];
+
+    }
+    Global_Classification_Field_Selection_End = Global_Classification_Field_Cursor[field];
 }
 
 static void CLASSIFICATION_clamp_notes_cursor(void) {
@@ -1334,22 +1817,6 @@ static void CLASSIFICATION_auto_wrap_notes_text(void) {
     }
 
     CLASSIFICATION_clamp_notes_cursor();
-}
-
-static void CLASSIFICATION_paste_notes_text(void) {
-    /*
-        Purpose: Pastes text into the notes text
-        Returns: No value
-    */
-
-    char *clip = SDL_GetClipboardText();
-
-    if (clip) {
-
-        CLASSIFICATION_insert_notes_text(clip);
-        SDL_free(clip);
-
-    }
 }
 
 static void CLASSIFICATION_backspace_notes_text(void) {
@@ -3513,6 +3980,14 @@ void CLASSIFICATION_enter_mode(const char *record_dir) {
     Global_Classification_Case_Scroll = 0;
     Global_Classification_Case_Hover = -1;
     Global_Classification_Notes_Cursor = 0;
+    CLASSIFICATION_clear_notes_selection();
+    CLASSIFICATION_clear_field_selection();
+
+    for (int i = 0; i < CLASSIFICATION_FIELD_COUNT; i++) {
+
+        Global_Classification_Field_Cursor[i] = (int)strlen(Global_Classification_Field_Text[i]);
+
+    }
     Global_Classification_Save_Message[0] = '\0';
     Global_Classification_Save_Message_Time = 0;
 
@@ -3543,6 +4018,8 @@ void CLASSIFICATION_exit_mode(void) {
     Global_Classification_Case_Scroll = 0;
     Global_Classification_Case_Hover = -1;
     Global_Classification_Notes_Cursor = 0;
+    CLASSIFICATION_clear_notes_selection();
+    CLASSIFICATION_clear_field_selection();
     Global_Classification_File_Search_Open = 0;
     Global_Classification_File_Search_Active = 0;
     Global_Classification_File_Search_Hover = -1;
@@ -3574,18 +4051,31 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
         if (Global_Classification_Active_Field != CLASSIFICATION_FIELD_NONE) {
 
             SDL_Keymod mod = SDL_GetModState();
+            int active_field = Global_Classification_Active_Field;
+            int extend_selection = (mod & KMOD_SHIFT) != 0;
 
-            if ((mod & KMOD_CTRL) && key == SDLK_v &&
-                Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+            if ((mod & KMOD_CTRL) && key == SDLK_a) {
 
-                CLASSIFICATION_paste_notes_text();
+                CLASSIFICATION_select_all_active_text();
+                return 1;
+
+            }
+
+            if ((mod & KMOD_CTRL) && key == SDLK_v) {
+
+                if (active_field == CLASSIFICATION_FIELD_LATITUDE ||
+                    active_field == CLASSIFICATION_FIELD_LONGITUDE) {
+
+                    CLASSIFICATION_paste_coordinate_text(active_field);
+
+                }
                 return 1;
 
             }
 
             if (key == SDLK_BACKSPACE) {
 
-                if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+                if (active_field == CLASSIFICATION_FIELD_NOTES) {
 
                     CLASSIFICATION_backspace_notes_text();
 
@@ -3593,16 +4083,16 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
                 else {
 
-                    CLASSIFICATION_backspace_text(Global_Classification_Field_Text[Global_Classification_Active_Field]);
+                    CLASSIFICATION_backspace_field_text(active_field);
 
-                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
+                    if (active_field == CLASSIFICATION_FIELD_COUNTRY) {
 
                         Global_Classification_Country_Scroll = 0;
                         Global_Classification_Country_Hover = -1;
 
                     }
 
-                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_CASE_NUMBER) {
+                    if (active_field == CLASSIFICATION_FIELD_CASE_NUMBER) {
 
                         Global_Classification_Case_Scroll = 0;
                         Global_Classification_Case_Hover = -1;
@@ -3615,7 +4105,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
             else if (key == SDLK_DELETE) {
 
-                if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+                if (active_field == CLASSIFICATION_FIELD_NOTES) {
 
                     CLASSIFICATION_delete_notes_text();
 
@@ -3623,16 +4113,16 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
                 else {
 
-                    Global_Classification_Field_Text[Global_Classification_Active_Field][0] = '\0';
+                    CLASSIFICATION_delete_field_text(active_field);
 
-                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
+                    if (active_field == CLASSIFICATION_FIELD_COUNTRY) {
 
                         Global_Classification_Country_Scroll = 0;
                         Global_Classification_Country_Hover = -1;
 
                     }
 
-                    if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_CASE_NUMBER) {
+                    if (active_field == CLASSIFICATION_FIELD_CASE_NUMBER) {
 
                         Global_Classification_Case_Scroll = 0;
                         Global_Classification_Case_Hover = -1;
@@ -3643,36 +4133,225 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
             }
 
-            else if (key == SDLK_LEFT && Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+            else if (key == SDLK_LEFT) {
 
-                CLASSIFICATION_notes_move_horizontal(-1);
-                CLASSIFICATION_clear_notes_selection();
+                if (active_field == CLASSIFICATION_FIELD_NOTES) {
+
+                    if (extend_selection && Global_Classification_Notes_Selection_Start < 0) {
+
+                        Global_Classification_Notes_Selection_Start = Global_Classification_Notes_Cursor;
+
+                    }
+                    CLASSIFICATION_notes_move_horizontal(-1);
+
+                    if (extend_selection) {
+
+                        Global_Classification_Notes_Selection_End = Global_Classification_Notes_Cursor;
+
+                    }
+
+                    else {
+
+                        CLASSIFICATION_clear_notes_selection();
+
+                    }
+
+                }
+
+                else {
+
+                    CLASSIFICATION_move_field_cursor(active_field, -1, extend_selection);
+
+                }
 
             }
 
-            else if (key == SDLK_RIGHT && Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+            else if (key == SDLK_RIGHT) {
 
-                CLASSIFICATION_notes_move_horizontal(1);
-                CLASSIFICATION_clear_notes_selection();
+                if (active_field == CLASSIFICATION_FIELD_NOTES) {
+
+                    if (extend_selection && Global_Classification_Notes_Selection_Start < 0) {
+
+                        Global_Classification_Notes_Selection_Start = Global_Classification_Notes_Cursor;
+
+                    }
+                    CLASSIFICATION_notes_move_horizontal(1);
+
+                    if (extend_selection) {
+
+                        Global_Classification_Notes_Selection_End = Global_Classification_Notes_Cursor;
+
+                    }
+
+                    else {
+
+                        CLASSIFICATION_clear_notes_selection();
+
+                    }
+
+                }
+
+                else {
+
+                    CLASSIFICATION_move_field_cursor(active_field, 1, extend_selection);
+
+                }
 
             }
 
-            else if (key == SDLK_UP && Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+            else if (key == SDLK_UP && active_field == CLASSIFICATION_FIELD_NOTES) {
 
+                if (extend_selection && Global_Classification_Notes_Selection_Start < 0) {
+
+                    Global_Classification_Notes_Selection_Start = Global_Classification_Notes_Cursor;
+
+                }
                 CLASSIFICATION_notes_move_vertical(-1);
-                CLASSIFICATION_clear_notes_selection();
+
+                if (extend_selection) {
+
+                    Global_Classification_Notes_Selection_End = Global_Classification_Notes_Cursor;
+
+                }
+
+                else {
+
+                    CLASSIFICATION_clear_notes_selection();
+
+                }
 
             }
 
-            else if (key == SDLK_DOWN && Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+            else if (key == SDLK_DOWN && active_field == CLASSIFICATION_FIELD_NOTES) {
 
+                if (extend_selection && Global_Classification_Notes_Selection_Start < 0) {
+
+                    Global_Classification_Notes_Selection_Start = Global_Classification_Notes_Cursor;
+
+                }
                 CLASSIFICATION_notes_move_vertical(1);
-                CLASSIFICATION_clear_notes_selection();
+
+                if (extend_selection) {
+
+                    Global_Classification_Notes_Selection_End = Global_Classification_Notes_Cursor;
+
+                }
+
+                else {
+
+                    CLASSIFICATION_clear_notes_selection();
+
+                }
+
+            }
+
+            else if (key == SDLK_HOME) {
+
+                if (active_field == CLASSIFICATION_FIELD_NOTES) {
+
+                    if (extend_selection && Global_Classification_Notes_Selection_Start < 0) {
+
+                        Global_Classification_Notes_Selection_Start = Global_Classification_Notes_Cursor;
+
+                    }
+                    Global_Classification_Notes_Cursor = 0;
+
+                    if (extend_selection) {
+
+                        Global_Classification_Notes_Selection_End = Global_Classification_Notes_Cursor;
+
+                    }
+
+                    else {
+
+                        CLASSIFICATION_clear_notes_selection();
+
+                    }
+
+                }
+
+                else {
+
+                    if (extend_selection && Global_Classification_Field_Selection_Start < 0) {
+
+                        Global_Classification_Field_Selection_Start = Global_Classification_Field_Cursor[active_field];
+
+                    }
+                    Global_Classification_Field_Cursor[active_field] = 0;
+
+                    if (extend_selection) {
+
+                        Global_Classification_Field_Selection_End = 0;
+
+                    }
+
+                    else {
+
+                        CLASSIFICATION_clear_field_selection();
+
+                    }
+
+                }
+
+            }
+
+            else if (key == SDLK_END) {
+
+                if (active_field == CLASSIFICATION_FIELD_NOTES) {
+
+                    if (extend_selection && Global_Classification_Notes_Selection_Start < 0) {
+
+                        Global_Classification_Notes_Selection_Start = Global_Classification_Notes_Cursor;
+
+                    }
+                    Global_Classification_Notes_Cursor =
+                        (int)strlen(Global_Classification_Field_Text[CLASSIFICATION_FIELD_NOTES]);
+
+                    if (extend_selection) {
+
+                        Global_Classification_Notes_Selection_End = Global_Classification_Notes_Cursor;
+
+                    }
+
+                    else {
+
+                        CLASSIFICATION_clear_notes_selection();
+
+                    }
+
+                }
+
+                else {
+
+                    if (extend_selection && Global_Classification_Field_Selection_Start < 0) {
+
+                        Global_Classification_Field_Selection_Start = Global_Classification_Field_Cursor[active_field];
+
+                    }
+                    Global_Classification_Field_Cursor[active_field] =
+                        (int)strlen(Global_Classification_Field_Text[active_field]);
+
+                    if (extend_selection) {
+
+                        Global_Classification_Field_Selection_End =
+                            Global_Classification_Field_Cursor[active_field];
+
+                    }
+
+                    else {
+
+                        CLASSIFICATION_clear_field_selection();
+
+                    }
+
+                }
 
             }
 
             else if (key == SDLK_TAB) {
 
+                CLASSIFICATION_clear_notes_selection();
+                CLASSIFICATION_clear_field_selection();
                 Global_Classification_Active_Field++;
 
                 if (Global_Classification_Active_Field >= CLASSIFICATION_FIELD_COUNT) {
@@ -3691,11 +4370,25 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
                     }
                 }
 
+                if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+
+                    Global_Classification_Notes_Cursor =
+                        (int)strlen(Global_Classification_Field_Text[CLASSIFICATION_FIELD_NOTES]);
+
+                }
+
+                else {
+
+                    Global_Classification_Field_Cursor[Global_Classification_Active_Field] =
+                        (int)strlen(Global_Classification_Field_Text[Global_Classification_Active_Field]);
+
+                }
+
             }
 
             else if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
 
-                if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+                if (active_field == CLASSIFICATION_FIELD_NOTES) {
 
                     CLASSIFICATION_insert_notes_text("\n");
 
@@ -3703,6 +4396,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
                 else {
 
+                    CLASSIFICATION_clear_field_selection();
                     Global_Classification_Active_Field = CLASSIFICATION_FIELD_NONE;
 
                 }
@@ -3762,6 +4456,9 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
         if (key == SDLK_TAB) {
 
             Global_Classification_Active_Field = CLASSIFICATION_FIELD_CASE_NUMBER;
+            Global_Classification_Field_Cursor[CLASSIFICATION_FIELD_CASE_NUMBER] =
+                (int)strlen(Global_Classification_Field_Text[CLASSIFICATION_FIELD_CASE_NUMBER]);
+            CLASSIFICATION_clear_field_selection();
             return 1;
 
         }
@@ -3811,8 +4508,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
             else {
 
-                CLASSIFICATION_append_text(Global_Classification_Field_Text[Global_Classification_Active_Field],
-                                           CLASSIFICATION_MAX_TEXT, event->text.text);
+                CLASSIFICATION_insert_field_text(Global_Classification_Active_Field, event->text.text);
 
                 if (Global_Classification_Active_Field == CLASSIFICATION_FIELD_COUNTRY) {
 
@@ -3835,23 +4531,54 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
     }
 
-    if (event->type == SDL_MOUSEMOTION && Global_Classification_Notes_Selecting &&
-        Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+    if (event->type == SDL_MOUSEMOTION) {
 
         SDL_Rect field_rects[CLASSIFICATION_FIELD_COUNT];
         CLASSIFICATION_get_layout(win_w, win_h, NULL, NULL, field_rects, NULL);
-        CLASSIFICATION_set_notes_cursor_from_mouse(field_rects[CLASSIFICATION_FIELD_NOTES], event->motion.x,
-                                                   event->motion.y);
-        CLASSIFICATION_update_notes_selection();
-        return 1;
+
+        if (Global_Classification_Notes_Selecting &&
+            Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+
+            CLASSIFICATION_set_notes_cursor_from_mouse(field_rects[CLASSIFICATION_FIELD_NOTES], event->motion.x,
+                                                       event->motion.y);
+            CLASSIFICATION_update_notes_selection();
+            return 1;
+
+        }
+
+        if (Global_Classification_Field_Selecting &&
+            CLASSIFICATION_is_single_line_text_field(Global_Classification_Active_Field)) {
+
+            CLASSIFICATION_set_field_cursor_from_mouse(Global_Classification_Active_Field,
+                                                       field_rects[Global_Classification_Active_Field],
+                                                       event->motion.x);
+            CLASSIFICATION_update_field_selection(Global_Classification_Active_Field);
+            return 1;
+
+        }
 
     }
 
     if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_LEFT) {
 
+        int handled_selection = 0;
+
         if (Global_Classification_Notes_Selecting) {
 
             Global_Classification_Notes_Selecting = 0;
+            handled_selection = 1;
+
+        }
+
+        if (Global_Classification_Field_Selecting) {
+
+            Global_Classification_Field_Selecting = 0;
+            handled_selection = 1;
+
+        }
+
+        if (handled_selection) {
+
             return 1;
 
         }
@@ -4214,6 +4941,8 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
                     }
                     Global_Classification_Open_Dropdown = i;
                     Global_Classification_Dropdown_Hover = -1;
+                    CLASSIFICATION_clear_notes_selection();
+                    CLASSIFICATION_clear_field_selection();
                     Global_Classification_Active_Field = CLASSIFICATION_FIELD_NONE;
 
                 }
@@ -4233,6 +4962,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
                     if (i == CLASSIFICATION_FIELD_NOTES) {
 
+                        CLASSIFICATION_clear_field_selection();
                         CLASSIFICATION_set_notes_cursor_from_mouse(field_rects[i], x, y);
                         CLASSIFICATION_start_notes_selection();
 
@@ -4241,6 +4971,8 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
                     else {
 
                         CLASSIFICATION_clear_notes_selection();
+                        CLASSIFICATION_set_field_cursor_from_mouse(i, field_rects[i], x);
+                        CLASSIFICATION_start_field_selection(i);
 
                     }
 
@@ -4308,26 +5040,6 @@ static void CLASSIFICATION_draw_input_field(SDL_Renderer *renderer, TTF_Font *fo
     draw_filled_rect(renderer, rect, (SDL_Color){0, 8, 3, 255});
     draw_outline_rect(renderer, rect, active ? (SDL_Color){0, 255, 90, 255} : (SDL_Color){0, 120, 50, 255});
 
-    char shown[CLASSIFICATION_MAX_TEXT + 64];
-
-    if (text && text[0]) {
-
-        snprintf(shown, sizeof(shown), "%.*s%s", CLASSIFICATION_MAX_TEXT - 2, text, active ? "_" : "");
-
-    }
-
-    else if (dropdown_field) {
-
-        snprintf(shown, sizeof(shown), "Click to select");
-
-    }
-
-    else {
-
-        snprintf(shown, sizeof(shown), "%s", active ? "_" : "Click to type");
-
-    }
-
     if (field_index == CLASSIFICATION_FIELD_NOTES) {
 
         Global_Classification_Notes_Font = font;
@@ -4337,7 +5049,7 @@ static void CLASSIFICATION_draw_input_field(SDL_Renderer *renderer, TTF_Font *fo
 
     }
 
-    char short_value[CLASSIFICATION_MAX_TEXT + 64];
+    Global_Classification_Input_Font = font;
 
     int text_max_w = rect.w - 34;
 
@@ -4347,10 +5059,117 @@ static void CLASSIFICATION_draw_input_field(SDL_Renderer *renderer, TTF_Font *fo
 
     }
 
-    CLASSIFICATION_short_text(font, shown, short_value, sizeof(short_value), text_max_w);
+    if (text_max_w < 8) {
 
-    draw_text(renderer, font, short_value, rect.x + 9, rect.y + 9,
-              (text && text[0]) ? (SDL_Color){230, 230, 230, 255} : (SDL_Color){120, 150, 130, 255});
+        text_max_w = 8;
+
+    }
+
+    if (active && CLASSIFICATION_is_single_line_text_field(field_index)) {
+
+        int cursor;
+        int view_start = 0;
+        int view_end = 0;
+        int sel_a = 0;
+        int sel_b = 0;
+        char visible[CLASSIFICATION_MAX_TEXT + 8];
+
+        CLASSIFICATION_clamp_field_cursor(field_index);
+        cursor = Global_Classification_Field_Cursor[field_index];
+        CLASSIFICATION_single_line_view(font, text ? text : "", cursor, text_max_w, &view_start, &view_end);
+
+        if (view_end < view_start) {
+
+            view_end = view_start;
+
+        }
+
+        if (view_end - view_start >= (int)sizeof(visible)) {
+
+            view_end = view_start + (int)sizeof(visible) - 1;
+
+        }
+
+        memcpy(visible, (text ? text : "") + view_start, (size_t)(view_end - view_start));
+        visible[view_end - view_start] = '\0';
+
+        if (CLASSIFICATION_field_selection_range(field_index, &sel_a, &sel_b)) {
+
+            int a = sel_a > view_start ? sel_a : view_start;
+            int b = sel_b < view_end ? sel_b : view_end;
+
+            if (a < b) {
+
+                int x0 = rect.x + 9 + CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)a);
+                int x1 = rect.x + 9 + CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)b);
+                SDL_Rect hi = {x0, rect.y + 6, x1 - x0, rect.h - 12};
+                SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+                draw_filled_rect(renderer, hi, (SDL_Color){0, 100, 220, 105});
+                SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+            }
+
+        }
+
+        if (visible[0]) {
+
+            draw_text(renderer, font, visible, rect.x + 9, rect.y + 9, (SDL_Color){230, 230, 230, 255});
+
+        }
+
+        if (((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
+
+            int cursor_x = rect.x + 9 +
+                           CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)cursor);
+
+            if (cursor_x < rect.x + 9) {
+
+                cursor_x = rect.x + 9;
+
+            }
+
+            if (cursor_x > rect.x + 9 + text_max_w) {
+
+                cursor_x = rect.x + 9 + text_max_w;
+
+            }
+
+            SDL_SetRenderDrawColor(renderer, 0, 170, 255, 255);
+            SDL_RenderDrawLine(renderer, cursor_x, rect.y + 6, cursor_x, rect.y + rect.h - 6);
+            SDL_RenderDrawLine(renderer, cursor_x + 1, rect.y + 6, cursor_x + 1, rect.y + rect.h - 6);
+
+        }
+
+    }
+
+    else {
+
+        char shown[CLASSIFICATION_MAX_TEXT + 64];
+        char short_value[CLASSIFICATION_MAX_TEXT + 64];
+
+        if (text && text[0]) {
+
+            snprintf(shown, sizeof(shown), "%.*s", CLASSIFICATION_MAX_TEXT - 1, text);
+
+        }
+
+        else if (dropdown_field) {
+
+            snprintf(shown, sizeof(shown), "Click to select");
+
+        }
+
+        else {
+
+            snprintf(shown, sizeof(shown), "Click to type");
+
+        }
+
+        CLASSIFICATION_short_text(font, shown, short_value, sizeof(short_value), text_max_w);
+        draw_text(renderer, font, short_value, rect.x + 9, rect.y + 9,
+                  (text && text[0]) ? (SDL_Color){230, 230, 230, 255} : (SDL_Color){120, 150, 130, 255});
+
+    }
 
     if (field_index == CLASSIFICATION_FIELD_COUNTRY) {
 

@@ -154,6 +154,9 @@ static SDL_Rect Global_Dashboard_Signal_Row_Rect[DASHBOARD_VISIBLE_SIGNAL_ROWS];
 static int Global_Dashboard_Signal_Row_Point_Index[DASHBOARD_VISIBLE_SIGNAL_ROWS] = {-1, -1, -1};
 static int Global_Dashboard_Signal_Row_Count = 0;
 static int Global_Dashboard_Selected_Signal = -1;
+static int Global_Dashboard_Case_Description_Scroll = 0;
+static int Global_Dashboard_Case_Description_Max_Scroll = 0;
+static int Global_Dashboard_Case_Description_Selected_Case = -1;
 static SDL_Rect Global_Dashboard_Signal_Popup_Rect = {0, 0, 0, 0};
 static SDL_Rect Global_Dashboard_Signal_Popup_Close_Rect = {0, 0, 0, 0};
 static SDL_Rect Global_Dashboard_Signal_Delete_Rect = {0, 0, 0, 0};
@@ -1902,6 +1905,9 @@ static int dashboard_select_case_at(Type_Dashboard_State *dashboard, SDL_Rect ma
 
             dashboard->selected_case = pt->case_index;
             dashboard->case_desc_editing = 0;
+            Global_Dashboard_Case_Description_Scroll = 0;
+            Global_Dashboard_Case_Description_Max_Scroll = 0;
+            Global_Dashboard_Case_Description_Selected_Case = pt->case_index;
             Global_Dashboard_Case_Image_Path_Active = 0;
             Global_Dashboard_Case_Image_Path[0] = '\0';
             Global_Dashboard_Case_Image_Path_Cursor = 0;
@@ -2002,6 +2008,271 @@ static void dashboard_wrap_text(SDL_Renderer *renderer, TTF_Font *font, const ch
         draw_text(renderer, font, line, rect.x, y, color);
 
     }
+}
+
+static int dashboard_description_text_width(TTF_Font *font, const char *text) {
+    /*
+        Purpose: Measures one description line while retaining a safe fallback
+        Returns: Text width in pixels
+    */
+
+    int width = 0;
+    int height = 0;
+
+    if (!font || !text || text[0] == '\0') {
+
+        return 0;
+
+    }
+
+    if (TTF_SizeText(font, text, &width, &height) != 0) {
+
+        width = (int)strlen(text) * 8;
+
+    }
+
+    return width;
+}
+
+static void dashboard_description_emit_line(SDL_Renderer *renderer, TTF_Font *font,
+                                            const char *line, SDL_Rect rect,
+                                            SDL_Color color, int first_line,
+                                            int visible_lines, int line_height,
+                                            int *line_index) {
+    /*
+        Purpose: Counts and conditionally draws one wrapped description line
+        Returns: No value
+    */
+
+    if (!line_index) {
+
+        return;
+
+    }
+
+    if (renderer && font && line && *line_index >= first_line &&
+        *line_index < first_line + visible_lines && line[0] != '\0') {
+
+        draw_text(renderer, font, line, rect.x,
+                  rect.y + (*line_index - first_line) * line_height, color);
+
+    }
+
+    (*line_index)++;
+}
+
+static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *font,
+                                           const char *text, SDL_Rect rect,
+                                           SDL_Color color, int first_line) {
+    /*
+        Purpose: Wraps, clips, and optionally scrolls the selected case description
+        Returns: Total wrapped line count
+    */
+
+    char line[512] = "";
+    int line_length = 0;
+    int line_index = 0;
+    int line_height;
+    int visible_lines;
+    SDL_Rect previous_clip = {0, 0, 0, 0};
+    SDL_bool had_clip = SDL_FALSE;
+
+    if (!font || !text || rect.w <= 0 || rect.h <= 0) {
+
+        return 0;
+
+    }
+
+    line_height = TTF_FontHeight(font) + 4;
+
+    if (line_height < 1) {
+
+        line_height = 1;
+
+    }
+
+    visible_lines = rect.h / line_height;
+
+    if (visible_lines < 1) {
+
+        visible_lines = 1;
+
+    }
+
+    if (first_line < 0) {
+
+        first_line = 0;
+
+    }
+
+    if (renderer) {
+
+        had_clip = SDL_RenderIsClipEnabled(renderer);
+        SDL_RenderGetClipRect(renderer, &previous_clip);
+        SDL_RenderSetClipRect(renderer, &rect);
+
+    }
+
+    for (const unsigned char *cursor = (const unsigned char *)text; ; cursor++) {
+        unsigned char character = *cursor;
+
+        if (character == '\r') {
+
+            continue;
+
+        }
+
+        if (character == '\n' || character == '\0') {
+
+            while (line_length > 0 && line[line_length - 1] == ' ') {
+
+                line[--line_length] = '\0';
+
+            }
+
+            if (line_length > 0 || character == '\n') {
+
+                dashboard_description_emit_line(renderer, font, line, rect, color,
+                                                first_line, visible_lines, line_height,
+                                                &line_index);
+
+            }
+
+            line[0] = '\0';
+            line_length = 0;
+
+            if (character == '\0') {
+
+                break;
+
+            }
+
+            continue;
+
+        }
+
+        if (character == '\t') {
+
+            character = ' ';
+
+        }
+
+        if (character == ' ' && line_length == 0) {
+
+            continue;
+
+        }
+
+        if (line_length + 1 >= (int)sizeof(line)) {
+
+            dashboard_description_emit_line(renderer, font, line, rect, color,
+                                            first_line, visible_lines, line_height,
+                                            &line_index);
+            line[0] = '\0';
+            line_length = 0;
+
+            if (character == ' ') {
+
+                continue;
+
+            }
+
+        }
+
+        line[line_length++] = (char)character;
+        line[line_length] = '\0';
+
+        while (line_length > 0 && dashboard_description_text_width(font, line) > rect.w) {
+            int break_position = -1;
+
+            for (int i = line_length - 1; i > 0; i--) {
+
+                if (line[i] == ' ') {
+
+                    break_position = i;
+                    break;
+
+                }
+            }
+
+            if (break_position > 0) {
+                char remainder[512];
+                int remainder_length;
+
+                snprintf(remainder, sizeof(remainder), "%s", line + break_position + 1);
+                line[break_position] = '\0';
+                line_length = break_position;
+
+                while (line_length > 0 && line[line_length - 1] == ' ') {
+
+                    line[--line_length] = '\0';
+
+                }
+
+                dashboard_description_emit_line(renderer, font, line, rect, color,
+                                                first_line, visible_lines, line_height,
+                                                &line_index);
+
+                snprintf(line, sizeof(line), "%s", remainder);
+                line_length = (int)strlen(line);
+                remainder_length = line_length;
+
+                while (remainder_length > 0 && line[0] == ' ') {
+
+                    memmove(line, line + 1, (size_t)remainder_length);
+                    remainder_length--;
+
+                }
+
+                line_length = remainder_length;
+
+            }
+
+            else {
+                char remainder[512];
+                int fit_length = line_length - 1;
+
+                while (fit_length > 1) {
+                    char saved = line[fit_length];
+
+                    line[fit_length] = '\0';
+
+                    if (dashboard_description_text_width(font, line) <= rect.w) {
+
+                        line[fit_length] = saved;
+                        break;
+
+                    }
+
+                    line[fit_length] = saved;
+                    fit_length--;
+                }
+
+                if (fit_length < 1) {
+
+                    fit_length = 1;
+
+                }
+
+                snprintf(remainder, sizeof(remainder), "%s", line + fit_length);
+                line[fit_length] = '\0';
+                dashboard_description_emit_line(renderer, font, line, rect, color,
+                                                first_line, visible_lines, line_height,
+                                                &line_index);
+                snprintf(line, sizeof(line), "%s", remainder);
+                line_length = (int)strlen(line);
+
+            }
+        }
+    }
+
+    if (renderer) {
+
+        SDL_RenderSetClipRect(renderer, had_clip ? &previous_clip : NULL);
+
+    }
+
+    return line_index;
 }
 
 static int dashboard_case_country_matches(const Type_Dashboard_Case_Point *pt, const WM_Country *country) {
@@ -3245,8 +3516,10 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
     y += 26;
 
     {
+        int line_height = TTF_FontHeight(font) + 4;
         int remaining = sidebar.y + sidebar.h - y - 86;
-        int description_h = remaining > 130 ? 110 : remaining;
+        int desired_height = 110 + line_height * 2;
+        int description_h = remaining > desired_height ? desired_height : remaining;
 
         if (description_h < 54) {
 
@@ -3260,10 +3533,86 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
     draw_filled_rect(renderer, dashboard->case_desc_rect, (SDL_Color){0, 9, 4, 255});
     draw_outline_rect(renderer, dashboard->case_desc_rect, Dashboard_Border);
 
+    if (Global_Dashboard_Case_Description_Selected_Case != dashboard->selected_case) {
+
+        Global_Dashboard_Case_Description_Selected_Case = dashboard->selected_case;
+        Global_Dashboard_Case_Description_Scroll = 0;
+        Global_Dashboard_Case_Description_Max_Scroll = 0;
+
+    }
+
     SDL_Rect desc_text_rect = {dashboard->case_desc_rect.x + 9, dashboard->case_desc_rect.y + 9,
-                               dashboard->case_desc_rect.w - 18, dashboard->case_desc_rect.h - 18};
+                               dashboard->case_desc_rect.w - 28, dashboard->case_desc_rect.h - 18};
     const char *shown = info->description[0] ? info->description : "No case description.";
-    dashboard_wrap_text(renderer, font, shown, desc_text_rect, Dashboard_Muted);
+    int description_line_height = TTF_FontHeight(font) + 4;
+    int visible_description_lines;
+    int description_line_count;
+
+    if (description_line_height < 1) {
+
+        description_line_height = 1;
+
+    }
+
+    visible_description_lines = desc_text_rect.h / description_line_height;
+
+    if (visible_description_lines < 1) {
+
+        visible_description_lines = 1;
+
+    }
+
+    description_line_count = dashboard_wrap_description_text(NULL, font, shown,
+                                                             desc_text_rect, Dashboard_Muted, 0);
+    Global_Dashboard_Case_Description_Max_Scroll =
+        description_line_count > visible_description_lines
+            ? description_line_count - visible_description_lines
+            : 0;
+
+    if (Global_Dashboard_Case_Description_Scroll > Global_Dashboard_Case_Description_Max_Scroll) {
+
+        Global_Dashboard_Case_Description_Scroll = Global_Dashboard_Case_Description_Max_Scroll;
+
+    }
+
+    dashboard_wrap_description_text(renderer, font, shown, desc_text_rect, Dashboard_Muted,
+                                    Global_Dashboard_Case_Description_Scroll);
+
+    if (Global_Dashboard_Case_Description_Max_Scroll > 0) {
+        SDL_Rect scroll_track = {dashboard->case_desc_rect.x + dashboard->case_desc_rect.w - 8,
+                                 dashboard->case_desc_rect.y + 8, 3,
+                                 dashboard->case_desc_rect.h - 16};
+        int thumb_height = scroll_track.h * visible_description_lines / description_line_count;
+        int thumb_travel;
+        int thumb_y;
+
+        if (thumb_height < 12) {
+
+            thumb_height = 12;
+
+        }
+
+        if (thumb_height > scroll_track.h) {
+
+            thumb_height = scroll_track.h;
+
+        }
+
+        thumb_travel = scroll_track.h - thumb_height;
+        thumb_y = scroll_track.y;
+
+        if (Global_Dashboard_Case_Description_Max_Scroll > 0 && thumb_travel > 0) {
+
+            thumb_y += thumb_travel * Global_Dashboard_Case_Description_Scroll /
+                       Global_Dashboard_Case_Description_Max_Scroll;
+
+        }
+
+        draw_filled_rect(renderer, scroll_track, (SDL_Color){0, 35, 14, 255});
+        draw_filled_rect(renderer,
+                         (SDL_Rect){scroll_track.x, thumb_y, scroll_track.w, thumb_height},
+                         Dashboard_Border_Hi);
+    }
 
     y = dashboard->case_desc_rect.y + dashboard->case_desc_rect.h + 12;
 
@@ -4103,6 +4452,36 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
 
     }
 
+    if (event->type == SDL_MOUSEWHEEL) {
+        int mouse_x = 0;
+        int mouse_y = 0;
+
+        SDL_GetMouseState(&mouse_x, &mouse_y);
+
+        if (dashboard->current_tab == DASHBOARD_EVENT_MAP &&
+            dashboard_point_in_rect(mouse_x, mouse_y, dashboard->case_desc_rect)) {
+
+            Global_Dashboard_Case_Description_Scroll -= event->wheel.y;
+
+            if (Global_Dashboard_Case_Description_Scroll < 0) {
+
+                Global_Dashboard_Case_Description_Scroll = 0;
+
+            }
+
+            if (Global_Dashboard_Case_Description_Scroll >
+                Global_Dashboard_Case_Description_Max_Scroll) {
+
+                Global_Dashboard_Case_Description_Scroll =
+                    Global_Dashboard_Case_Description_Max_Scroll;
+
+            }
+
+            return 1;
+
+        }
+    }
+
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
 
         for (int i = 0; i < Global_Dashboard_Signal_Row_Count; i++) {
@@ -4545,6 +4924,9 @@ int dashboard_init(Type_Dashboard_State *dashboard, const char *map_bin_path) {
     Global_Dashboard_Case_Color_Active = -1;
     Global_Dashboard_Selected_Signal = -1;
     Global_Dashboard_Signal_Row_Count = 0;
+    Global_Dashboard_Case_Description_Scroll = 0;
+    Global_Dashboard_Case_Description_Max_Scroll = 0;
+    Global_Dashboard_Case_Description_Selected_Case = -1;
     dashboard_case_image_clear_cache();
 
     if (!map_bin_path || map_bin_path[0] == '\0') {
@@ -4685,6 +5067,9 @@ int dashboard_handle_event(Type_Dashboard_State *dashboard, const SDL_Event *eve
             dashboard->selected_case = -1;
             dashboard->case_desc_editing = 0;
             dashboard->case_desc_edit[0] = '\0';
+            Global_Dashboard_Case_Description_Scroll = 0;
+            Global_Dashboard_Case_Description_Max_Scroll = 0;
+            Global_Dashboard_Case_Description_Selected_Case = -1;
             Global_Dashboard_Case_Image_Path_Active = 0;
             Global_Dashboard_Case_Image_Path[0] = '\0';
             Global_Dashboard_Case_Image_Path_Cursor = 0;
