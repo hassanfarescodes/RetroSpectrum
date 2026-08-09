@@ -1,0 +1,178 @@
+Flawfinder version 2.0.19, (C) 2001-2019 David A. Wheeler.
+Number of rules (primarily dangerous function names) in C/C++ ruleset: 222
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AuthScreen.c:1876:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AuthScreen.c:1950:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:144:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:217:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:917:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:1087:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:1187:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:381:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:424:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:646:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:845:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:1187:  [5] (race) chmod:
+  This accepts filename arguments; if an attacker can move those files, a
+  race condition results. (CWE-362). Use fchmod( ) instead.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AnalysisWorkstation.c:4216:  [4] (format) snprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AnalysisWorkstation.c:4226:  [4] (format) snprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AnalysisWorkstation.c:4231:  [4] (format) snprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AuthScreen.c:1217:  [4] (format) snprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AuthScreen.c:1910:  [4] (race) access:
+  This usually indicates a security flaw. If an attacker can change anything
+  along the path between the call to access() and the file's actual use
+  (e.g., by moving files), the attacker can exploit the race condition
+  (CWE-362/CWE-367!). Set up the correct permissions (e.g., using setuid())
+  and try to open the file directly.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/CorrelationWorkstation.c:2123:  [4] (format) snprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/CorrelationWorkstation.c:4010:  [4] (format) snprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/CorrelationWorkstation.c:4981:  [4] (format) snprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:149:  [4] (race) access:
+  This usually indicates a security flaw. If an attacker can change anything
+  along the path between the call to access() and the file's actual use
+  (e.g., by moving files), the attacker can exploit the race condition
+  (CWE-362/CWE-367!). Set up the correct permissions (e.g., using setuid())
+  and try to open the file directly.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:165:  [4] (race) access:
+  This usually indicates a security flaw. If an attacker can change anything
+  along the path between the call to access() and the file's actual use
+  (e.g., by moving files), the attacker can exploit the race condition
+  (CWE-362/CWE-367!). Set up the correct permissions (e.g., using setuid())
+  and try to open the file directly.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/SecureFunctions.c:39:  [4] (format) vsnprintf:
+  If format strings can be influenced by an attacker, they can be exploited,
+  and note that sprintf variations do not always \0-terminate (CWE-134). Use
+  a constant for the format specification.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/SecureFunctions.c:329:  [4] (shell) execv:
+  This causes a new program to execute and is difficult to use safely
+  (CWE-78). try using a library call that implements the same functionality
+  if available.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AuthScreen.c:1689:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AuthScreen.c:1690:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DataStore.c:179:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DataStore.c:180:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:174:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:175:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DatabaseCrypto.c:1242:  [3] (buffer) realpath:
+  This function does not protect against buffer overflows, and some
+  implementations can overflow internally (CWE-120/CWE-785!). Ensure that the
+  destination buffer is at least of size MAXPATHLEN, andto protect against
+  implementation problems, the input argument should also be checked to
+  ensure it is no larger than MAXPATHLEN.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/RetroSpectrum.c:2130:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:153:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:154:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:221:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:222:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/ServerIdentity.c:1922:  [3] (buffer) getenv:
+  Environment variables are untrustable input if they can be set by an
+  attacker. They can have any content and length, and the same variable can
+  be set more than once (CWE-807, CWE-20). Check environment variables
+  carefully before using them.
+
+ANALYSIS SUMMARY:
+
+Hits = 37
+Lines analyzed = 80501 in approximately 0.26 seconds (312929 lines/second)
+Physical Source Lines of Code (SLOC) = 47718
+Hits@level = [0] 643 [1] 331 [2] 1009 [3]  13 [4]  12 [5]  12
+Hits@level+ = [0+] 2020 [1+] 1377 [2+] 1046 [3+]  37 [4+]  24 [5+]  12
+Hits/KSLOC@level+ = [0+] 42.332 [1+] 28.857 [2+] 21.9204 [3+] 0.775389 [4+] 0.502955 [5+] 0.251477
+Minimum risk level = 3
+
+Not every hit is necessarily a security vulnerability.
+You can inhibit a report by adding a comment in this form:
+// flawfinder: ignore
+Make *sure* it's a false positive!
+You can use the option --neverignore to show these.
+
+There may be other security vulnerabilities; review your code!
+See 'Secure Programming HOWTO'
+(https://dwheeler.com/secure-programs) for more information.

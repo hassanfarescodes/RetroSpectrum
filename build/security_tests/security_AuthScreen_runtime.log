@@ -1,0 +1,734 @@
+
+[96mRetroSpectrum security target: AuthScreen.c[0m
+Attack classes: unsafe-copy, unbounded-format, command execution, temporary-file race, symlink creation, weak RNG + runtime hostile probes.
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+
+[96m=== Per-function source attacks: AuthScreen.c (117 functions discovered) ===[0m
+[92mPASSED[0m at least one production function discovered
+[92mPASSED[0m auth_point_in_rect:166 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_point_in_rect:166 unbounded format-write attack — blocked
+[92mPASSED[0m auth_point_in_rect:166 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_point_in_rect:166 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_point_in_rect:166 symlink file-creation attack — blocked
+[92mPASSED[0m auth_point_in_rect:166 weak PRNG attack — blocked
+[92mPASSED[0m auth_secure_zero:175 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_secure_zero:175 unbounded format-write attack — blocked
+[92mPASSED[0m auth_secure_zero:175 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_secure_zero:175 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_secure_zero:175 symlink file-creation attack — blocked
+[92mPASSED[0m auth_secure_zero:175 weak PRNG attack — blocked
+[92mPASSED[0m auth_copy_text:188 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_copy_text:188 unbounded format-write attack — blocked
+[92mPASSED[0m auth_copy_text:188 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_copy_text:188 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_copy_text:188 symlink file-creation attack — blocked
+[92mPASSED[0m auth_copy_text:188 weak PRNG attack — blocked
+[92mPASSED[0m auth_set_status:208 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_set_status:208 unbounded format-write attack — blocked
+[92mPASSED[0m auth_set_status:208 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_set_status:208 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_set_status:208 symlink file-creation attack — blocked
+[92mPASSED[0m auth_set_status:208 weak PRNG attack — blocked
+[92mPASSED[0m auth_utf8_previous_index:223 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_utf8_previous_index:223 unbounded format-write attack — blocked
+[92mPASSED[0m auth_utf8_previous_index:223 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_utf8_previous_index:223 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_utf8_previous_index:223 symlink file-creation attack — blocked
+[92mPASSED[0m auth_utf8_previous_index:223 weak PRNG attack — blocked
+[92mPASSED[0m auth_utf8_next_index:244 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_utf8_next_index:244 unbounded format-write attack — blocked
+[92mPASSED[0m auth_utf8_next_index:244 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_utf8_next_index:244 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_utf8_next_index:244 symlink file-creation attack — blocked
+[92mPASSED[0m auth_utf8_next_index:244 weak PRNG attack — blocked
+[92mPASSED[0m auth_import_path_clamp_cursor:262 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_import_path_clamp_cursor:262 unbounded format-write attack — blocked
+[92mPASSED[0m auth_import_path_clamp_cursor:262 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_import_path_clamp_cursor:262 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_import_path_clamp_cursor:262 symlink file-creation attack — blocked
+[92mPASSED[0m auth_import_path_clamp_cursor:262 weak PRNG attack — blocked
+[92mPASSED[0m auth_import_path_replace_selection:284 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_import_path_replace_selection:284 unbounded format-write attack — blocked
+[92mPASSED[0m auth_import_path_replace_selection:284 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_import_path_replace_selection:284 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_import_path_replace_selection:284 symlink file-creation attack — blocked
+[92mPASSED[0m auth_import_path_replace_selection:284 weak PRNG attack — blocked
+[92mPASSED[0m auth_import_path_insert:307 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_import_path_insert:307 unbounded format-write attack — blocked
+[92mPASSED[0m auth_import_path_insert:307 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_import_path_insert:307 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_import_path_insert:307 symlink file-creation attack — blocked
+[92mPASSED[0m auth_import_path_insert:307 weak PRNG attack — blocked
+[92mPASSED[0m auth_import_path_backspace:373 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_import_path_backspace:373 unbounded format-write attack — blocked
+[92mPASSED[0m auth_import_path_backspace:373 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_import_path_backspace:373 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_import_path_backspace:373 symlink file-creation attack — blocked
+[92mPASSED[0m auth_import_path_backspace:373 weak PRNG attack — blocked
+[92mPASSED[0m auth_import_path_delete:414 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_import_path_delete:414 unbounded format-write attack — blocked
+[92mPASSED[0m auth_import_path_delete:414 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_import_path_delete:414 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_import_path_delete:414 symlink file-creation attack — blocked
+[92mPASSED[0m auth_import_path_delete:414 weak PRNG attack — blocked
+[92mPASSED[0m auth_import_path_copy:454 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_import_path_copy:454 unbounded format-write attack — blocked
+[92mPASSED[0m auth_import_path_copy:454 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_import_path_copy:454 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_import_path_copy:454 symlink file-creation attack — blocked
+[92mPASSED[0m auth_import_path_copy:454 weak PRNG attack — blocked
+[92mPASSED[0m auth_import_path_paste:479 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_import_path_paste:479 unbounded format-write attack — blocked
+[92mPASSED[0m auth_import_path_paste:479 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_import_path_paste:479 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_import_path_paste:479 symlink file-creation attack — blocked
+[92mPASSED[0m auth_import_path_paste:479 weak PRNG attack — blocked
+[92mPASSED[0m auth_clear_sensitive:505 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_clear_sensitive:505 unbounded format-write attack — blocked
+[92mPASSED[0m auth_clear_sensitive:505 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_clear_sensitive:505 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_clear_sensitive:505 symlink file-creation attack — blocked
+[92mPASSED[0m auth_clear_sensitive:505 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_text:525 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_text:525 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_text:525 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_text:525 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_text:525 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_text:525 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_centered_text:564 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_centered_text:564 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_centered_text:564 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_centered_text:564 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_centered_text:564 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_centered_text:564 weak PRNG attack — blocked
+[92mPASSED[0m auth_fill_rect:583 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_fill_rect:583 unbounded format-write attack — blocked
+[92mPASSED[0m auth_fill_rect:583 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_fill_rect:583 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_fill_rect:583 symlink file-creation attack — blocked
+[92mPASSED[0m auth_fill_rect:583 weak PRNG attack — blocked
+[92mPASSED[0m auth_outline_rect:593 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_outline_rect:593 unbounded format-write attack — blocked
+[92mPASSED[0m auth_outline_rect:593 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_outline_rect:593 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_outline_rect:593 symlink file-creation attack — blocked
+[92mPASSED[0m auth_outline_rect:593 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_grid:603 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_grid:603 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_grid:603 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_grid:603 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_grid:603 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_grid:603 weak PRNG attack — blocked
+[92mPASSED[0m auth_top_right_button_rect:620 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_top_right_button_rect:620 unbounded format-write attack — blocked
+[92mPASSED[0m auth_top_right_button_rect:620 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_top_right_button_rect:620 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_top_right_button_rect:620 symlink file-creation attack — blocked
+[92mPASSED[0m auth_top_right_button_rect:620 weak PRNG attack — blocked
+[92mPASSED[0m auth_top_left_button_rect:637 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_top_left_button_rect:637 unbounded format-write attack — blocked
+[92mPASSED[0m auth_top_left_button_rect:637 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_top_left_button_rect:637 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_top_left_button_rect:637 symlink file-creation attack — blocked
+[92mPASSED[0m auth_top_left_button_rect:637 weak PRNG attack — blocked
+[92mPASSED[0m auth_database_key_button_rect:653 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_database_key_button_rect:653 unbounded format-write attack — blocked
+[92mPASSED[0m auth_database_key_button_rect:653 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_database_key_button_rect:653 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_database_key_button_rect:653 symlink file-creation attack — blocked
+[92mPASSED[0m auth_database_key_button_rect:653 weak PRNG attack — blocked
+[92mPASSED[0m auth_make_panel:669 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_make_panel:669 unbounded format-write attack — blocked
+[92mPASSED[0m auth_make_panel:669 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_make_panel:669 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_make_panel:669 symlink file-creation attack — blocked
+[92mPASSED[0m auth_make_panel:669 weak PRNG attack — blocked
+[92mPASSED[0m auth_field_rect:727 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_field_rect:727 unbounded format-write attack — blocked
+[92mPASSED[0m auth_field_rect:727 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_field_rect:727 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_field_rect:727 symlink file-creation attack — blocked
+[92mPASSED[0m auth_field_rect:727 weak PRNG attack — blocked
+[92mPASSED[0m auth_primary_button_rect:736 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_primary_button_rect:736 unbounded format-write attack — blocked
+[92mPASSED[0m auth_primary_button_rect:736 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_primary_button_rect:736 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_primary_button_rect:736 symlink file-creation attack — blocked
+[92mPASSED[0m auth_primary_button_rect:736 weak PRNG attack — blocked
+[92mPASSED[0m auth_checkbox_rect:745 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_checkbox_rect:745 unbounded format-write attack — blocked
+[92mPASSED[0m auth_checkbox_rect:745 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_checkbox_rect:745 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_checkbox_rect:745 symlink file-creation attack — blocked
+[92mPASSED[0m auth_checkbox_rect:745 weak PRNG attack — blocked
+[92mPASSED[0m auth_copy_secret_button_rect:754 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_copy_secret_button_rect:754 unbounded format-write attack — blocked
+[92mPASSED[0m auth_copy_secret_button_rect:754 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_copy_secret_button_rect:754 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_copy_secret_button_rect:754 symlink file-creation attack — blocked
+[92mPASSED[0m auth_copy_secret_button_rect:754 weak PRNG attack — blocked
+[92mPASSED[0m auth_create_two_factor_code_rect:763 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_create_two_factor_code_rect:763 unbounded format-write attack — blocked
+[92mPASSED[0m auth_create_two_factor_code_rect:763 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_create_two_factor_code_rect:763 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_create_two_factor_code_rect:763 symlink file-creation attack — blocked
+[92mPASSED[0m auth_create_two_factor_code_rect:763 weak PRNG attack — blocked
+[92mPASSED[0m auth_mask_text:772 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_mask_text:772 unbounded format-write attack — blocked
+[92mPASSED[0m auth_mask_text:772 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_mask_text:772 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_mask_text:772 symlink file-creation attack — blocked
+[92mPASSED[0m auth_mask_text:772 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_field:803 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_field:803 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_field:803 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_field:803 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_field:803 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_field:803 weak PRNG attack — blocked
+[92mPASSED[0m auth_path_line_end:842 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_path_line_end:842 unbounded format-write attack — blocked
+[92mPASSED[0m auth_path_line_end:842 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_path_line_end:842 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_path_line_end:842 symlink file-creation attack — blocked
+[92mPASSED[0m auth_path_line_end:842 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_import_path_field:893 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_import_path_field:893 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_import_path_field:893 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_import_path_field:893 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_import_path_field:893 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_import_path_field:893 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_button:1079 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_button:1079 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_button:1079 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_button:1079 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_button:1079 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_button:1079 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_danger_button:1090 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_danger_button:1090 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_danger_button:1090 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_danger_button:1090 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_danger_button:1090 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_danger_button:1090 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_trusted_server_header:1105 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_trusted_server_header:1105 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_trusted_server_header:1105 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_trusted_server_header:1105 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_trusted_server_header:1105 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_trusted_server_header:1105 weak PRNG attack — blocked
+[92mPASSED[0m auth_format_12_hour_time:1146 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_format_12_hour_time:1146 unbounded format-write attack — blocked
+[92mPASSED[0m auth_format_12_hour_time:1146 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_format_12_hour_time:1146 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_format_12_hour_time:1146 symlink file-creation attack — blocked
+[92mPASSED[0m auth_format_12_hour_time:1146 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_lock_icon:1178 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_lock_icon:1178 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_lock_icon:1178 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_lock_icon:1178 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_lock_icon:1178 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_lock_icon:1178 weak PRNG attack — blocked
+[92mPASSED[0m auth_draw_identity_status:1197 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_draw_identity_status:1197 unbounded format-write attack — blocked
+[92mPASSED[0m auth_draw_identity_status:1197 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_draw_identity_status:1197 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_draw_identity_status:1197 symlink file-creation attack — blocked
+[92mPASSED[0m auth_draw_identity_status:1197 weak PRNG attack — blocked
+[92mPASSED[0m auth_base32_encode:1243 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_base32_encode:1243 unbounded format-write attack — blocked
+[92mPASSED[0m auth_base32_encode:1243 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_base32_encode:1243 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_base32_encode:1243 symlink file-creation attack — blocked
+[92mPASSED[0m auth_base32_encode:1243 weak PRNG attack — blocked
+[92mPASSED[0m auth_group_secret:1291 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_group_secret:1291 unbounded format-write attack — blocked
+[92mPASSED[0m auth_group_secret:1291 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_group_secret:1291 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_group_secret:1291 symlink file-creation attack — blocked
+[92mPASSED[0m auth_group_secret:1291 weak PRNG attack — blocked
+[92mPASSED[0m auth_render:1317 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_render:1317 unbounded format-write attack — blocked
+[92mPASSED[0m auth_render:1317 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_render:1317 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_render:1317 symlink file-creation attack — blocked
+[92mPASSED[0m auth_render:1317 weak PRNG attack — blocked
+[92mPASSED[0m auth_append_text:1598 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_append_text:1598 unbounded format-write attack — blocked
+[92mPASSED[0m auth_append_text:1598 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_append_text:1598 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_append_text:1598 symlink file-creation attack — blocked
+[92mPASSED[0m auth_append_text:1598 weak PRNG attack — blocked
+[92mPASSED[0m auth_backspace:1633 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_backspace:1633 unbounded format-write attack — blocked
+[92mPASSED[0m auth_backspace:1633 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_backspace:1633 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_backspace:1633 symlink file-creation attack — blocked
+[92mPASSED[0m auth_backspace:1633 weak PRNG attack — blocked
+[92mPASSED[0m auth_ensure_directory:1655 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_ensure_directory:1655 unbounded format-write attack — blocked
+[92mPASSED[0m auth_ensure_directory:1655 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_ensure_directory:1655 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_ensure_directory:1655 symlink file-creation attack — blocked
+[92mPASSED[0m auth_ensure_directory:1655 weak PRNG attack — blocked
+[92mPASSED[0m auth_database_path:1683 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_database_path:1683 unbounded format-write attack — blocked
+[92mPASSED[0m auth_database_path:1683 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_database_path:1683 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_database_path:1683 symlink file-creation attack — blocked
+[92mPASSED[0m auth_database_path:1683 weak PRNG attack — blocked
+[92mPASSED[0m auth_totp_master_key_path:1756 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_totp_master_key_path:1756 unbounded format-write attack — blocked
+[92mPASSED[0m auth_totp_master_key_path:1756 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_totp_master_key_path:1756 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_totp_master_key_path:1756 symlink file-creation attack — blocked
+[92mPASSED[0m auth_totp_master_key_path:1756 weak PRNG attack — blocked
+[92mPASSED[0m auth_read_exact_fd:1783 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_read_exact_fd:1783 unbounded format-write attack — blocked
+[92mPASSED[0m auth_read_exact_fd:1783 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_read_exact_fd:1783 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_read_exact_fd:1783 symlink file-creation attack — blocked
+[92mPASSED[0m auth_read_exact_fd:1783 weak PRNG attack — blocked
+[92mPASSED[0m auth_write_exact_fd:1815 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_write_exact_fd:1815 unbounded format-write attack — blocked
+[92mPASSED[0m auth_write_exact_fd:1815 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_write_exact_fd:1815 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_write_exact_fd:1815 symlink file-creation attack — blocked
+[92mPASSED[0m auth_write_exact_fd:1815 weak PRNG attack — blocked
+[92mPASSED[0m auth_load_existing_totp_master_key:1841 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_load_existing_totp_master_key:1841 unbounded format-write attack — blocked
+[92mPASSED[0m auth_load_existing_totp_master_key:1841 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_load_existing_totp_master_key:1841 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_load_existing_totp_master_key:1841 symlink file-creation attack — blocked
+[92mPASSED[0m auth_load_existing_totp_master_key:1841 weak PRNG attack — blocked
+[92mPASSED[0m auth_load_or_create_totp_master_key:1888 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_load_or_create_totp_master_key:1888 unbounded format-write attack — blocked
+[92mPASSED[0m auth_load_or_create_totp_master_key:1888 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_load_or_create_totp_master_key:1888 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_load_or_create_totp_master_key:1888 symlink file-creation attack — blocked
+[92mPASSED[0m auth_load_or_create_totp_master_key:1888 weak PRNG attack — blocked
+[92mPASSED[0m auth_derive_server_totp_key:1954 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_derive_server_totp_key:1954 unbounded format-write attack — blocked
+[92mPASSED[0m auth_derive_server_totp_key:1954 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_derive_server_totp_key:1954 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_derive_server_totp_key:1954 symlink file-creation attack — blocked
+[92mPASSED[0m auth_derive_server_totp_key:1954 weak PRNG attack — blocked
+[92mPASSED[0m auth_execute_sql:2029 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_execute_sql:2029 unbounded format-write attack — blocked
+[92mPASSED[0m auth_execute_sql:2029 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_execute_sql:2029 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_execute_sql:2029 symlink file-creation attack — blocked
+[92mPASSED[0m auth_execute_sql:2029 weak PRNG attack — blocked
+[92mPASSED[0m auth_rate_limit_scope:2056 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_rate_limit_scope:2056 unbounded format-write attack — blocked
+[92mPASSED[0m auth_rate_limit_scope:2056 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_rate_limit_scope:2056 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_rate_limit_scope:2056 symlink file-creation attack — blocked
+[92mPASSED[0m auth_rate_limit_scope:2056 weak PRNG attack — blocked
+[92mPASSED[0m auth_rate_limit_remaining:2088 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_rate_limit_remaining:2088 unbounded format-write attack — blocked
+[92mPASSED[0m auth_rate_limit_remaining:2088 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_rate_limit_remaining:2088 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_rate_limit_remaining:2088 symlink file-creation attack — blocked
+[92mPASSED[0m auth_rate_limit_remaining:2088 weak PRNG attack — blocked
+[92mPASSED[0m auth_rate_limit_failure:2126 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_rate_limit_failure:2126 unbounded format-write attack — blocked
+[92mPASSED[0m auth_rate_limit_failure:2126 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_rate_limit_failure:2126 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_rate_limit_failure:2126 symlink file-creation attack — blocked
+[92mPASSED[0m auth_rate_limit_failure:2126 weak PRNG attack — blocked
+[92mPASSED[0m auth_rate_limit_success:2215 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_rate_limit_success:2215 unbounded format-write attack — blocked
+[92mPASSED[0m auth_rate_limit_success:2215 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_rate_limit_success:2215 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_rate_limit_success:2215 symlink file-creation attack — blocked
+[92mPASSED[0m auth_rate_limit_success:2215 weak PRNG attack — blocked
+[92mPASSED[0m auth_rate_limit_guard:2236 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_rate_limit_guard:2236 unbounded format-write attack — blocked
+[92mPASSED[0m auth_rate_limit_guard:2236 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_rate_limit_guard:2236 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_rate_limit_guard:2236 symlink file-creation attack — blocked
+[92mPASSED[0m auth_rate_limit_guard:2236 weak PRNG attack — blocked
+[92mPASSED[0m auth_rate_limit_note_failure:2267 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_rate_limit_note_failure:2267 unbounded format-write attack — blocked
+[92mPASSED[0m auth_rate_limit_note_failure:2267 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_rate_limit_note_failure:2267 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_rate_limit_note_failure:2267 symlink file-creation attack — blocked
+[92mPASSED[0m auth_rate_limit_note_failure:2267 weak PRNG attack — blocked
+[92mPASSED[0m auth_open_database:2302 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_open_database:2302 unbounded format-write attack — blocked
+[92mPASSED[0m auth_open_database:2302 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_open_database:2302 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_open_database:2302 symlink file-creation attack — blocked
+[92mPASSED[0m auth_open_database:2302 weak PRNG attack — blocked
+[92mPASSED[0m auth_count_users:2381 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_count_users:2381 unbounded format-write attack — blocked
+[92mPASSED[0m auth_count_users:2381 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_count_users:2381 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_count_users:2381 symlink file-creation attack — blocked
+[92mPASSED[0m auth_count_users:2381 weak PRNG attack — blocked
+[92mPASSED[0m auth_username_valid:2405 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_username_valid:2405 unbounded format-write attack — blocked
+[92mPASSED[0m auth_username_valid:2405 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_username_valid:2405 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_username_valid:2405 symlink file-creation attack — blocked
+[92mPASSED[0m auth_username_valid:2405 weak PRNG attack — blocked
+[92mPASSED[0m auth_user_exists:2437 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_user_exists:2437 unbounded format-write attack — blocked
+[92mPASSED[0m auth_user_exists:2437 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_user_exists:2437 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_user_exists:2437 symlink file-creation attack — blocked
+[92mPASSED[0m auth_user_exists:2437 weak PRNG attack — blocked
+[92mPASSED[0m auth_digest_from_name:2460 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_digest_from_name:2460 unbounded format-write attack — blocked
+[92mPASSED[0m auth_digest_from_name:2460 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_digest_from_name:2460 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_digest_from_name:2460 symlink file-creation attack — blocked
+[92mPASSED[0m auth_digest_from_name:2460 weak PRNG attack — blocked
+[92mPASSED[0m auth_hash_password_argon2id:2475 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_hash_password_argon2id:2475 unbounded format-write attack — blocked
+[92mPASSED[0m auth_hash_password_argon2id:2475 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_hash_password_argon2id:2475 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_hash_password_argon2id:2475 symlink file-creation attack — blocked
+[92mPASSED[0m auth_hash_password_argon2id:2475 weak PRNG attack — blocked
+[92mPASSED[0m auth_verify_argon2id:2508 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_verify_argon2id:2508 unbounded format-write attack — blocked
+[92mPASSED[0m auth_verify_argon2id:2508 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_verify_argon2id:2508 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_verify_argon2id:2508 symlink file-creation attack — blocked
+[92mPASSED[0m auth_verify_argon2id:2508 weak PRNG attack — blocked
+[92mPASSED[0m auth_dummy_password_work:2523 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_dummy_password_work:2523 unbounded format-write attack — blocked
+[92mPASSED[0m auth_dummy_password_work:2523 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_dummy_password_work:2523 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_dummy_password_work:2523 symlink file-creation attack — blocked
+[92mPASSED[0m auth_dummy_password_work:2523 weak PRNG attack — blocked
+[92mPASSED[0m auth_derive_totp_encryption_key:2544 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_derive_totp_encryption_key:2544 unbounded format-write attack — blocked
+[92mPASSED[0m auth_derive_totp_encryption_key:2544 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_derive_totp_encryption_key:2544 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_derive_totp_encryption_key:2544 symlink file-creation attack — blocked
+[92mPASSED[0m auth_derive_totp_encryption_key:2544 weak PRNG attack — blocked
+[92mPASSED[0m auth_encrypt_totp_secret:2560 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_encrypt_totp_secret:2560 unbounded format-write attack — blocked
+[92mPASSED[0m auth_encrypt_totp_secret:2560 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_encrypt_totp_secret:2560 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_encrypt_totp_secret:2560 symlink file-creation attack — blocked
+[92mPASSED[0m auth_encrypt_totp_secret:2560 weak PRNG attack — blocked
+[92mPASSED[0m auth_decrypt_totp_secret:2607 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_decrypt_totp_secret:2607 unbounded format-write attack — blocked
+[92mPASSED[0m auth_decrypt_totp_secret:2607 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_decrypt_totp_secret:2607 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_decrypt_totp_secret:2607 symlink file-creation attack — blocked
+[92mPASSED[0m auth_decrypt_totp_secret:2607 weak PRNG attack — blocked
+[92mPASSED[0m auth_store_server_wrapped_totp:2659 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_store_server_wrapped_totp:2659 unbounded format-write attack — blocked
+[92mPASSED[0m auth_store_server_wrapped_totp:2659 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_store_server_wrapped_totp:2659 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_store_server_wrapped_totp:2659 symlink file-creation attack — blocked
+[92mPASSED[0m auth_store_server_wrapped_totp:2659 weak PRNG attack — blocked
+[92mPASSED[0m auth_load_user:2709 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_load_user:2709 unbounded format-write attack — blocked
+[92mPASSED[0m auth_load_user:2709 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_load_user:2709 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_load_user:2709 symlink file-creation attack — blocked
+[92mPASSED[0m auth_load_user:2709 weak PRNG attack — blocked
+[92mPASSED[0m auth_verify_password:2797 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_verify_password:2797 unbounded format-write attack — blocked
+[92mPASSED[0m auth_verify_password:2797 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_verify_password:2797 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_verify_password:2797 symlink file-creation attack — blocked
+[92mPASSED[0m auth_verify_password:2797 weak PRNG attack — blocked
+[92mPASSED[0m auth_insert_user:2812 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_insert_user:2812 unbounded format-write attack — blocked
+[92mPASSED[0m auth_insert_user:2812 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_insert_user:2812 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_insert_user:2812 symlink file-creation attack — blocked
+[92mPASSED[0m auth_insert_user:2812 weak PRNG attack — blocked
+[92mPASSED[0m auth_totp_at_counter:2894 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_totp_at_counter:2894 unbounded format-write attack — blocked
+[92mPASSED[0m auth_totp_at_counter:2894 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_totp_at_counter:2894 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_totp_at_counter:2894 symlink file-creation attack — blocked
+[92mPASSED[0m auth_totp_at_counter:2894 weak PRNG attack — blocked
+[92mPASSED[0m auth_verify_totp_counter_with_algorithm:2942 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_verify_totp_counter_with_algorithm:2942 unbounded format-write attack — blocked
+[92mPASSED[0m auth_verify_totp_counter_with_algorithm:2942 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_verify_totp_counter_with_algorithm:2942 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_verify_totp_counter_with_algorithm:2942 symlink file-creation attack — blocked
+[92mPASSED[0m auth_verify_totp_counter_with_algorithm:2942 weak PRNG attack — blocked
+[92mPASSED[0m auth_verify_totp_with_algorithm:2995 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_verify_totp_with_algorithm:2995 unbounded format-write attack — blocked
+[92mPASSED[0m auth_verify_totp_with_algorithm:2995 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_verify_totp_with_algorithm:2995 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_verify_totp_with_algorithm:2995 symlink file-creation attack — blocked
+[92mPASSED[0m auth_verify_totp_with_algorithm:2995 weak PRNG attack — blocked
+[92mPASSED[0m auth_verify_totp:3005 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_verify_totp:3005 unbounded format-write attack — blocked
+[92mPASSED[0m auth_verify_totp:3005 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_verify_totp:3005 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_verify_totp:3005 symlink file-creation attack — blocked
+[92mPASSED[0m auth_verify_totp:3005 weak PRNG attack — blocked
+[92mPASSED[0m auth_reset_for_login:3014 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_reset_for_login:3014 unbounded format-write attack — blocked
+[92mPASSED[0m auth_reset_for_login:3014 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_reset_for_login:3014 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_reset_for_login:3014 symlink file-creation attack — blocked
+[92mPASSED[0m auth_reset_for_login:3014 weak PRNG attack — blocked
+[92mPASSED[0m auth_reset_for_create:3054 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_reset_for_create:3054 unbounded format-write attack — blocked
+[92mPASSED[0m auth_reset_for_create:3054 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_reset_for_create:3054 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_reset_for_create:3054 symlink file-creation attack — blocked
+[92mPASSED[0m auth_reset_for_create:3054 weak PRNG attack — blocked
+[92mPASSED[0m auth_reset_for_authorization:3073 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_reset_for_authorization:3073 unbounded format-write attack — blocked
+[92mPASSED[0m auth_reset_for_authorization:3073 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_reset_for_authorization:3073 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_reset_for_authorization:3073 symlink file-creation attack — blocked
+[92mPASSED[0m auth_reset_for_authorization:3073 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit_login:3092 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit_login:3092 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit_login:3092 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit_login:3092 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit_login:3092 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit_login:3092 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit_login_two_factor:3165 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit_login_two_factor:3165 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit_login_two_factor:3165 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit_login_two_factor:3165 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit_login_two_factor:3165 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit_login_two_factor:3165 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit_authorize_create:3205 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit_authorize_create:3205 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit_authorize_create:3205 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit_authorize_create:3205 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit_authorize_create:3205 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit_authorize_create:3205 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit_authorize_create_two_factor:3279 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit_authorize_create_two_factor:3279 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit_authorize_create_two_factor:3279 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit_authorize_create_two_factor:3279 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit_authorize_create_two_factor:3279 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit_authorize_create_two_factor:3279 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit_create:3320 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit_create:3320 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit_create:3320 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit_create:3320 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit_create:3320 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit_create:3320 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit_create_two_factor:3391 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit_create_two_factor:3391 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit_create_two_factor:3391 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit_create_two_factor:3391 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit_create_two_factor:3391 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit_create_two_factor:3391 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_set_client_only_mode:3432 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_set_client_only_mode:3432 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_set_client_only_mode:3432 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_set_client_only_mode:3432 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_set_client_only_mode:3432 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_set_client_only_mode:3432 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit_remote:3441 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit_remote:3441 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit_remote:3441 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit_remote:3441 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit_remote:3441 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit_remote:3441 weak PRNG attack — blocked
+[92mPASSED[0m auth_submit:3519 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_submit:3519 unbounded format-write attack — blocked
+[92mPASSED[0m auth_submit:3519 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_submit:3519 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_submit:3519 symlink file-creation attack — blocked
+[92mPASSED[0m auth_submit:3519 weak PRNG attack — blocked
+[92mPASSED[0m auth_run_transition:3592 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_run_transition:3592 unbounded format-write attack — blocked
+[92mPASSED[0m auth_run_transition:3592 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_run_transition:3592 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_run_transition:3592 symlink file-creation attack — blocked
+[92mPASSED[0m auth_run_transition:3592 weak PRNG attack — blocked
+[92mPASSED[0m auth_cycle_field:3690 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_cycle_field:3690 unbounded format-write attack — blocked
+[92mPASSED[0m auth_cycle_field:3690 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_cycle_field:3690 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_cycle_field:3690 symlink file-creation attack — blocked
+[92mPASSED[0m auth_cycle_field:3690 weak PRNG attack — blocked
+[92mPASSED[0m auth_handle_text_input:3744 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_handle_text_input:3744 unbounded format-write attack — blocked
+[92mPASSED[0m auth_handle_text_input:3744 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_handle_text_input:3744 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_handle_text_input:3744 symlink file-creation attack — blocked
+[92mPASSED[0m auth_handle_text_input:3744 weak PRNG attack — blocked
+[92mPASSED[0m auth_handle_backspace:3788 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_handle_backspace:3788 unbounded format-write attack — blocked
+[92mPASSED[0m auth_handle_backspace:3788 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_handle_backspace:3788 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_handle_backspace:3788 symlink file-creation attack — blocked
+[92mPASSED[0m auth_handle_backspace:3788 weak PRNG attack — blocked
+[92mPASSED[0m auth_handle_mouse:3832 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_handle_mouse:3832 unbounded format-write attack — blocked
+[92mPASSED[0m auth_handle_mouse:3832 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_handle_mouse:3832 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_handle_mouse:3832 symlink file-creation attack — blocked
+[92mPASSED[0m auth_handle_mouse:3832 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_get_server_id:4153 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_get_server_id:4153 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_get_server_id:4153 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_get_server_id:4153 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_get_server_id:4153 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_get_server_id:4153 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_get_server_name:4162 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_get_server_name:4162 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_get_server_name:4162 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_get_server_name:4162 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_get_server_name:4162 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_get_server_name:4162 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_get_current_username:4171 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_get_current_username:4171 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_get_current_username:4171 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_get_current_username:4171 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_get_current_username:4171 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_get_current_username:4171 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_run:4180 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_run:4180 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_run:4180 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_run:4180 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_run:4180 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_run:4180 weak PRNG attack — blocked
+[92mPASSED[0m auth_public_error:4531 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_public_error:4531 unbounded format-write attack — blocked
+[92mPASSED[0m auth_public_error:4531 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_public_error:4531 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_public_error:4531 symlink file-creation attack — blocked
+[92mPASSED[0m auth_public_error:4531 weak PRNG attack — blocked
+[92mPASSED[0m auth_role_is_privileged:4544 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_role_is_privileged:4544 unbounded format-write attack — blocked
+[92mPASSED[0m auth_role_is_privileged:4544 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_role_is_privileged:4544 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_role_is_privileged:4544 symlink file-creation attack — blocked
+[92mPASSED[0m auth_role_is_privileged:4544 weak PRNG attack — blocked
+[92mPASSED[0m auth_get_user_role:4553 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_get_user_role:4553 unbounded format-write attack — blocked
+[92mPASSED[0m auth_get_user_role:4553 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_get_user_role:4553 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_get_user_role:4553 symlink file-creation attack — blocked
+[92mPASSED[0m auth_get_user_role:4553 weak PRNG attack — blocked
+[92mPASSED[0m auth_authorize_account_management:4593 unsafe string/input API attack — blocked
+[92mPASSED[0m auth_authorize_account_management:4593 unbounded format-write attack — blocked
+[92mPASSED[0m auth_authorize_account_management:4593 shell-command execution sink attack — blocked
+[92mPASSED[0m auth_authorize_account_management:4593 predictable temporary-file attack — blocked
+[92mPASSED[0m auth_authorize_account_management:4593 symlink file-creation attack — blocked
+[92mPASSED[0m auth_authorize_account_management:4593 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_SERVER_authenticate:4651 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_SERVER_authenticate:4651 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_SERVER_authenticate:4651 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_SERVER_authenticate:4651 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_SERVER_authenticate:4651 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_SERVER_authenticate:4651 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_SERVER_verify_password:4814 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_SERVER_verify_password:4814 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_SERVER_verify_password:4814 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_SERVER_verify_password:4814 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_SERVER_verify_password:4814 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_SERVER_verify_password:4814 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_verify_current_password:4896 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_verify_current_password:4896 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_verify_current_password:4896 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_verify_current_password:4896 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_verify_current_password:4896 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_verify_current_password:4896 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_server_list_users:4925 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_server_list_users:4925 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_server_list_users:4925 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_server_list_users:4925 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_server_list_users:4925 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_server_list_users:4925 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_list_users:4993 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_list_users:4993 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_list_users:4993 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_list_users:4993 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_list_users:4993 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_list_users:4993 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_create_user:5007 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_create_user:5007 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_create_user:5007 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_create_user:5007 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_create_user:5007 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_create_user:5007 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_reset_password:5095 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_reset_password:5095 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_reset_password:5095 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_reset_password:5095 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_reset_password:5095 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_reset_password:5095 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_set_totp:5184 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_set_totp:5184 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_set_totp:5184 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_set_totp:5184 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_set_totp:5184 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_set_totp:5184 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_remove_totp:5236 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_remove_totp:5236 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_remove_totp:5236 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_remove_totp:5236 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_remove_totp:5236 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_remove_totp:5236 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_set_role:5301 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_set_role:5301 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_set_role:5301 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_set_role:5301 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_set_role:5301 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_set_role:5301 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_delete_user:5380 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_delete_user:5380 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_delete_user:5380 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_delete_user:5380 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_delete_user:5380 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_delete_user:5380 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_DB_user_count:5460 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_DB_user_count:5460 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_DB_user_count:5460 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_DB_user_count:5460 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_DB_user_count:5460 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_DB_user_count:5460 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_TOTP_generate_secret:5480 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_TOTP_generate_secret:5480 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_TOTP_generate_secret:5480 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_TOTP_generate_secret:5480 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_TOTP_generate_secret:5480 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_TOTP_generate_secret:5480 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_TOTP_verify:5489 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_TOTP_verify:5489 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_TOTP_verify:5489 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_TOTP_verify:5489 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_TOTP_verify:5489 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_TOTP_verify:5489 weak PRNG attack — blocked
+[92mPASSED[0m AUTH_TOTP_base32:5498 unsafe string/input API attack — blocked
+[92mPASSED[0m AUTH_TOTP_base32:5498 unbounded format-write attack — blocked
+[92mPASSED[0m AUTH_TOTP_base32:5498 shell-command execution sink attack — blocked
+[92mPASSED[0m AUTH_TOTP_base32:5498 predictable temporary-file attack — blocked
+[92mPASSED[0m AUTH_TOTP_base32:5498 symlink file-creation attack — blocked
+[92mPASSED[0m AUTH_TOTP_base32:5498 weak PRNG attack — blocked
+
+[96m=== Runtime hostile-input attacks: AuthScreen.c ===[0m
+[92mPASSED[0m auth rejects NULL username
+[92mPASSED[0m auth rejects overlong username
+[92mPASSED[0m auth rejects newline username
+[92mPASSED[0m auth rejects SQL metacharacters username
+[92mPASSED[0m auth bounded copy remains terminated
+[92mPASSED[0m auth rejects non-Argon2id password record
+[92mPASSED[0m auth rejects NULL Argon2id record
+[92mPASSED[0m auth modern TOTP digest accepts SHA-512
+[92mPASSED[0m auth modern TOTP digest rejects SHA-1 legacy algorithm
+[92mPASSED[0m auth modern TOTP digest rejects SHA-256 legacy algorithm
+[92mPASSED[0m auth Argon2id hashing produces a modern record
+[92mPASSED[0m auth Argon2id verifies the correct password
+[92mPASSED[0m auth Argon2id rejects a wrong password
+[92mPASSED[0m auth AES-256-GCM wraps TOTP secret
+[92mPASSED[0m auth AES-256-GCM unwrap round-trip preserves TOTP secret
+[92mPASSED[0m auth TOTP unwrap rejects tampered GCM tag
+[92mPASSED[0m auth failed TOTP unwrap zeroizes destination after tag tamper
+[92mPASSED[0m auth TOTP unwrap rejects tampered ciphertext
+[92mPASSED[0m auth TOTP wrapping key is bound to username
+
+AuthScreen.c security summary: [92m724 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

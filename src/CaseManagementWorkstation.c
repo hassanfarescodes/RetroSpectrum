@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <errno.h>
 
 /* Kept here so this source also builds when older DataStore headers omit the deletion API. */
 int DATASTORE_delete_content(const char *document_kind, const char *document_name, int *deleted, char *error,
@@ -81,7 +82,6 @@ extern void SDL_free(void *mem);
 #define CASE_MGMT_COLOR_KIND "case_color"
 #define CASE_MGMT_COLOR_PREFIX "__case_color_"
 #define CASE_MGMT_METADATA_VISIBLE_ROWS 4
-#define CASE_MGMT_LEGACY_DESCRIPTION_CSV "Classification/CASE_DESCRIPTIONS.csv"
 
 #ifndef SDLK_v
 #define SDLK_v 'v'
@@ -1912,7 +1912,7 @@ static void case_normalize_file_name(const char *src, char *dst, size_t dst_size
 
         if (len + strlen(".case.csv") < sizeof(tmp)) {
 
-            strcat(tmp, ".case.csv");
+            memcpy(tmp + len, ".case.csv", sizeof(".case.csv"));
 
         }
 
@@ -4346,15 +4346,69 @@ static int case_parse_mmddyyyy(const char *text, int *month, int *day, int *year
         Returns: Success status
     */
 
-    int m = 0;
-    int d = 0;
-    int y = 0;
+    const char *cursor;
+    char *end = NULL;
+    long parsed_month;
+    long parsed_day;
+    long parsed_year;
+    int m;
+    int d;
+    int y;
 
-    if (!text || sscanf(text, "%d/%d/%d", &m, &d, &y) != 3) {
+    if (!text || text[0] == '\0') {
 
         return 0;
 
     }
+
+    cursor = text;
+
+    errno = 0;
+    parsed_month = strtol(cursor, &end, 10);
+
+    if (errno == ERANGE ||
+        end == cursor ||
+        *end != '/' ||
+        parsed_month < 1 ||
+        parsed_month > 12) {
+
+        return 0;
+
+    }
+
+    cursor = end + 1;
+
+    errno = 0;
+    parsed_day = strtol(cursor, &end, 10);
+
+    if (errno == ERANGE ||
+        end == cursor ||
+        *end != '/' ||
+        parsed_day < 1 ||
+        parsed_day > 31) {
+
+        return 0;
+
+    }
+
+    cursor = end + 1;
+
+    errno = 0;
+    parsed_year = strtol(cursor, &end, 10);
+
+    if (errno == ERANGE ||
+        end == cursor ||
+        *end != '\0' ||
+        parsed_year < 0 ||
+        parsed_year > 9999) {
+
+        return 0;
+
+    }
+
+    m = (int)parsed_month;
+    d = (int)parsed_day;
+    y = (int)parsed_year;
 
     if (y < 100) {
 
@@ -4362,13 +4416,7 @@ static int case_parse_mmddyyyy(const char *text, int *month, int *day, int *year
 
     }
 
-    if (m < 1 || m > 12) {
-
-        return 0;
-
-    }
-
-    if (d < 1 || d > case_days_in_month(m, y)) {
+    if (d > case_days_in_month(m, y)) {
 
         return 0;
 
@@ -4391,6 +4439,7 @@ static int case_parse_mmddyyyy(const char *text, int *month, int *day, int *year
         *year = y;
 
     }
+
     return 1;
 }
 
@@ -6709,56 +6758,6 @@ static int case_metadata_parse_content(const unsigned char *content, size_t cont
     return case_number[0] != '\0';
 }
 
-static void case_metadata_load_legacy_descriptions(void) {
-    /*
-        Purpose: Loads legacy map descriptions into case metadata records
-        Returns: No value
-    */
-
-    FILE *fp = fopen(CASE_MGMT_LEGACY_DESCRIPTION_CSV, "r");
-    char line[2048];
-    int first = 1;
-
-    if (!fp) {
-
-        return;
-
-    }
-
-    while (fgets(line, sizeof(line), fp)) {
-        char case_number[128] = "";
-        char description[CASE_MGMT_METADATA_DESCRIPTION_MAX] = "";
-        char *cursor = line;
-        int index;
-
-        if (first) {
-
-            first = 0;
-
-            if (strstr(line, "case_number") && strstr(line, "description")) {
-
-                continue;
-
-            }
-
-        }
-
-        case_read_csv_field(&cursor, case_number, sizeof(case_number));
-        case_read_csv_field(&cursor, description, sizeof(description));
-        case_unescape_multiline(description);
-        index = case_metadata_find(case_number);
-
-        if (index >= 0 && !Global_Case_Metadata[index].description[0]) {
-
-            case_copy_text(Global_Case_Metadata[index].description, sizeof(Global_Case_Metadata[index].description),
-                           description);
-
-        }
-    }
-
-    fclose(fp);
-}
-
 static void case_metadata_sync_editor(void) {
     /*
         Purpose: Synchronizes the case metadata editor with the selected case
@@ -6875,8 +6874,6 @@ static void case_metadata_refresh(void) {
         }
 
     }
-
-    case_metadata_load_legacy_descriptions();
 
     if (Global_Case_Metadata_Count > 1) {
 

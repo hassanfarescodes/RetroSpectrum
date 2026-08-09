@@ -3,6 +3,10 @@
 #include "DataStore.h"
 #include "DatabaseCrypto.h"
 #include "SecureNetwork.h"
+#include "SecureFunctions.h"
+
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 #include <errno.h>
 #include <limits.h>
@@ -48,7 +52,7 @@ static void datastore_set_error(char *error, size_t error_size, const char *mess
         return;
 
     }
-    snprintf(error, error_size, "%s", message ? message : "Unknown data-store error");
+    (void)sec_strcpy(error, error_size, message ? message : "Unknown data-store error");
 }
 
 static int datastore_copy_text(char *dst, size_t dst_size, const char *src) {
@@ -57,16 +61,7 @@ static int datastore_copy_text(char *dst, size_t dst_size, const char *src) {
         Returns: Success status
     */
 
-    int written;
-
-    if (!dst || dst_size == 0) {
-
-        return 0;
-
-    }
-
-    written = snprintf(dst, dst_size, "%s", src ? src : "");
-    return written >= 0 && (size_t)written < dst_size;
+    return sec_strcpy(dst, dst_size, src ? src : "") ? 1 : 0;
 }
 
 static int datastore_is_valid_kind(const char *kind) {
@@ -81,53 +76,83 @@ static int datastore_is_valid_kind(const char *kind) {
             strcmp(kind, DATASTORE_CASE_IMAGE_KIND) == 0 || strcmp(kind, DATASTORE_CASE_COLOR_KIND) == 0);
 }
 
-static int datastore_is_supported_case_image(const unsigned char *content, size_t content_size) {
+static int datastore_validate_document_fields(const char *document_name,
+                                              const char *case_number) {
     /*
-        Purpose: Validates a case-image signature before encrypted storage
+        Purpose: Validates bounded user-controlled document identifiers
         Returns: Boolean status
     */
 
-    static const unsigned char png_signature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    char checked_name[DATASTORE_DOCUMENT_NAME_MAX];
+    char checked_case[DATASTORE_CASE_NUMBER_MAX];
 
-    if (!content || content_size == 0 || content_size > DATASTORE_MAX_CASE_IMAGE_BYTES) {
+    if (!document_name ||
+        !document_name[0] ||
+        !sec_strcpy(checked_name, sizeof(checked_name), document_name)) {
 
         return 0;
 
     }
 
-    if (content_size >= sizeof(png_signature) &&
-        memcmp(content, png_signature, sizeof(png_signature)) == 0) {
+    if (case_number &&
+        !sec_strcpy(checked_case, sizeof(checked_case), case_number)) {
 
-        return 1;
-
-    }
-
-    if (content_size >= 3 && content[0] == 0xFF && content[1] == 0xD8 && content[2] == 0xFF) {
-
-        return 1;
+        return 0;
 
     }
 
-    if (content_size >= 2 && content[0] == 'B' && content[1] == 'M') {
+    return 1;
+}
 
-        return 1;
+static int datastore_is_supported_case_image(const unsigned char *content, size_t content_size) {
+    /*
+        Purpose: Validates that a case image can be safely decoded within supported bounds
+        Returns: Boolean status
+    */
+
+    SDL_RWops *source;
+    SDL_Surface *surface;
+    int valid = 0;
+
+    if (!content ||
+        content_size == 0 ||
+        content_size > DATASTORE_MAX_CASE_IMAGE_BYTES ||
+        content_size > INT_MAX) {
+
+        return 0;
 
     }
 
-    if (content_size >= 6 &&
-        (memcmp(content, "GIF87a", 6) == 0 || memcmp(content, "GIF89a", 6) == 0)) {
+    source = SDL_RWFromConstMem(content, (int)content_size);
 
-        return 1;
+    if (!source) {
 
-    }
-
-    if (content_size >= 12 && memcmp(content, "RIFF", 4) == 0 && memcmp(content + 8, "WEBP", 4) == 0) {
-
-        return 1;
+        return 0;
 
     }
 
-    return 0;
+    surface = IMG_Load_RW(source, 1);
+
+    if (!surface) {
+
+        return 0;
+
+    }
+
+    if (surface->w <= 0 ||
+        surface->h <= 0 ||
+        surface->w > 16384 ||
+        surface->h > 16384) {
+
+        SDL_FreeSurface(surface);
+        return 0;
+
+    }
+
+    valid = 1;
+
+    SDL_FreeSurface(surface);
+    return valid;
 }
 
 static int datastore_make_directory(const char *path, mode_t mode) {
@@ -136,33 +161,13 @@ static int datastore_make_directory(const char *path, mode_t mode) {
         Returns: Success status
     */
 
-    struct stat st;
-
     if (!path || !path[0]) {
 
         return 0;
 
     }
 
-    if (stat(path, &st) == 0) {
-
-        if (!S_ISDIR(st.st_mode)) {
-
-            return 0;
-
-        }
-        chmod(path, mode);
-        return 1;
-
-    }
-
-    if (mkdir(path, mode) == 0) {
-
-        return 1;
-
-    }
-
-    return errno == EEXIST;
+    return sec_ensure_private_directory(path, mode) ? 1 : 0;
 }
 
 static int datastore_config_directory(char *path, size_t path_size) {
@@ -183,7 +188,7 @@ static int datastore_config_directory(char *path, size_t path_size) {
 
     if (xdg && xdg[0]) {
 
-        if (!datastore_copy_text(base, sizeof(base), xdg) || !datastore_make_directory(base, 0700)) {
+        if (xdg[0] != '/' || !sec_strcpy(base, sizeof(base), xdg) || !datastore_make_directory(base, 0700)) {
 
             return 0;
 
@@ -193,16 +198,8 @@ static int datastore_config_directory(char *path, size_t path_size) {
 
     else {
 
-        int written;
-
-        if (!home || !home[0]) {
-
-            return 0;
-
-        }
-        written = snprintf(base, sizeof(base), "%s/.config", home);
-
-        if (written < 0 || (size_t)written >= sizeof(base) || !datastore_make_directory(base, 0700)) {
+        if (!home || !home[0] || home[0] != '/' || 
+            !sec_sprintf(base, sizeof(base), "%s/.config", home) || !datastore_make_directory(base, 0700)) {
 
             return 0;
 
@@ -210,17 +207,12 @@ static int datastore_config_directory(char *path, size_t path_size) {
 
     }
 
-    {
-        int written = snprintf(path, path_size, "%s/retrospectrum", base);
-
-        if (written < 0 || (size_t)written >= path_size) {
-
-            return 0;
-
-        }
+    if (!sec_sprintf(path, path_size, "%s/retrospectrum", base)) {
+        return 0;
     }
 
     return datastore_make_directory(path, 0700);
+
 }
 
 int DATASTORE_get_path(char *path, size_t path_size) {
@@ -230,21 +222,19 @@ int DATASTORE_get_path(char *path, size_t path_size) {
     */
 
     char directory[PATH_MAX];
-    int written;
 
-    if (!path || path_size == 0 || !datastore_config_directory(directory, sizeof(directory))) {
+    if (!path || path_size == 0 ||
+        !datastore_config_directory(directory, sizeof(directory))) {
 
         return 0;
 
     }
 
-    written = snprintf(path, path_size, "%s/retrospectrum_data.db", directory);
-    return written >= 0 && (size_t)written < path_size;
+    return sec_sprintf(path, path_size, "%s/retrospectrum_data.db", directory) ? 1 : 0;
 }
 
 static int datastore_sha512(const unsigned char *content, size_t content_size,
                             unsigned char digest[DATASTORE_SHA512_BYTES]);
-static int datastore_migrate_legacy_classifications(sqlite3 *database, char *error, size_t error_size);
 
 static int datastore_execute(sqlite3 *database, const char *sql, char *error, size_t error_size) {
     /*
@@ -346,8 +336,7 @@ static int datastore_open(sqlite3 **database, char *error, size_t error_size) {
         !datastore_execute(*database,
                            "CREATE INDEX IF NOT EXISTS idx_classification_records_document "
                            "ON classification_records(document_name, row_order);",
-                           error, error_size) ||
-        !datastore_migrate_legacy_classifications(*database, error, error_size)) {
+                           error, error_size)) {
 
         sqlite3_close(*database);
         *database = NULL;
@@ -559,14 +548,23 @@ static int datastore_classification_replace_in_transaction(sqlite3 *database, co
     int success = 0;
     char resolved_case[DATASTORE_CASE_NUMBER_MAX] = "";
 
-    if (!database || !document_name || !document_name[0] || (content_size > 0 && !content)) {
+    if (!database || !datastore_validate_document_fields(document_name, case_number) ||
+        (content_size > 0 && !content)) {
 
         datastore_set_error(error, error_size, "Invalid structured classification save request.");
         return 0;
 
     }
 
-    datastore_copy_text(resolved_case, sizeof(resolved_case), case_number ? case_number : "");
+    if (!datastore_copy_text(resolved_case,
+                             sizeof(resolved_case),
+                             case_number ? case_number : "")) {
+
+        datastore_set_error(error, error_size,
+                            "Classification case number exceeds the supported size.");
+        return 0;
+
+    }
 
     if (sqlite3_prepare_v2(database,
                            "INSERT INTO classification_sets(document_name,case_number,created_at,updated_at) "
@@ -692,7 +690,17 @@ static int datastore_classification_replace_in_transaction(sqlite3 *database, co
 
         if (!resolved_case[0] && fields[0][0]) {
 
-            datastore_copy_text(resolved_case, sizeof(resolved_case), fields[0]);
+            if (!datastore_copy_text(resolved_case,
+                                     sizeof(resolved_case),
+                                     fields[0])) {
+
+                datastore_set_error(
+                    error, error_size,
+                    "Classification case number exceeds the supported size.");
+
+                goto cleanup;
+
+            }
 
         }
 
@@ -766,229 +774,6 @@ cleanup:
 
     }
 
-    return success;
-}
-
-typedef struct Type_DataStore_Legacy_Classification {
-    char document_name[DATASTORE_DOCUMENT_NAME_MAX];
-    char case_number[DATASTORE_CASE_NUMBER_MAX];
-    sqlite3_int64 created_at;
-    sqlite3_int64 updated_at;
-} Type_DataStore_Legacy_Classification;
-
-static int datastore_migrate_legacy_classifications(sqlite3 *database, char *error, size_t error_size) {
-    /*
-        Purpose: Migrates legacy classification BLOB documents into structured SQL rows
-        Returns: Success status
-    */
-
-    sqlite3_stmt *statement = NULL;
-    Type_DataStore_Legacy_Classification *legacy = NULL;
-    size_t legacy_count = 0;
-    size_t legacy_capacity = 0;
-    int success = 0;
-
-    if (!database) {
-
-        datastore_set_error(error, error_size, "Invalid classification migration database.");
-        return 0;
-
-    }
-
-    if (sqlite3_prepare_v2(database,
-                           "SELECT document_name,case_number,created_at,updated_at "
-                           "FROM stored_documents WHERE document_kind=?1 ORDER BY document_name COLLATE NOCASE;",
-                           -1, &statement, NULL) != SQLITE_OK) {
-
-        datastore_set_error(error, error_size, sqlite3_errmsg(database));
-        goto cleanup;
-
-    }
-
-    sqlite3_bind_text(statement, 1, DATASTORE_KIND_CLASSIFICATION, -1, SQLITE_STATIC);
-
-    for (;;) {
-        int step_result = sqlite3_step(statement);
-
-        if (step_result == SQLITE_DONE) {
-
-            break;
-
-        }
-
-        if (step_result != SQLITE_ROW) {
-
-            datastore_set_error(error, error_size, sqlite3_errmsg(database));
-            goto cleanup;
-
-        }
-
-        if (legacy_count == legacy_capacity) {
-            size_t next_capacity = legacy_capacity == 0 ? 8u : legacy_capacity * 2u;
-            Type_DataStore_Legacy_Classification *next =
-                realloc(legacy, next_capacity * sizeof(*legacy));
-
-            if (!next) {
-
-                datastore_set_error(error, error_size, "Out of memory while migrating classifications.");
-                goto cleanup;
-
-            }
-            legacy = next;
-            legacy_capacity = next_capacity;
-        }
-
-        memset(&legacy[legacy_count], 0, sizeof(legacy[legacy_count]));
-        datastore_copy_text(legacy[legacy_count].document_name,
-                            sizeof(legacy[legacy_count].document_name),
-                            (const char *)sqlite3_column_text(statement, 0));
-        datastore_copy_text(legacy[legacy_count].case_number,
-                            sizeof(legacy[legacy_count].case_number),
-                            (const char *)sqlite3_column_text(statement, 1));
-        legacy[legacy_count].created_at = sqlite3_column_int64(statement, 2);
-        legacy[legacy_count].updated_at = sqlite3_column_int64(statement, 3);
-        legacy_count++;
-    }
-
-    sqlite3_finalize(statement);
-    statement = NULL;
-
-    if (legacy_count == 0) {
-
-        success = 1;
-        goto cleanup;
-
-    }
-
-    if (!datastore_execute(database, "BEGIN IMMEDIATE;", error, error_size)) {
-
-        goto cleanup;
-
-    }
-
-    for (size_t i = 0; i < legacy_count; i++) {
-        unsigned char *copy = NULL;
-        const void *stored_content;
-        const void *stored_digest;
-        int stored_content_size;
-        int stored_digest_size;
-        unsigned char calculated_digest[DATASTORE_SHA512_BYTES];
-
-        memset(calculated_digest, 0, sizeof(calculated_digest));
-
-        if (sqlite3_prepare_v2(database,
-                               "SELECT content,content_sha512 FROM stored_documents "
-                               "WHERE document_kind=?1 AND document_name=?2;",
-                               -1, &statement, NULL) != SQLITE_OK) {
-
-            datastore_set_error(error, error_size, sqlite3_errmsg(database));
-            datastore_execute(database, "ROLLBACK;", NULL, 0);
-            goto cleanup;
-
-        }
-
-        sqlite3_bind_text(statement, 1, DATASTORE_KIND_CLASSIFICATION, -1, SQLITE_STATIC);
-        sqlite3_bind_text(statement, 2, legacy[i].document_name, -1, SQLITE_TRANSIENT);
-
-        if (sqlite3_step(statement) != SQLITE_ROW) {
-
-            datastore_set_error(error, error_size, "A legacy classification disappeared during migration.");
-            sqlite3_finalize(statement);
-            statement = NULL;
-            datastore_execute(database, "ROLLBACK;", NULL, 0);
-            goto cleanup;
-
-        }
-
-        stored_content = sqlite3_column_blob(statement, 0);
-        stored_content_size = sqlite3_column_bytes(statement, 0);
-        stored_digest = sqlite3_column_blob(statement, 1);
-        stored_digest_size = sqlite3_column_bytes(statement, 1);
-
-        if (stored_content_size < 0 || (unsigned int)stored_content_size > DATASTORE_MAX_DOCUMENT_BYTES ||
-            stored_digest_size != DATASTORE_SHA512_BYTES || (!stored_content && stored_content_size > 0) ||
-            !stored_digest) {
-
-            datastore_set_error(error, error_size, "A legacy classification record is malformed.");
-            sqlite3_finalize(statement);
-            statement = NULL;
-            datastore_execute(database, "ROLLBACK;", NULL, 0);
-            goto cleanup;
-
-        }
-
-        copy = malloc((size_t)stored_content_size + 1u);
-
-        if (!copy) {
-
-            datastore_set_error(error, error_size, "Out of memory while migrating classifications.");
-            sqlite3_finalize(statement);
-            statement = NULL;
-            datastore_execute(database, "ROLLBACK;", NULL, 0);
-            goto cleanup;
-
-        }
-
-        if (stored_content_size > 0) {
-
-            memcpy(copy, stored_content, (size_t)stored_content_size);
-
-        }
-        copy[stored_content_size] = '\0';
-
-        if (!datastore_sha512(copy, (size_t)stored_content_size, calculated_digest) ||
-            CRYPTO_memcmp(calculated_digest, stored_digest, DATASTORE_SHA512_BYTES) != 0) {
-
-            datastore_set_error(error, error_size, "A legacy classification failed integrity verification.");
-            sqlite3_finalize(statement);
-            statement = NULL;
-            DATASTORE_free_content(copy, (size_t)stored_content_size);
-            datastore_execute(database, "ROLLBACK;", NULL, 0);
-            OPENSSL_cleanse(calculated_digest, sizeof(calculated_digest));
-            goto cleanup;
-
-        }
-
-        sqlite3_finalize(statement);
-        statement = NULL;
-
-        if (!datastore_classification_replace_in_transaction(
-                database, legacy[i].document_name, legacy[i].case_number, copy,
-                (size_t)stored_content_size, legacy[i].created_at, legacy[i].updated_at,
-                error, error_size)) {
-
-            DATASTORE_free_content(copy, (size_t)stored_content_size);
-            datastore_execute(database, "ROLLBACK;", NULL, 0);
-            OPENSSL_cleanse(calculated_digest, sizeof(calculated_digest));
-            goto cleanup;
-
-        }
-
-        DATASTORE_free_content(copy, (size_t)stored_content_size);
-        OPENSSL_cleanse(calculated_digest, sizeof(calculated_digest));
-    }
-
-    if (!datastore_execute(database,
-                           "DELETE FROM stored_documents WHERE document_kind='classification';",
-                           error, error_size) ||
-        !datastore_execute(database, "COMMIT;", error, error_size)) {
-
-        datastore_execute(database, "ROLLBACK;", NULL, 0);
-        goto cleanup;
-
-    }
-
-    success = 1;
-
-cleanup:
-
-    if (statement) {
-
-        sqlite3_finalize(statement);
-
-    }
-
-    free(legacy);
     return success;
 }
 
@@ -1171,7 +956,7 @@ int DATASTORE_server_save_content(const char *document_kind, const char *documen
 
     memset(digest, 0, sizeof(digest));
 
-    if (!datastore_is_valid_kind(document_kind) || !document_name || !document_name[0] ||
+    if (!datastore_is_valid_kind(document_kind) || !datastore_validate_document_fields(document_name, case_number) ||
         (content_size > 0 && !content)) {
 
         datastore_set_error(error, error_size, "Invalid document save request.");
@@ -1190,7 +975,7 @@ int DATASTORE_server_save_content(const char *document_kind, const char *documen
         !datastore_is_supported_case_image(bytes, content_size)) {
 
         datastore_set_error(error, error_size,
-                            "Case image must be a PNG, JPEG, BMP, GIF, or WebP file no larger than 16 MiB.");
+                            "Case image must be a supported image no larger than 16 MiB with valid dimensions.");
         return 0;
 
     }
@@ -1207,9 +992,6 @@ int DATASTORE_server_save_content(const char *document_kind, const char *documen
         if (!datastore_classification_replace_in_transaction(
                 database, document_name, case_number ? case_number : "", bytes, content_size,
                 0, 0, error, error_size) ||
-            !datastore_execute(database,
-                               "DELETE FROM stored_documents WHERE document_kind='classification';",
-                               error, error_size) ||
             !datastore_execute(database, "COMMIT;", error, error_size)) {
 
             datastore_execute(database, "ROLLBACK;", NULL, 0);
@@ -1335,7 +1117,8 @@ int DATASTORE_server_load_content(const char *document_kind, const char *documen
 
     }
 
-    if (!datastore_is_valid_kind(document_kind) || !document_name || !document_name[0] || !content || !content_size) {
+    if (!datastore_is_valid_kind(document_kind) || !datastore_validate_document_fields(document_name, NULL) ||
+        !content || !content_size) {
 
         datastore_set_error(error, error_size, "Invalid document load request.");
         return 0;
@@ -1558,10 +1341,17 @@ int DATASTORE_server_list_documents(const char *document_kind, Type_DataStore_Do
             const unsigned char *name = sqlite3_column_text(statement, 0);
             const unsigned char *case_number = sqlite3_column_text(statement, 1);
 
-            datastore_copy_text(documents[used].document_name, sizeof(documents[used].document_name),
-                                name ? (const char *)name : "");
-            datastore_copy_text(documents[used].case_number, sizeof(documents[used].case_number),
-                                case_number ? (const char *)case_number : "");
+            if (!datastore_copy_text(documents[used].document_name, sizeof(documents[used].document_name),
+                name ? (const char *)name : "") || !datastore_copy_text(documents[used].case_number,
+                sizeof(documents[used].case_number), case_number ? (const char *)case_number : "")) {
+
+                datastore_set_error(error, error_size, "Stored document identifiers exceed supported sizes.");
+
+                sqlite3_finalize(statement);
+                sqlite3_close(database);
+                return 0;
+            }
+
             documents[used].updated_at = (long long)sqlite3_column_int64(statement, 2);
             used++;
         }
@@ -1590,7 +1380,8 @@ int DATASTORE_server_delete_content(const char *document_kind, const char *docum
 
     }
 
-    if (!datastore_is_valid_kind(document_kind) || !document_name || !document_name[0] || !deleted) {
+    if (!datastore_is_valid_kind(document_kind) || !datastore_validate_document_fields(document_name, NULL) ||
+        !deleted) {
 
         datastore_set_error(error, error_size, "Invalid document delete request.");
         return 0;

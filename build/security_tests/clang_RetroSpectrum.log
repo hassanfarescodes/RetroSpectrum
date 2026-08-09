@@ -1,0 +1,7 @@
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/RetroSpectrum.c:3608:9: warning: Value stored to 'tx_stream_format' is never read [deadcode.DeadStores]
+ 3608 |         tx_stream_format = SDR_STREAM_FORMAT_NONE;
+      |         ^                  ~~~~~~~~~~~~~~~~~~~~~~
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/RetroSpectrum.c:3608:9: note: Value stored to 'tx_stream_format' is never read
+ 3608 |         tx_stream_format = SDR_STREAM_FORMAT_NONE;
+      |         ^                  ~~~~~~~~~~~~~~~~~~~~~~
+1 warning generated.

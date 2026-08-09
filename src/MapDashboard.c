@@ -241,9 +241,9 @@ static void dashboard_sdr_copy_truncated(TTF_Font *font, char *dst, size_t dst_s
         length--;
         dst[length] = '\0';
 
-        if (length + 4 < dst_size) {
+        if (length + sizeof("...") <= dst_size) {
 
-            strcat(dst, "...");
+            memcpy(dst + length, "...", sizeof("..."));
 
         }
 

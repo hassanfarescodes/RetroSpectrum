@@ -1,0 +1,4 @@
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DecodeWorkstation.c: In function ‘DECODE_handle_event’:
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/DecodeWorkstation.c:5788:14: warning: variable ‘ascii_rect’ set but not used [-Wunused-but-set-variable]
+ 5788 |     SDL_Rect ascii_rect;
+      |              ^~~~~~~~~~

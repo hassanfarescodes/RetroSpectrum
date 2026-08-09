@@ -1,0 +1,156 @@
+
+[96mRetroSpectrum security target: SecureFunctions.c[0m
+Attack classes: unsafe-copy, unbounded-format, command execution, temporary-file race, symlink creation, weak RNG + runtime hostile probes.
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+
+[96m=== Per-function source attacks: SecureFunctions.c (20 functions discovered) ===[0m
+[92mPASSED[0m at least one production function discovered
+[92mPASSED[0m sec_sprintf:1 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_sprintf:1 unbounded format-write attack — blocked
+[92mPASSED[0m sec_sprintf:1 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_sprintf:1 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_sprintf:1 symlink file-creation attack — blocked
+[92mPASSED[0m sec_sprintf:1 weak PRNG attack — blocked
+[92mPASSED[0m sec_strcpy:53 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_strcpy:53 unbounded format-write attack — blocked
+[92mPASSED[0m sec_strcpy:53 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_strcpy:53 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_strcpy:53 symlink file-creation attack — blocked
+[92mPASSED[0m sec_strcpy:53 weak PRNG attack — blocked
+[92mPASSED[0m sec_strcat:77 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_strcat:77 unbounded format-write attack — blocked
+[92mPASSED[0m sec_strcat:77 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_strcat:77 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_strcat:77 symlink file-creation attack — blocked
+[92mPASSED[0m sec_strcat:77 weak PRNG attack — blocked
+[92mPASSED[0m sec_memcpy:101 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_memcpy:101 unbounded format-write attack — blocked
+[92mPASSED[0m sec_memcpy:101 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_memcpy:101 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_memcpy:101 symlink file-creation attack — blocked
+[92mPASSED[0m sec_memcpy:101 weak PRNG attack — blocked
+[92mPASSED[0m sec_memmove:123 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_memmove:123 unbounded format-write attack — blocked
+[92mPASSED[0m sec_memmove:123 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_memmove:123 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_memmove:123 symlink file-creation attack — blocked
+[92mPASSED[0m sec_memmove:123 weak PRNG attack — blocked
+[92mPASSED[0m sec_str_memcpy:146 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_str_memcpy:146 unbounded format-write attack — blocked
+[92mPASSED[0m sec_str_memcpy:146 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_str_memcpy:146 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_str_memcpy:146 symlink file-creation attack — blocked
+[92mPASSED[0m sec_str_memcpy:146 weak PRNG attack — blocked
+[92mPASSED[0m sec_memzero:171 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_memzero:171 unbounded format-write attack — blocked
+[92mPASSED[0m sec_memzero:171 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_memzero:171 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_memzero:171 symlink file-creation attack — blocked
+[92mPASSED[0m sec_memzero:171 weak PRNG attack — blocked
+[92mPASSED[0m sec_mul_bound:187 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_mul_bound:187 unbounded format-write attack — blocked
+[92mPASSED[0m sec_mul_bound:187 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_mul_bound:187 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_mul_bound:187 symlink file-creation attack — blocked
+[92mPASSED[0m sec_mul_bound:187 weak PRNG attack — blocked
+[92mPASSED[0m sec_calloc_array:196 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_calloc_array:196 unbounded format-write attack — blocked
+[92mPASSED[0m sec_calloc_array:196 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_calloc_array:196 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_calloc_array:196 symlink file-creation attack — blocked
+[92mPASSED[0m sec_calloc_array:196 weak PRNG attack — blocked
+[92mPASSED[0m sec_str_to_int:217 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_str_to_int:217 unbounded format-write attack — blocked
+[92mPASSED[0m sec_str_to_int:217 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_str_to_int:217 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_str_to_int:217 symlink file-creation attack — blocked
+[92mPASSED[0m sec_str_to_int:217 weak PRNG attack — blocked
+[92mPASSED[0m sec_str_to_double:251 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_str_to_double:251 unbounded format-write attack — blocked
+[92mPASSED[0m sec_str_to_double:251 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_str_to_double:251 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_str_to_double:251 symlink file-creation attack — blocked
+[92mPASSED[0m sec_str_to_double:251 weak PRNG attack — blocked
+[92mPASSED[0m sec_popen_read:285 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_popen_read:285 unbounded format-write attack — blocked
+[92mPASSED[0m sec_popen_read:285 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_popen_read:285 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_popen_read:285 symlink file-creation attack — blocked
+[92mPASSED[0m sec_popen_read:285 weak PRNG attack — blocked
+[92mPASSED[0m sec_has_extension:415 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_has_extension:415 unbounded format-write attack — blocked
+[92mPASSED[0m sec_has_extension:415 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_has_extension:415 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_has_extension:415 symlink file-creation attack — blocked
+[92mPASSED[0m sec_has_extension:415 weak PRNG attack — blocked
+[92mPASSED[0m sec_fopen_complex16:439 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_fopen_complex16:439 unbounded format-write attack — blocked
+[92mPASSED[0m sec_fopen_complex16:439 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_fopen_complex16:439 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_fopen_complex16:439 symlink file-creation attack — blocked
+[92mPASSED[0m sec_fopen_complex16:439 weak PRNG attack — blocked
+[92mPASSED[0m sec_str_to_int_bound:529 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_str_to_int_bound:529 unbounded format-write attack — blocked
+[92mPASSED[0m sec_str_to_int_bound:529 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_str_to_int_bound:529 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_str_to_int_bound:529 symlink file-creation attack — blocked
+[92mPASSED[0m sec_str_to_int_bound:529 weak PRNG attack — blocked
+[92mPASSED[0m sec_str_to_double_bound:559 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_str_to_double_bound:559 unbounded format-write attack — blocked
+[92mPASSED[0m sec_str_to_double_bound:559 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_str_to_double_bound:559 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_str_to_double_bound:559 symlink file-creation attack — blocked
+[92mPASSED[0m sec_str_to_double_bound:559 weak PRNG attack — blocked
+[92mPASSED[0m sec_normalize_directory_path:595 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_normalize_directory_path:595 unbounded format-write attack — blocked
+[92mPASSED[0m sec_normalize_directory_path:595 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_normalize_directory_path:595 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_normalize_directory_path:595 symlink file-creation attack — blocked
+[92mPASSED[0m sec_normalize_directory_path:595 weak PRNG attack — blocked
+[92mPASSED[0m sec_directory_fd_is_secure:636 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_directory_fd_is_secure:636 unbounded format-write attack — blocked
+[92mPASSED[0m sec_directory_fd_is_secure:636 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_directory_fd_is_secure:636 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_directory_fd_is_secure:636 symlink file-creation attack — blocked
+[92mPASSED[0m sec_directory_fd_is_secure:636 weak PRNG attack — blocked
+[92mPASSED[0m sec_ensure_private_directory:666 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_ensure_private_directory:666 unbounded format-write attack — blocked
+[92mPASSED[0m sec_ensure_private_directory:666 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_ensure_private_directory:666 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_ensure_private_directory:666 symlink file-creation attack — blocked
+[92mPASSED[0m sec_ensure_private_directory:666 weak PRNG attack — blocked
+[92mPASSED[0m sec_fopen_exclusive_in_directory:733 unsafe string/input API attack — blocked
+[92mPASSED[0m sec_fopen_exclusive_in_directory:733 unbounded format-write attack — blocked
+[92mPASSED[0m sec_fopen_exclusive_in_directory:733 shell-command execution sink attack — blocked
+[92mPASSED[0m sec_fopen_exclusive_in_directory:733 predictable temporary-file attack — blocked
+[92mPASSED[0m sec_fopen_exclusive_in_directory:733 symlink file-creation attack — blocked
+[92mPASSED[0m sec_fopen_exclusive_in_directory:733 weak PRNG attack — blocked
+
+[96m=== Runtime hostile-input attacks: SecureFunctions.c ===[0m
+[92mPASSED[0m secure strcpy rejects NULL destination
+[92mPASSED[0m secure strcpy rejects NULL source
+[92mPASSED[0m secure strcpy reports truncation
+[92mPASSED[0m secure strcpy preserves terminator on truncation
+[92mPASSED[0m secure strcpy preserves adjacent canary
+[92mPASSED[0m secure strcat rejects overflow
+[92mPASSED[0m secure strcat remains terminated
+[92mPASSED[0m secure memcpy rejects oversized copy
+[92mPASSED[0m secure memcpy rejects NULL source
+[92mPASSED[0m secure memmove rejects oversized move
+[92mPASSED[0m secure str_memcpy rejects missing terminator capacity
+[92mPASSED[0m secure memzero rejects NULL nonzero
+[92mPASSED[0m secure multiplication bound rejects overflow
+[92mPASSED[0m secure integer parser rejects overflow
+[92mPASSED[0m secure integer parser rejects command payload
+[92mPASSED[0m secure bounded integer parser rejects below minimum
+[92mPASSED[0m secure bounded integer parser rejects above maximum
+[92mPASSED[0m secure double parser rejects NaN
+[92mPASSED[0m secure double parser rejects infinity
+[92mPASSED[0m secure double parser rejects trailing payload
+[92mPASSED[0m secure bounded double parser rejects range escape
+[92mPASSED[0m secure private-directory rejects NULL
+[92mPASSED[0m secure exclusive-open rejects traversal leaf
+
+SecureFunctions.c security summary: [92m146 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

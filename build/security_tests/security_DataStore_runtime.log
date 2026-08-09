@@ -1,0 +1,164 @@
+
+[96mRetroSpectrum security target: DataStore.c[0m
+Attack classes: unsafe-copy, unbounded-format, command execution, temporary-file race, symlink creation, weak RNG + runtime hostile probes.
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+
+[96m=== Per-function source attacks: DataStore.c (24 functions discovered) ===[0m
+[92mPASSED[0m at least one production function discovered
+[92mPASSED[0m datastore_set_error:44 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_set_error:44 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_set_error:44 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_set_error:44 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_set_error:44 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_set_error:44 weak PRNG attack — blocked
+[92mPASSED[0m datastore_copy_text:58 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_copy_text:58 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_copy_text:58 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_copy_text:58 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_copy_text:58 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_copy_text:58 weak PRNG attack — blocked
+[92mPASSED[0m datastore_is_valid_kind:67 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_is_valid_kind:67 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_is_valid_kind:67 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_is_valid_kind:67 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_is_valid_kind:67 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_is_valid_kind:67 weak PRNG attack — blocked
+[92mPASSED[0m datastore_validate_document_fields:79 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_validate_document_fields:79 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_validate_document_fields:79 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_validate_document_fields:79 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_validate_document_fields:79 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_validate_document_fields:79 weak PRNG attack — blocked
+[92mPASSED[0m datastore_is_supported_case_image:107 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_is_supported_case_image:107 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_is_supported_case_image:107 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_is_supported_case_image:107 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_is_supported_case_image:107 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_is_supported_case_image:107 weak PRNG attack — blocked
+[92mPASSED[0m datastore_make_directory:158 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_make_directory:158 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_make_directory:158 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_make_directory:158 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_make_directory:158 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_make_directory:158 weak PRNG attack — blocked
+[92mPASSED[0m datastore_config_directory:173 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_config_directory:173 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_config_directory:173 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_config_directory:173 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_config_directory:173 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_config_directory:173 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_get_path:218 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_get_path:218 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_get_path:218 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_get_path:218 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_get_path:218 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_get_path:218 weak PRNG attack — blocked
+[92mPASSED[0m datastore_execute:239 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_execute:239 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_execute:239 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_execute:239 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_execute:239 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_execute:239 weak PRNG attack — blocked
+[92mPASSED[0m datastore_open:259 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_open:259 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_open:259 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_open:259 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_open:259 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_open:259 weak PRNG attack — blocked
+[92mPASSED[0m datastore_sha512:350 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_sha512:350 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_sha512:350 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_sha512:350 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_sha512:350 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_sha512:350 weak PRNG attack — blocked
+[92mPASSED[0m datastore_classification_parse_line:365 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_classification_parse_line:365 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_classification_parse_line:365 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_classification_parse_line:365 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_classification_parse_line:365 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_classification_parse_line:365 weak PRNG attack — blocked
+[92mPASSED[0m datastore_classification_write_field:488 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_classification_write_field:488 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_classification_write_field:488 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_classification_write_field:488 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_classification_write_field:488 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_classification_write_field:488 weak PRNG attack — blocked
+[92mPASSED[0m datastore_classification_replace_in_transaction:532 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_classification_replace_in_transaction:532 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_classification_replace_in_transaction:532 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_classification_replace_in_transaction:532 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_classification_replace_in_transaction:532 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_classification_replace_in_transaction:532 weak PRNG attack — blocked
+[92mPASSED[0m datastore_classification_load:780 unsafe string/input API attack — blocked
+[92mPASSED[0m datastore_classification_load:780 unbounded format-write attack — blocked
+[92mPASSED[0m datastore_classification_load:780 shell-command execution sink attack — blocked
+[92mPASSED[0m datastore_classification_load:780 predictable temporary-file attack — blocked
+[92mPASSED[0m datastore_classification_load:780 symlink file-creation attack — blocked
+[92mPASSED[0m datastore_classification_load:780 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_server_save_content:943 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_server_save_content:943 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_server_save_content:943 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_server_save_content:943 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_server_save_content:943 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_server_save_content:943 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_server_load_content:1083 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_server_load_content:1083 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_server_load_content:1083 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_server_load_content:1083 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_server_load_content:1083 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_server_load_content:1083 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_free_content:1245 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_free_content:1245 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_free_content:1245 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_free_content:1245 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_free_content:1245 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_free_content:1245 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_server_list_documents:1260 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_server_list_documents:1260 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_server_list_documents:1260 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_server_list_documents:1260 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_server_list_documents:1260 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_server_list_documents:1260 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_server_delete_content:1366 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_server_delete_content:1366 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_server_delete_content:1366 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_server_delete_content:1366 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_server_delete_content:1366 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_server_delete_content:1366 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_save_content:1471 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_save_content:1471 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_save_content:1471 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_save_content:1471 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_save_content:1471 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_save_content:1471 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_load_content:1488 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_load_content:1488 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_load_content:1488 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_load_content:1488 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_load_content:1488 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_load_content:1488 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_list_documents:1504 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_list_documents:1504 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_list_documents:1504 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_list_documents:1504 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_list_documents:1504 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_list_documents:1504 weak PRNG attack — blocked
+[92mPASSED[0m DATASTORE_delete_content:1519 unsafe string/input API attack — blocked
+[92mPASSED[0m DATASTORE_delete_content:1519 unbounded format-write attack — blocked
+[92mPASSED[0m DATASTORE_delete_content:1519 shell-command execution sink attack — blocked
+[92mPASSED[0m DATASTORE_delete_content:1519 predictable temporary-file attack — blocked
+[92mPASSED[0m DATASTORE_delete_content:1519 symlink file-creation attack — blocked
+[92mPASSED[0m DATASTORE_delete_content:1519 weak PRNG attack — blocked
+
+[96m=== Runtime hostile-input attacks: DataStore.c ===[0m
+[92mPASSED[0m datastore rejects unknown document kind
+[92mPASSED[0m datastore rejects empty document name
+[92mPASSED[0m datastore rejects oversized document name
+[92mPASSED[0m datastore rejects oversized case number
+[92mPASSED[0m datastore rejects malformed case image
+[92mPASSED[0m datastore rejects NULL image with nonzero size
+[92mPASSED[0m datastore bounded copy reports truncation
+
+DataStore.c security summary: [92m154 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

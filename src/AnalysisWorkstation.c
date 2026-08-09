@@ -1484,6 +1484,30 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
         Returns: No value
     */
 
+    if (psd_rect) {
+    *psd_rect = (SDL_Rect){0, 0, 0, 0};
+    }
+
+    if (mag_rect) {
+        *mag_rect = (SDL_Rect){0, 0, 0, 0};
+    }
+
+    if (phase_rect) {
+        *phase_rect = (SDL_Rect){0, 0, 0, 0};
+    }
+
+    if (inst_rect) {
+        *inst_rect = (SDL_Rect){0, 0, 0, 0};
+    }
+
+    if (const_rect) {
+        *const_rect = (SDL_Rect){0, 0, 0, 0};
+    }
+
+    if (spec_rect) {
+        *spec_rect = (SDL_Rect){0, 0, 0, 0};
+    }
+
     int selector_h = (int)((double)win_h * 0.22);
 
     if (selector_h < 130) {
@@ -1524,11 +1548,9 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     }
 
     int work_y = list_rect.y + list_rect.h + MARGIN;
-    int work_h = win_h - work_y - MARGIN;
 
     int top_row_h = local_psd.h;
     int mid_row_h = local_psd.h;
-    int spec_h = work_h - top_row_h - mid_row_h - (gap * 2) - (title_h * 3);
 
     if (top_row_h < 70) {
 
@@ -1539,12 +1561,6 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     if (mid_row_h < 70) {
 
         mid_row_h = 70;
-
-    }
-
-    if (spec_h < 110) {
-
-        spec_h = 110;
 
     }
 

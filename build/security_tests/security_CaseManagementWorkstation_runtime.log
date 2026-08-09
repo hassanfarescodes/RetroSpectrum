@@ -1,0 +1,1404 @@
+
+[96mRetroSpectrum security target: CaseManagementWorkstation.c[0m
+Attack classes: unsafe-copy, unbounded-format, command execution, temporary-file race, symlink creation, weak RNG + runtime hostile probes.
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+
+[96m=== Per-function source attacks: CaseManagementWorkstation.c (231 functions discovered) ===[0m
+[92mPASSED[0m at least one production function discovered
+[92mPASSED[0m case_country_count:596 unsafe string/input API attack — blocked
+[92mPASSED[0m case_country_count:596 unbounded format-write attack — blocked
+[92mPASSED[0m case_country_count:596 shell-command execution sink attack — blocked
+[92mPASSED[0m case_country_count:596 predictable temporary-file attack — blocked
+[92mPASSED[0m case_country_count:596 symlink file-creation attack — blocked
+[92mPASSED[0m case_country_count:596 weak PRNG attack — blocked
+[92mPASSED[0m case_country_index_by_name:605 unsafe string/input API attack — blocked
+[92mPASSED[0m case_country_index_by_name:605 unbounded format-write attack — blocked
+[92mPASSED[0m case_country_index_by_name:605 shell-command execution sink attack — blocked
+[92mPASSED[0m case_country_index_by_name:605 predictable temporary-file attack — blocked
+[92mPASSED[0m case_country_index_by_name:605 symlink file-creation attack — blocked
+[92mPASSED[0m case_country_index_by_name:605 weak PRNG attack — blocked
+[92mPASSED[0m case_country_flag_texture:627 unsafe string/input API attack — blocked
+[92mPASSED[0m case_country_flag_texture:627 unbounded format-write attack — blocked
+[92mPASSED[0m case_country_flag_texture:627 shell-command execution sink attack — blocked
+[92mPASSED[0m case_country_flag_texture:627 predictable temporary-file attack — blocked
+[92mPASSED[0m case_country_flag_texture:627 symlink file-creation attack — blocked
+[92mPASSED[0m case_country_flag_texture:627 weak PRNG attack — blocked
+[92mPASSED[0m case_get_adjusted_mouse_state:664 unsafe string/input API attack — blocked
+[92mPASSED[0m case_get_adjusted_mouse_state:664 unbounded format-write attack — blocked
+[92mPASSED[0m case_get_adjusted_mouse_state:664 shell-command execution sink attack — blocked
+[92mPASSED[0m case_get_adjusted_mouse_state:664 predictable temporary-file attack — blocked
+[92mPASSED[0m case_get_adjusted_mouse_state:664 symlink file-creation attack — blocked
+[92mPASSED[0m case_get_adjusted_mouse_state:664 weak PRNG attack — blocked
+[92mPASSED[0m case_is_complex16_file:679 unsafe string/input API attack — blocked
+[92mPASSED[0m case_is_complex16_file:679 unbounded format-write attack — blocked
+[92mPASSED[0m case_is_complex16_file:679 shell-command execution sink attack — blocked
+[92mPASSED[0m case_is_complex16_file:679 predictable temporary-file attack — blocked
+[92mPASSED[0m case_is_complex16_file:679 symlink file-creation attack — blocked
+[92mPASSED[0m case_is_complex16_file:679 weak PRNG attack — blocked
+[92mPASSED[0m case_name_compare:704 unsafe string/input API attack — blocked
+[92mPASSED[0m case_name_compare:704 unbounded format-write attack — blocked
+[92mPASSED[0m case_name_compare:704 shell-command execution sink attack — blocked
+[92mPASSED[0m case_name_compare:704 predictable temporary-file attack — blocked
+[92mPASSED[0m case_name_compare:704 symlink file-creation attack — blocked
+[92mPASSED[0m case_name_compare:704 weak PRNG attack — blocked
+[92mPASSED[0m case_scan_source_files:715 unsafe string/input API attack — blocked
+[92mPASSED[0m case_scan_source_files:715 unbounded format-write attack — blocked
+[92mPASSED[0m case_scan_source_files:715 shell-command execution sink attack — blocked
+[92mPASSED[0m case_scan_source_files:715 predictable temporary-file attack — blocked
+[92mPASSED[0m case_scan_source_files:715 symlink file-creation attack — blocked
+[92mPASSED[0m case_scan_source_files:715 weak PRNG attack — blocked
+[92mPASSED[0m case_point_in_rect:763 unsafe string/input API attack — blocked
+[92mPASSED[0m case_point_in_rect:763 unbounded format-write attack — blocked
+[92mPASSED[0m case_point_in_rect:763 shell-command execution sink attack — blocked
+[92mPASSED[0m case_point_in_rect:763 predictable temporary-file attack — blocked
+[92mPASSED[0m case_point_in_rect:763 symlink file-creation attack — blocked
+[92mPASSED[0m case_point_in_rect:763 weak PRNG attack — blocked
+[92mPASSED[0m case_copy_text:772 unsafe string/input API attack — blocked
+[92mPASSED[0m case_copy_text:772 unbounded format-write attack — blocked
+[92mPASSED[0m case_copy_text:772 shell-command execution sink attack — blocked
+[92mPASSED[0m case_copy_text:772 predictable temporary-file attack — blocked
+[92mPASSED[0m case_copy_text:772 symlink file-creation attack — blocked
+[92mPASSED[0m case_copy_text:772 weak PRNG attack — blocked
+[92mPASSED[0m case_limit_double:792 unsafe string/input API attack — blocked
+[92mPASSED[0m case_limit_double:792 unbounded format-write attack — blocked
+[92mPASSED[0m case_limit_double:792 shell-command execution sink attack — blocked
+[92mPASSED[0m case_limit_double:792 predictable temporary-file attack — blocked
+[92mPASSED[0m case_limit_double:792 symlink file-creation attack — blocked
+[92mPASSED[0m case_limit_double:792 weak PRNG attack — blocked
+[92mPASSED[0m case_set_status:812 unsafe string/input API attack — blocked
+[92mPASSED[0m case_set_status:812 unbounded format-write attack — blocked
+[92mPASSED[0m case_set_status:812 shell-command execution sink attack — blocked
+[92mPASSED[0m case_set_status:812 predictable temporary-file attack — blocked
+[92mPASSED[0m case_set_status:812 symlink file-creation attack — blocked
+[92mPASSED[0m case_set_status:812 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_text_centered:823 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_text_centered:823 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_text_centered:823 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_text_centered:823 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_text_centered:823 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_text_centered:823 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_button:849 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_button:849 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_button:849 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_button:849 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_button:849 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_button:849 weak PRNG attack — blocked
+[92mPASSED[0m case_shorten:885 unsafe string/input API attack — blocked
+[92mPASSED[0m case_shorten:885 unbounded format-write attack — blocked
+[92mPASSED[0m case_shorten:885 shell-command execution sink attack — blocked
+[92mPASSED[0m case_shorten:885 predictable temporary-file attack — blocked
+[92mPASSED[0m case_shorten:885 symlink file-creation attack — blocked
+[92mPASSED[0m case_shorten:885 weak PRNG attack — blocked
+[92mPASSED[0m case_find_block_index_by_id:922 unsafe string/input API attack — blocked
+[92mPASSED[0m case_find_block_index_by_id:922 unbounded format-write attack — blocked
+[92mPASSED[0m case_find_block_index_by_id:922 shell-command execution sink attack — blocked
+[92mPASSED[0m case_find_block_index_by_id:922 predictable temporary-file attack — blocked
+[92mPASSED[0m case_find_block_index_by_id:922 symlink file-creation attack — blocked
+[92mPASSED[0m case_find_block_index_by_id:922 weak PRNG attack — blocked
+[92mPASSED[0m case_clear_block_selection:939 unsafe string/input API attack — blocked
+[92mPASSED[0m case_clear_block_selection:939 unbounded format-write attack — blocked
+[92mPASSED[0m case_clear_block_selection:939 shell-command execution sink attack — blocked
+[92mPASSED[0m case_clear_block_selection:939 predictable temporary-file attack — blocked
+[92mPASSED[0m case_clear_block_selection:939 symlink file-creation attack — blocked
+[92mPASSED[0m case_clear_block_selection:939 weak PRNG attack — blocked
+[92mPASSED[0m case_is_block_selected:949 unsafe string/input API attack — blocked
+[92mPASSED[0m case_is_block_selected:949 unbounded format-write attack — blocked
+[92mPASSED[0m case_is_block_selected:949 shell-command execution sink attack — blocked
+[92mPASSED[0m case_is_block_selected:949 predictable temporary-file attack — blocked
+[92mPASSED[0m case_is_block_selected:949 symlink file-creation attack — blocked
+[92mPASSED[0m case_is_block_selected:949 weak PRNG attack — blocked
+[92mPASSED[0m case_selected_block_count:963 unsafe string/input API attack — blocked
+[92mPASSED[0m case_selected_block_count:963 unbounded format-write attack — blocked
+[92mPASSED[0m case_selected_block_count:963 shell-command execution sink attack — blocked
+[92mPASSED[0m case_selected_block_count:963 predictable temporary-file attack — blocked
+[92mPASSED[0m case_selected_block_count:963 symlink file-creation attack — blocked
+[92mPASSED[0m case_selected_block_count:963 weak PRNG attack — blocked
+[92mPASSED[0m case_sync_primary_selection:981 unsafe string/input API attack — blocked
+[92mPASSED[0m case_sync_primary_selection:981 unbounded format-write attack — blocked
+[92mPASSED[0m case_sync_primary_selection:981 shell-command execution sink attack — blocked
+[92mPASSED[0m case_sync_primary_selection:981 predictable temporary-file attack — blocked
+[92mPASSED[0m case_sync_primary_selection:981 symlink file-creation attack — blocked
+[92mPASSED[0m case_sync_primary_selection:981 weak PRNG attack — blocked
+[92mPASSED[0m case_select_only_block:1006 unsafe string/input API attack — blocked
+[92mPASSED[0m case_select_only_block:1006 unbounded format-write attack — blocked
+[92mPASSED[0m case_select_only_block:1006 shell-command execution sink attack — blocked
+[92mPASSED[0m case_select_only_block:1006 predictable temporary-file attack — blocked
+[92mPASSED[0m case_select_only_block:1006 symlink file-creation attack — blocked
+[92mPASSED[0m case_select_only_block:1006 weak PRNG attack — blocked
+[92mPASSED[0m case_toggle_block_selection:1022 unsafe string/input API attack — blocked
+[92mPASSED[0m case_toggle_block_selection:1022 unbounded format-write attack — blocked
+[92mPASSED[0m case_toggle_block_selection:1022 shell-command execution sink attack — blocked
+[92mPASSED[0m case_toggle_block_selection:1022 predictable temporary-file attack — blocked
+[92mPASSED[0m case_toggle_block_selection:1022 symlink file-creation attack — blocked
+[92mPASSED[0m case_toggle_block_selection:1022 weak PRNG attack — blocked
+[92mPASSED[0m case_selected_block_is_case:1037 unsafe string/input API attack — blocked
+[92mPASSED[0m case_selected_block_is_case:1037 unbounded format-write attack — blocked
+[92mPASSED[0m case_selected_block_is_case:1037 shell-command execution sink attack — blocked
+[92mPASSED[0m case_selected_block_is_case:1037 predictable temporary-file attack — blocked
+[92mPASSED[0m case_selected_block_is_case:1037 symlink file-creation attack — blocked
+[92mPASSED[0m case_selected_block_is_case:1037 weak PRNG attack — blocked
+[92mPASSED[0m case_push_undo_state:1051 unsafe string/input API attack — blocked
+[92mPASSED[0m case_push_undo_state:1051 unbounded format-write attack — blocked
+[92mPASSED[0m case_push_undo_state:1051 shell-command execution sink attack — blocked
+[92mPASSED[0m case_push_undo_state:1051 predictable temporary-file attack — blocked
+[92mPASSED[0m case_push_undo_state:1051 symlink file-creation attack — blocked
+[92mPASSED[0m case_push_undo_state:1051 weak PRNG attack — blocked
+[92mPASSED[0m case_undo_last_change:1082 unsafe string/input API attack — blocked
+[92mPASSED[0m case_undo_last_change:1082 unbounded format-write attack — blocked
+[92mPASSED[0m case_undo_last_change:1082 shell-command execution sink attack — blocked
+[92mPASSED[0m case_undo_last_change:1082 predictable temporary-file attack — blocked
+[92mPASSED[0m case_undo_last_change:1082 symlink file-creation attack — blocked
+[92mPASSED[0m case_undo_last_change:1082 weak PRNG attack — blocked
+[92mPASSED[0m case_should_show_field:1126 unsafe string/input API attack — blocked
+[92mPASSED[0m case_should_show_field:1126 unbounded format-write attack — blocked
+[92mPASSED[0m case_should_show_field:1126 shell-command execution sink attack — blocked
+[92mPASSED[0m case_should_show_field:1126 predictable temporary-file attack — blocked
+[92mPASSED[0m case_should_show_field:1126 symlink file-creation attack — blocked
+[92mPASSED[0m case_should_show_field:1126 weak PRNG attack — blocked
+[92mPASSED[0m case_rect_is_valid:1147 unsafe string/input API attack — blocked
+[92mPASSED[0m case_rect_is_valid:1147 unbounded format-write attack — blocked
+[92mPASSED[0m case_rect_is_valid:1147 shell-command execution sink attack — blocked
+[92mPASSED[0m case_rect_is_valid:1147 predictable temporary-file attack — blocked
+[92mPASSED[0m case_rect_is_valid:1147 symlink file-creation attack — blocked
+[92mPASSED[0m case_rect_is_valid:1147 weak PRNG attack — blocked
+[92mPASSED[0m case_rects_intersect:1156 unsafe string/input API attack — blocked
+[92mPASSED[0m case_rects_intersect:1156 unbounded format-write attack — blocked
+[92mPASSED[0m case_rects_intersect:1156 shell-command execution sink attack — blocked
+[92mPASSED[0m case_rects_intersect:1156 predictable temporary-file attack — blocked
+[92mPASSED[0m case_rects_intersect:1156 symlink file-creation attack — blocked
+[92mPASSED[0m case_rects_intersect:1156 weak PRNG attack — blocked
+[92mPASSED[0m case_make_normalized_rect:1165 unsafe string/input API attack — blocked
+[92mPASSED[0m case_make_normalized_rect:1165 unbounded format-write attack — blocked
+[92mPASSED[0m case_make_normalized_rect:1165 shell-command execution sink attack — blocked
+[92mPASSED[0m case_make_normalized_rect:1165 predictable temporary-file attack — blocked
+[92mPASSED[0m case_make_normalized_rect:1165 symlink file-creation attack — blocked
+[92mPASSED[0m case_make_normalized_rect:1165 weak PRNG attack — blocked
+[92mPASSED[0m case_select_blocks_in_rect:1179 unsafe string/input API attack — blocked
+[92mPASSED[0m case_select_blocks_in_rect:1179 unbounded format-write attack — blocked
+[92mPASSED[0m case_select_blocks_in_rect:1179 shell-command execution sink attack — blocked
+[92mPASSED[0m case_select_blocks_in_rect:1179 predictable temporary-file attack — blocked
+[92mPASSED[0m case_select_blocks_in_rect:1179 symlink file-creation attack — blocked
+[92mPASSED[0m case_select_blocks_in_rect:1179 weak PRNG attack — blocked
+[92mPASSED[0m case_canvas_rect:1226 unsafe string/input API attack — blocked
+[92mPASSED[0m case_canvas_rect:1226 unbounded format-write attack — blocked
+[92mPASSED[0m case_canvas_rect:1226 shell-command execution sink attack — blocked
+[92mPASSED[0m case_canvas_rect:1226 predictable temporary-file attack — blocked
+[92mPASSED[0m case_canvas_rect:1226 symlink file-creation attack — blocked
+[92mPASSED[0m case_canvas_rect:1226 weak PRNG attack — blocked
+[92mPASSED[0m case_editor_rect:1250 unsafe string/input API attack — blocked
+[92mPASSED[0m case_editor_rect:1250 unbounded format-write attack — blocked
+[92mPASSED[0m case_editor_rect:1250 shell-command execution sink attack — blocked
+[92mPASSED[0m case_editor_rect:1250 predictable temporary-file attack — blocked
+[92mPASSED[0m case_editor_rect:1250 symlink file-creation attack — blocked
+[92mPASSED[0m case_editor_rect:1250 weak PRNG attack — blocked
+[92mPASSED[0m case_ensure_view:1273 unsafe string/input API attack — blocked
+[92mPASSED[0m case_ensure_view:1273 unbounded format-write attack — blocked
+[92mPASSED[0m case_ensure_view:1273 shell-command execution sink attack — blocked
+[92mPASSED[0m case_ensure_view:1273 predictable temporary-file attack — blocked
+[92mPASSED[0m case_ensure_view:1273 symlink file-creation attack — blocked
+[92mPASSED[0m case_ensure_view:1273 weak PRNG attack — blocked
+[92mPASSED[0m case_world_to_screen_x:1289 unsafe string/input API attack — blocked
+[92mPASSED[0m case_world_to_screen_x:1289 unbounded format-write attack — blocked
+[92mPASSED[0m case_world_to_screen_x:1289 shell-command execution sink attack — blocked
+[92mPASSED[0m case_world_to_screen_x:1289 predictable temporary-file attack — blocked
+[92mPASSED[0m case_world_to_screen_x:1289 symlink file-creation attack — blocked
+[92mPASSED[0m case_world_to_screen_x:1289 weak PRNG attack — blocked
+[92mPASSED[0m case_world_to_screen_y:1298 unsafe string/input API attack — blocked
+[92mPASSED[0m case_world_to_screen_y:1298 unbounded format-write attack — blocked
+[92mPASSED[0m case_world_to_screen_y:1298 shell-command execution sink attack — blocked
+[92mPASSED[0m case_world_to_screen_y:1298 predictable temporary-file attack — blocked
+[92mPASSED[0m case_world_to_screen_y:1298 symlink file-creation attack — blocked
+[92mPASSED[0m case_world_to_screen_y:1298 weak PRNG attack — blocked
+[92mPASSED[0m case_screen_to_world_x:1307 unsafe string/input API attack — blocked
+[92mPASSED[0m case_screen_to_world_x:1307 unbounded format-write attack — blocked
+[92mPASSED[0m case_screen_to_world_x:1307 shell-command execution sink attack — blocked
+[92mPASSED[0m case_screen_to_world_x:1307 predictable temporary-file attack — blocked
+[92mPASSED[0m case_screen_to_world_x:1307 symlink file-creation attack — blocked
+[92mPASSED[0m case_screen_to_world_x:1307 weak PRNG attack — blocked
+[92mPASSED[0m case_screen_to_world_y:1316 unsafe string/input API attack — blocked
+[92mPASSED[0m case_screen_to_world_y:1316 unbounded format-write attack — blocked
+[92mPASSED[0m case_screen_to_world_y:1316 shell-command execution sink attack — blocked
+[92mPASSED[0m case_screen_to_world_y:1316 predictable temporary-file attack — blocked
+[92mPASSED[0m case_screen_to_world_y:1316 symlink file-creation attack — blocked
+[92mPASSED[0m case_screen_to_world_y:1316 weak PRNG attack — blocked
+[92mPASSED[0m case_block_world_rect:1325 unsafe string/input API attack — blocked
+[92mPASSED[0m case_block_world_rect:1325 unbounded format-write attack — blocked
+[92mPASSED[0m case_block_world_rect:1325 shell-command execution sink attack — blocked
+[92mPASSED[0m case_block_world_rect:1325 predictable temporary-file attack — blocked
+[92mPASSED[0m case_block_world_rect:1325 symlink file-creation attack — blocked
+[92mPASSED[0m case_block_world_rect:1325 weak PRNG attack — blocked
+[92mPASSED[0m case_block_screen_rect:1338 unsafe string/input API attack — blocked
+[92mPASSED[0m case_block_screen_rect:1338 unbounded format-write attack — blocked
+[92mPASSED[0m case_block_screen_rect:1338 shell-command execution sink attack — blocked
+[92mPASSED[0m case_block_screen_rect:1338 predictable temporary-file attack — blocked
+[92mPASSED[0m case_block_screen_rect:1338 symlink file-creation attack — blocked
+[92mPASSED[0m case_block_screen_rect:1338 weak PRNG attack — blocked
+[92mPASSED[0m case_connector_px:1363 unsafe string/input API attack — blocked
+[92mPASSED[0m case_connector_px:1363 unbounded format-write attack — blocked
+[92mPASSED[0m case_connector_px:1363 shell-command execution sink attack — blocked
+[92mPASSED[0m case_connector_px:1363 predictable temporary-file attack — blocked
+[92mPASSED[0m case_connector_px:1363 symlink file-creation attack — blocked
+[92mPASSED[0m case_connector_px:1363 weak PRNG attack — blocked
+[92mPASSED[0m case_block_endpoint_rect:1385 unsafe string/input API attack — blocked
+[92mPASSED[0m case_block_endpoint_rect:1385 unbounded format-write attack — blocked
+[92mPASSED[0m case_block_endpoint_rect:1385 shell-command execution sink attack — blocked
+[92mPASSED[0m case_block_endpoint_rect:1385 predictable temporary-file attack — blocked
+[92mPASSED[0m case_block_endpoint_rect:1385 symlink file-creation attack — blocked
+[92mPASSED[0m case_block_endpoint_rect:1385 weak PRNG attack — blocked
+[92mPASSED[0m case_endpoint_center:1422 unsafe string/input API attack — blocked
+[92mPASSED[0m case_endpoint_center:1422 unbounded format-write attack — blocked
+[92mPASSED[0m case_endpoint_center:1422 shell-command execution sink attack — blocked
+[92mPASSED[0m case_endpoint_center:1422 predictable temporary-file attack — blocked
+[92mPASSED[0m case_endpoint_center:1422 symlink file-creation attack — blocked
+[92mPASSED[0m case_endpoint_center:1422 weak PRNG attack — blocked
+[92mPASSED[0m case_endpoint_at:1466 unsafe string/input API attack — blocked
+[92mPASSED[0m case_endpoint_at:1466 unbounded format-write attack — blocked
+[92mPASSED[0m case_endpoint_at:1466 shell-command execution sink attack — blocked
+[92mPASSED[0m case_endpoint_at:1466 predictable temporary-file attack — blocked
+[92mPASSED[0m case_endpoint_at:1466 symlink file-creation attack — blocked
+[92mPASSED[0m case_endpoint_at:1466 weak PRNG attack — blocked
+[92mPASSED[0m case_nearest_endpoint:1491 unsafe string/input API attack — blocked
+[92mPASSED[0m case_nearest_endpoint:1491 unbounded format-write attack — blocked
+[92mPASSED[0m case_nearest_endpoint:1491 shell-command execution sink attack — blocked
+[92mPASSED[0m case_nearest_endpoint:1491 predictable temporary-file attack — blocked
+[92mPASSED[0m case_nearest_endpoint:1491 symlink file-creation attack — blocked
+[92mPASSED[0m case_nearest_endpoint:1491 weak PRNG attack — blocked
+[92mPASSED[0m case_block_at:1550 unsafe string/input API attack — blocked
+[92mPASSED[0m case_block_at:1550 unbounded format-write attack — blocked
+[92mPASSED[0m case_block_at:1550 shell-command execution sink attack — blocked
+[92mPASSED[0m case_block_at:1550 predictable temporary-file attack — blocked
+[92mPASSED[0m case_block_at:1550 symlink file-creation attack — blocked
+[92mPASSED[0m case_block_at:1550 weak PRNG attack — blocked
+[92mPASSED[0m case_status_color:1567 unsafe string/input API attack — blocked
+[92mPASSED[0m case_status_color:1567 unbounded format-write attack — blocked
+[92mPASSED[0m case_status_color:1567 shell-command execution sink attack — blocked
+[92mPASSED[0m case_status_color:1567 predictable temporary-file attack — blocked
+[92mPASSED[0m case_status_color:1567 symlink file-creation attack — blocked
+[92mPASSED[0m case_status_color:1567 weak PRNG attack — blocked
+[92mPASSED[0m case_priority_color:1605 unsafe string/input API attack — blocked
+[92mPASSED[0m case_priority_color:1605 unbounded format-write attack — blocked
+[92mPASSED[0m case_priority_color:1605 shell-command execution sink attack — blocked
+[92mPASSED[0m case_priority_color:1605 predictable temporary-file attack — blocked
+[92mPASSED[0m case_priority_color:1605 symlink file-creation attack — blocked
+[92mPASSED[0m case_priority_color:1605 weak PRNG attack — blocked
+[92mPASSED[0m case_make_timeline_text:1635 unsafe string/input API attack — blocked
+[92mPASSED[0m case_make_timeline_text:1635 unbounded format-write attack — blocked
+[92mPASSED[0m case_make_timeline_text:1635 shell-command execution sink attack — blocked
+[92mPASSED[0m case_make_timeline_text:1635 predictable temporary-file attack — blocked
+[92mPASSED[0m case_make_timeline_text:1635 symlink file-creation attack — blocked
+[92mPASSED[0m case_make_timeline_text:1635 weak PRNG attack — blocked
+[92mPASSED[0m case_seed_default_blocks:1679 unsafe string/input API attack — blocked
+[92mPASSED[0m case_seed_default_blocks:1679 unbounded format-write attack — blocked
+[92mPASSED[0m case_seed_default_blocks:1679 shell-command execution sink attack — blocked
+[92mPASSED[0m case_seed_default_blocks:1679 predictable temporary-file attack — blocked
+[92mPASSED[0m case_seed_default_blocks:1679 symlink file-creation attack — blocked
+[92mPASSED[0m case_seed_default_blocks:1679 weak PRNG attack — blocked
+[92mPASSED[0m case_csv_write_field:1737 unsafe string/input API attack — blocked
+[92mPASSED[0m case_csv_write_field:1737 unbounded format-write attack — blocked
+[92mPASSED[0m case_csv_write_field:1737 shell-command execution sink attack — blocked
+[92mPASSED[0m case_csv_write_field:1737 predictable temporary-file attack — blocked
+[92mPASSED[0m case_csv_write_field:1737 symlink file-creation attack — blocked
+[92mPASSED[0m case_csv_write_field:1737 weak PRNG attack — blocked
+[92mPASSED[0m case_csv_write_multiline_field:1762 unsafe string/input API attack — blocked
+[92mPASSED[0m case_csv_write_multiline_field:1762 unbounded format-write attack — blocked
+[92mPASSED[0m case_csv_write_multiline_field:1762 shell-command execution sink attack — blocked
+[92mPASSED[0m case_csv_write_multiline_field:1762 predictable temporary-file attack — blocked
+[92mPASSED[0m case_csv_write_multiline_field:1762 symlink file-creation attack — blocked
+[92mPASSED[0m case_csv_write_multiline_field:1762 weak PRNG attack — blocked
+[92mPASSED[0m case_unescape_multiline:1799 unsafe string/input API attack — blocked
+[92mPASSED[0m case_unescape_multiline:1799 unbounded format-write attack — blocked
+[92mPASSED[0m case_unescape_multiline:1799 shell-command execution sink attack — blocked
+[92mPASSED[0m case_unescape_multiline:1799 predictable temporary-file attack — blocked
+[92mPASSED[0m case_unescape_multiline:1799 symlink file-creation attack — blocked
+[92mPASSED[0m case_unescape_multiline:1799 weak PRNG attack — blocked
+[92mPASSED[0m case_has_extension:1834 unsafe string/input API attack — blocked
+[92mPASSED[0m case_has_extension:1834 unbounded format-write attack — blocked
+[92mPASSED[0m case_has_extension:1834 shell-command execution sink attack — blocked
+[92mPASSED[0m case_has_extension:1834 predictable temporary-file attack — blocked
+[92mPASSED[0m case_has_extension:1834 symlink file-creation attack — blocked
+[92mPASSED[0m case_has_extension:1834 weak PRNG attack — blocked
+[92mPASSED[0m case_normalize_file_name:1859 unsafe string/input API attack — blocked
+[92mPASSED[0m case_normalize_file_name:1859 unbounded format-write attack — blocked
+[92mPASSED[0m case_normalize_file_name:1859 shell-command execution sink attack — blocked
+[92mPASSED[0m case_normalize_file_name:1859 predictable temporary-file attack — blocked
+[92mPASSED[0m case_normalize_file_name:1859 symlink file-creation attack — blocked
+[92mPASSED[0m case_normalize_file_name:1859 weak PRNG attack — blocked
+[92mPASSED[0m case_is_case_graph_file:1924 unsafe string/input API attack — blocked
+[92mPASSED[0m case_is_case_graph_file:1924 unbounded format-write attack — blocked
+[92mPASSED[0m case_is_case_graph_file:1924 shell-command execution sink attack — blocked
+[92mPASSED[0m case_is_case_graph_file:1924 predictable temporary-file attack — blocked
+[92mPASSED[0m case_is_case_graph_file:1924 symlink file-creation attack — blocked
+[92mPASSED[0m case_is_case_graph_file:1924 weak PRNG attack — blocked
+[92mPASSED[0m case_scan_case_graph_files:1959 unsafe string/input API attack — blocked
+[92mPASSED[0m case_scan_case_graph_files:1959 unbounded format-write attack — blocked
+[92mPASSED[0m case_scan_case_graph_files:1959 shell-command execution sink attack — blocked
+[92mPASSED[0m case_scan_case_graph_files:1959 predictable temporary-file attack — blocked
+[92mPASSED[0m case_scan_case_graph_files:1959 symlink file-creation attack — blocked
+[92mPASSED[0m case_scan_case_graph_files:1959 weak PRNG attack — blocked
+[92mPASSED[0m case_write_blocks_csv:2003 unsafe string/input API attack — blocked
+[92mPASSED[0m case_write_blocks_csv:2003 unbounded format-write attack — blocked
+[92mPASSED[0m case_write_blocks_csv:2003 shell-command execution sink attack — blocked
+[92mPASSED[0m case_write_blocks_csv:2003 predictable temporary-file attack — blocked
+[92mPASSED[0m case_write_blocks_csv:2003 symlink file-creation attack — blocked
+[92mPASSED[0m case_write_blocks_csv:2003 weak PRNG attack — blocked
+[92mPASSED[0m case_write_links_csv:2037 unsafe string/input API attack — blocked
+[92mPASSED[0m case_write_links_csv:2037 unbounded format-write attack — blocked
+[92mPASSED[0m case_write_links_csv:2037 shell-command execution sink attack — blocked
+[92mPASSED[0m case_write_links_csv:2037 predictable temporary-file attack — blocked
+[92mPASSED[0m case_write_links_csv:2037 symlink file-creation attack — blocked
+[92mPASSED[0m case_write_links_csv:2037 weak PRNG attack — blocked
+[92mPASSED[0m case_database_case_number:2050 unsafe string/input API attack — blocked
+[92mPASSED[0m case_database_case_number:2050 unbounded format-write attack — blocked
+[92mPASSED[0m case_database_case_number:2050 shell-command execution sink attack — blocked
+[92mPASSED[0m case_database_case_number:2050 predictable temporary-file attack — blocked
+[92mPASSED[0m case_database_case_number:2050 symlink file-creation attack — blocked
+[92mPASSED[0m case_database_case_number:2050 weak PRNG attack — blocked
+[92mPASSED[0m case_serialize:2067 unsafe string/input API attack — blocked
+[92mPASSED[0m case_serialize:2067 unbounded format-write attack — blocked
+[92mPASSED[0m case_serialize:2067 shell-command execution sink attack — blocked
+[92mPASSED[0m case_serialize:2067 predictable temporary-file attack — blocked
+[92mPASSED[0m case_serialize:2067 symlink file-creation attack — blocked
+[92mPASSED[0m case_serialize:2067 weak PRNG attack — blocked
+[92mPASSED[0m case_save:2112 unsafe string/input API attack — blocked
+[92mPASSED[0m case_save:2112 unbounded format-write attack — blocked
+[92mPASSED[0m case_save:2112 shell-command execution sink attack — blocked
+[92mPASSED[0m case_save:2112 predictable temporary-file attack — blocked
+[92mPASSED[0m case_save:2112 symlink file-creation attack — blocked
+[92mPASSED[0m case_save:2112 weak PRNG attack — blocked
+[92mPASSED[0m case_reset_graph_for_load:2150 unsafe string/input API attack — blocked
+[92mPASSED[0m case_reset_graph_for_load:2150 unbounded format-write attack — blocked
+[92mPASSED[0m case_reset_graph_for_load:2150 shell-command execution sink attack — blocked
+[92mPASSED[0m case_reset_graph_for_load:2150 predictable temporary-file attack — blocked
+[92mPASSED[0m case_reset_graph_for_load:2150 symlink file-creation attack — blocked
+[92mPASSED[0m case_reset_graph_for_load:2150 weak PRNG attack — blocked
+[92mPASSED[0m case_read_csv_field:2171 unsafe string/input API attack — blocked
+[92mPASSED[0m case_read_csv_field:2171 unbounded format-write attack — blocked
+[92mPASSED[0m case_read_csv_field:2171 shell-command execution sink attack — blocked
+[92mPASSED[0m case_read_csv_field:2171 predictable temporary-file attack — blocked
+[92mPASSED[0m case_read_csv_field:2171 symlink file-creation attack — blocked
+[92mPASSED[0m case_read_csv_field:2171 weak PRNG attack — blocked
+[92mPASSED[0m case_text_equals_ci:2249 unsafe string/input API attack — blocked
+[92mPASSED[0m case_text_equals_ci:2249 unbounded format-write attack — blocked
+[92mPASSED[0m case_text_equals_ci:2249 shell-command execution sink attack — blocked
+[92mPASSED[0m case_text_equals_ci:2249 predictable temporary-file attack — blocked
+[92mPASSED[0m case_text_equals_ci:2249 symlink file-creation attack — blocked
+[92mPASSED[0m case_text_equals_ci:2249 weak PRNG attack — blocked
+[92mPASSED[0m case_text_contains_ci:2279 unsafe string/input API attack — blocked
+[92mPASSED[0m case_text_contains_ci:2279 unbounded format-write attack — blocked
+[92mPASSED[0m case_text_contains_ci:2279 shell-command execution sink attack — blocked
+[92mPASSED[0m case_text_contains_ci:2279 predictable temporary-file attack — blocked
+[92mPASSED[0m case_text_contains_ci:2279 symlink file-creation attack — blocked
+[92mPASSED[0m case_text_contains_ci:2279 weak PRNG attack — blocked
+[92mPASSED[0m case_trim_text:2312 unsafe string/input API attack — blocked
+[92mPASSED[0m case_trim_text:2312 unbounded format-write attack — blocked
+[92mPASSED[0m case_trim_text:2312 shell-command execution sink attack — blocked
+[92mPASSED[0m case_trim_text:2312 predictable temporary-file attack — blocked
+[92mPASSED[0m case_trim_text:2312 symlink file-creation attack — blocked
+[92mPASSED[0m case_trim_text:2312 weak PRNG attack — blocked
+[92mPASSED[0m case_case_option_exists:2342 unsafe string/input API attack — blocked
+[92mPASSED[0m case_case_option_exists:2342 unbounded format-write attack — blocked
+[92mPASSED[0m case_case_option_exists:2342 shell-command execution sink attack — blocked
+[92mPASSED[0m case_case_option_exists:2342 predictable temporary-file attack — blocked
+[92mPASSED[0m case_case_option_exists:2342 symlink file-creation attack — blocked
+[92mPASSED[0m case_case_option_exists:2342 weak PRNG attack — blocked
+[92mPASSED[0m case_add_case_option:2364 unsafe string/input API attack — blocked
+[92mPASSED[0m case_add_case_option:2364 unbounded format-write attack — blocked
+[92mPASSED[0m case_add_case_option:2364 shell-command execution sink attack — blocked
+[92mPASSED[0m case_add_case_option:2364 predictable temporary-file attack — blocked
+[92mPASSED[0m case_add_case_option:2364 symlink file-creation attack — blocked
+[92mPASSED[0m case_add_case_option:2364 weak PRNG attack — blocked
+[92mPASSED[0m case_scan_case_files:2392 unsafe string/input API attack — blocked
+[92mPASSED[0m case_scan_case_files:2392 unbounded format-write attack — blocked
+[92mPASSED[0m case_scan_case_files:2392 shell-command execution sink attack — blocked
+[92mPASSED[0m case_scan_case_files:2392 predictable temporary-file attack — blocked
+[92mPASSED[0m case_scan_case_files:2392 symlink file-creation attack — blocked
+[92mPASSED[0m case_scan_case_files:2392 weak PRNG attack — blocked
+[92mPASSED[0m case_build_case_matches:2446 unsafe string/input API attack — blocked
+[92mPASSED[0m case_build_case_matches:2446 unbounded format-write attack — blocked
+[92mPASSED[0m case_build_case_matches:2446 shell-command execution sink attack — blocked
+[92mPASSED[0m case_build_case_matches:2446 predictable temporary-file attack — blocked
+[92mPASSED[0m case_build_case_matches:2446 symlink file-creation attack — blocked
+[92mPASSED[0m case_build_case_matches:2446 weak PRNG attack — blocked
+[92mPASSED[0m case_build_country_matches:2471 unsafe string/input API attack — blocked
+[92mPASSED[0m case_build_country_matches:2471 unbounded format-write attack — blocked
+[92mPASSED[0m case_build_country_matches:2471 shell-command execution sink attack — blocked
+[92mPASSED[0m case_build_country_matches:2471 predictable temporary-file attack — blocked
+[92mPASSED[0m case_build_country_matches:2471 symlink file-creation attack — blocked
+[92mPASSED[0m case_build_country_matches:2471 weak PRNG attack — blocked
+[92mPASSED[0m case_scan_users:2497 unsafe string/input API attack — blocked
+[92mPASSED[0m case_scan_users:2497 unbounded format-write attack — blocked
+[92mPASSED[0m case_scan_users:2497 shell-command execution sink attack — blocked
+[92mPASSED[0m case_scan_users:2497 predictable temporary-file attack — blocked
+[92mPASSED[0m case_scan_users:2497 symlink file-creation attack — blocked
+[92mPASSED[0m case_scan_users:2497 weak PRNG attack — blocked
+[92mPASSED[0m case_build_user_matches:2526 unsafe string/input API attack — blocked
+[92mPASSED[0m case_build_user_matches:2526 unbounded format-write attack — blocked
+[92mPASSED[0m case_build_user_matches:2526 shell-command execution sink attack — blocked
+[92mPASSED[0m case_build_user_matches:2526 predictable temporary-file attack — blocked
+[92mPASSED[0m case_build_user_matches:2526 symlink file-creation attack — blocked
+[92mPASSED[0m case_build_user_matches:2526 weak PRNG attack — blocked
+[92mPASSED[0m case_clamp_user_scroll:2552 unsafe string/input API attack — blocked
+[92mPASSED[0m case_clamp_user_scroll:2552 unbounded format-write attack — blocked
+[92mPASSED[0m case_clamp_user_scroll:2552 shell-command execution sink attack — blocked
+[92mPASSED[0m case_clamp_user_scroll:2552 predictable temporary-file attack — blocked
+[92mPASSED[0m case_clamp_user_scroll:2552 symlink file-creation attack — blocked
+[92mPASSED[0m case_clamp_user_scroll:2552 weak PRNG attack — blocked
+[92mPASSED[0m case_select_user_option:2581 unsafe string/input API attack — blocked
+[92mPASSED[0m case_select_user_option:2581 unbounded format-write attack — blocked
+[92mPASSED[0m case_select_user_option:2581 shell-command execution sink attack — blocked
+[92mPASSED[0m case_select_user_option:2581 predictable temporary-file attack — blocked
+[92mPASSED[0m case_select_user_option:2581 symlink file-creation attack — blocked
+[92mPASSED[0m case_select_user_option:2581 weak PRNG attack — blocked
+[92mPASSED[0m case_select_case_option:2610 unsafe string/input API attack — blocked
+[92mPASSED[0m case_select_case_option:2610 unbounded format-write attack — blocked
+[92mPASSED[0m case_select_case_option:2610 shell-command execution sink attack — blocked
+[92mPASSED[0m case_select_case_option:2610 predictable temporary-file attack — blocked
+[92mPASSED[0m case_select_case_option:2610 symlink file-creation attack — blocked
+[92mPASSED[0m case_select_case_option:2610 weak PRNG attack — blocked
+[92mPASSED[0m case_select_country_option:2636 unsafe string/input API attack — blocked
+[92mPASSED[0m case_select_country_option:2636 unbounded format-write attack — blocked
+[92mPASSED[0m case_select_country_option:2636 shell-command execution sink attack — blocked
+[92mPASSED[0m case_select_country_option:2636 predictable temporary-file attack — blocked
+[92mPASSED[0m case_select_country_option:2636 symlink file-creation attack — blocked
+[92mPASSED[0m case_select_country_option:2636 weak PRNG attack — blocked
+[92mPASSED[0m case_parse_block_line:2662 unsafe string/input API attack — blocked
+[92mPASSED[0m case_parse_block_line:2662 unbounded format-write attack — blocked
+[92mPASSED[0m case_parse_block_line:2662 shell-command execution sink attack — blocked
+[92mPASSED[0m case_parse_block_line:2662 predictable temporary-file attack — blocked
+[92mPASSED[0m case_parse_block_line:2662 symlink file-creation attack — blocked
+[92mPASSED[0m case_parse_block_line:2662 weak PRNG attack — blocked
+[92mPASSED[0m case_parse_link_line:2791 unsafe string/input API attack — blocked
+[92mPASSED[0m case_parse_link_line:2791 unbounded format-write attack — blocked
+[92mPASSED[0m case_parse_link_line:2791 shell-command execution sink attack — blocked
+[92mPASSED[0m case_parse_link_line:2791 predictable temporary-file attack — blocked
+[92mPASSED[0m case_parse_link_line:2791 symlink file-creation attack — blocked
+[92mPASSED[0m case_parse_link_line:2791 weak PRNG attack — blocked
+[92mPASSED[0m case_load_stream:2829 unsafe string/input API attack — blocked
+[92mPASSED[0m case_load_stream:2829 unbounded format-write attack — blocked
+[92mPASSED[0m case_load_stream:2829 shell-command execution sink attack — blocked
+[92mPASSED[0m case_load_stream:2829 predictable temporary-file attack — blocked
+[92mPASSED[0m case_load_stream:2829 symlink file-creation attack — blocked
+[92mPASSED[0m case_load_stream:2829 weak PRNG attack — blocked
+[92mPASSED[0m case_load_current_file:2918 unsafe string/input API attack — blocked
+[92mPASSED[0m case_load_current_file:2918 unbounded format-write attack — blocked
+[92mPASSED[0m case_load_current_file:2918 shell-command execution sink attack — blocked
+[92mPASSED[0m case_load_current_file:2918 predictable temporary-file attack — blocked
+[92mPASSED[0m case_load_current_file:2918 symlink file-creation attack — blocked
+[92mPASSED[0m case_load_current_file:2918 weak PRNG attack — blocked
+[92mPASSED[0m case_load:2978 unsafe string/input API attack — blocked
+[92mPASSED[0m case_load:2978 unbounded format-write attack — blocked
+[92mPASSED[0m case_load:2978 shell-command execution sink attack — blocked
+[92mPASSED[0m case_load:2978 predictable temporary-file attack — blocked
+[92mPASSED[0m case_load:2978 symlink file-creation attack — blocked
+[92mPASSED[0m case_load:2978 weak PRNG attack — blocked
+[92mPASSED[0m case_add_block_typed:2997 unsafe string/input API attack — blocked
+[92mPASSED[0m case_add_block_typed:2997 unbounded format-write attack — blocked
+[92mPASSED[0m case_add_block_typed:2997 shell-command execution sink attack — blocked
+[92mPASSED[0m case_add_block_typed:2997 predictable temporary-file attack — blocked
+[92mPASSED[0m case_add_block_typed:2997 symlink file-creation attack — blocked
+[92mPASSED[0m case_add_block_typed:2997 weak PRNG attack — blocked
+[92mPASSED[0m case_add_block:3058 unsafe string/input API attack — blocked
+[92mPASSED[0m case_add_block:3058 unbounded format-write attack — blocked
+[92mPASSED[0m case_add_block:3058 shell-command execution sink attack — blocked
+[92mPASSED[0m case_add_block:3058 predictable temporary-file attack — blocked
+[92mPASSED[0m case_add_block:3058 symlink file-creation attack — blocked
+[92mPASSED[0m case_add_block:3058 weak PRNG attack — blocked
+[92mPASSED[0m case_duplicate_selected_block:3067 unsafe string/input API attack — blocked
+[92mPASSED[0m case_duplicate_selected_block:3067 unbounded format-write attack — blocked
+[92mPASSED[0m case_duplicate_selected_block:3067 shell-command execution sink attack — blocked
+[92mPASSED[0m case_duplicate_selected_block:3067 predictable temporary-file attack — blocked
+[92mPASSED[0m case_duplicate_selected_block:3067 symlink file-creation attack — blocked
+[92mPASSED[0m case_duplicate_selected_block:3067 weak PRNG attack — blocked
+[92mPASSED[0m case_link_exists:3184 unsafe string/input API attack — blocked
+[92mPASSED[0m case_link_exists:3184 unbounded format-write attack — blocked
+[92mPASSED[0m case_link_exists:3184 shell-command execution sink attack — blocked
+[92mPASSED[0m case_link_exists:3184 predictable temporary-file attack — blocked
+[92mPASSED[0m case_link_exists:3184 symlink file-creation attack — blocked
+[92mPASSED[0m case_link_exists:3184 weak PRNG attack — blocked
+[92mPASSED[0m case_add_link:3201 unsafe string/input API attack — blocked
+[92mPASSED[0m case_add_link:3201 unbounded format-write attack — blocked
+[92mPASSED[0m case_add_link:3201 shell-command execution sink attack — blocked
+[92mPASSED[0m case_add_link:3201 predictable temporary-file attack — blocked
+[92mPASSED[0m case_add_link:3201 symlink file-creation attack — blocked
+[92mPASSED[0m case_add_link:3201 weak PRNG attack — blocked
+[92mPASSED[0m case_id_is_marked_for_removal:3248 unsafe string/input API attack — blocked
+[92mPASSED[0m case_id_is_marked_for_removal:3248 unbounded format-write attack — blocked
+[92mPASSED[0m case_id_is_marked_for_removal:3248 shell-command execution sink attack — blocked
+[92mPASSED[0m case_id_is_marked_for_removal:3248 predictable temporary-file attack — blocked
+[92mPASSED[0m case_id_is_marked_for_removal:3248 symlink file-creation attack — blocked
+[92mPASSED[0m case_id_is_marked_for_removal:3248 weak PRNG attack — blocked
+[92mPASSED[0m case_delete_selected:3265 unsafe string/input API attack — blocked
+[92mPASSED[0m case_delete_selected:3265 unbounded format-write attack — blocked
+[92mPASSED[0m case_delete_selected:3265 shell-command execution sink attack — blocked
+[92mPASSED[0m case_delete_selected:3265 predictable temporary-file attack — blocked
+[92mPASSED[0m case_delete_selected:3265 symlink file-creation attack — blocked
+[92mPASSED[0m case_delete_selected:3265 weak PRNG attack — blocked
+[92mPASSED[0m case_selected_field_text:3359 unsafe string/input API attack — blocked
+[92mPASSED[0m case_selected_field_text:3359 unbounded format-write attack — blocked
+[92mPASSED[0m case_selected_field_text:3359 shell-command execution sink attack — blocked
+[92mPASSED[0m case_selected_field_text:3359 predictable temporary-file attack — blocked
+[92mPASSED[0m case_selected_field_text:3359 symlink file-creation attack — blocked
+[92mPASSED[0m case_selected_field_text:3359 weak PRNG attack — blocked
+[92mPASSED[0m case_field_max_len:3434 unsafe string/input API attack — blocked
+[92mPASSED[0m case_field_max_len:3434 unbounded format-write attack — blocked
+[92mPASSED[0m case_field_max_len:3434 shell-command execution sink attack — blocked
+[92mPASSED[0m case_field_max_len:3434 predictable temporary-file attack — blocked
+[92mPASSED[0m case_field_max_len:3434 symlink file-creation attack — blocked
+[92mPASSED[0m case_field_max_len:3434 weak PRNG attack — blocked
+[92mPASSED[0m case_field_storage_size:3472 unsafe string/input API attack — blocked
+[92mPASSED[0m case_field_storage_size:3472 unbounded format-write attack — blocked
+[92mPASSED[0m case_field_storage_size:3472 shell-command execution sink attack — blocked
+[92mPASSED[0m case_field_storage_size:3472 predictable temporary-file attack — blocked
+[92mPASSED[0m case_field_storage_size:3472 symlink file-creation attack — blocked
+[92mPASSED[0m case_field_storage_size:3472 weak PRNG attack — blocked
+[92mPASSED[0m case_text_allowed_for_field:3504 unsafe string/input API attack — blocked
+[92mPASSED[0m case_text_allowed_for_field:3504 unbounded format-write attack — blocked
+[92mPASSED[0m case_text_allowed_for_field:3504 shell-command execution sink attack — blocked
+[92mPASSED[0m case_text_allowed_for_field:3504 predictable temporary-file attack — blocked
+[92mPASSED[0m case_text_allowed_for_field:3504 symlink file-creation attack — blocked
+[92mPASSED[0m case_text_allowed_for_field:3504 weak PRNG attack — blocked
+[92mPASSED[0m case_description_range_width:3536 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_range_width:3536 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_range_width:3536 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_range_width:3536 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_range_width:3536 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_range_width:3536 weak PRNG attack — blocked
+[92mPASSED[0m case_auto_wrap_description_text:3570 unsafe string/input API attack — blocked
+[92mPASSED[0m case_auto_wrap_description_text:3570 unbounded format-write attack — blocked
+[92mPASSED[0m case_auto_wrap_description_text:3570 shell-command execution sink attack — blocked
+[92mPASSED[0m case_auto_wrap_description_text:3570 predictable temporary-file attack — blocked
+[92mPASSED[0m case_auto_wrap_description_text:3570 symlink file-creation attack — blocked
+[92mPASSED[0m case_auto_wrap_description_text:3570 weak PRNG attack — blocked
+[92mPASSED[0m case_insert_text:3704 unsafe string/input API attack — blocked
+[92mPASSED[0m case_insert_text:3704 unbounded format-write attack — blocked
+[92mPASSED[0m case_insert_text:3704 shell-command execution sink attack — blocked
+[92mPASSED[0m case_insert_text:3704 predictable temporary-file attack — blocked
+[92mPASSED[0m case_insert_text:3704 symlink file-creation attack — blocked
+[92mPASSED[0m case_insert_text:3704 weak PRNG attack — blocked
+[92mPASSED[0m case_backspace:3781 unsafe string/input API attack — blocked
+[92mPASSED[0m case_backspace:3781 unbounded format-write attack — blocked
+[92mPASSED[0m case_backspace:3781 shell-command execution sink attack — blocked
+[92mPASSED[0m case_backspace:3781 predictable temporary-file attack — blocked
+[92mPASSED[0m case_backspace:3781 symlink file-creation attack — blocked
+[92mPASSED[0m case_backspace:3781 weak PRNG attack — blocked
+[92mPASSED[0m case_delete_at_cursor:3817 unsafe string/input API attack — blocked
+[92mPASSED[0m case_delete_at_cursor:3817 unbounded format-write attack — blocked
+[92mPASSED[0m case_delete_at_cursor:3817 shell-command execution sink attack — blocked
+[92mPASSED[0m case_delete_at_cursor:3817 predictable temporary-file attack — blocked
+[92mPASSED[0m case_delete_at_cursor:3817 symlink file-creation attack — blocked
+[92mPASSED[0m case_delete_at_cursor:3817 weak PRNG attack — blocked
+[92mPASSED[0m case_description_clear_selection:3852 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_clear_selection:3852 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_clear_selection:3852 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_clear_selection:3852 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_clear_selection:3852 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_clear_selection:3852 weak PRNG attack — blocked
+[92mPASSED[0m case_description_selection_range:3863 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_selection_range:3863 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_selection_range:3863 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_selection_range:3863 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_selection_range:3863 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_selection_range:3863 weak PRNG attack — blocked
+[92mPASSED[0m case_description_delete_selection:3932 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_delete_selection:3932 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_delete_selection:3932 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_delete_selection:3932 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_delete_selection:3932 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_delete_selection:3932 weak PRNG attack — blocked
+[92mPASSED[0m case_description_start_selection_at_cursor:3973 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_start_selection_at_cursor:3973 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_start_selection_at_cursor:3973 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_start_selection_at_cursor:3973 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_start_selection_at_cursor:3973 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_start_selection_at_cursor:3973 weak PRNG attack — blocked
+[92mPASSED[0m case_description_update_selection_to_cursor:4000 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_update_selection_to_cursor:4000 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_update_selection_to_cursor:4000 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_update_selection_to_cursor:4000 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_update_selection_to_cursor:4000 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_update_selection_to_cursor:4000 weak PRNG attack — blocked
+[92mPASSED[0m case_description_build_lines:4031 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_build_lines:4031 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_build_lines:4031 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_build_lines:4031 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_build_lines:4031 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_build_lines:4031 weak PRNG attack — blocked
+[92mPASSED[0m case_description_move_horizontal:4069 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_move_horizontal:4069 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_move_horizontal:4069 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_move_horizontal:4069 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_move_horizontal:4069 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_move_horizontal:4069 weak PRNG attack — blocked
+[92mPASSED[0m case_description_move_vertical:4104 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_move_vertical:4104 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_move_vertical:4104 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_move_vertical:4104 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_move_vertical:4104 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_move_vertical:4104 weak PRNG attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse:4137 unsafe string/input API attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse:4137 unbounded format-write attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse:4137 shell-command execution sink attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse:4137 predictable temporary-file attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse:4137 symlink file-creation attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse:4137 weak PRNG attack — blocked
+[92mPASSED[0m case_cycle_status:4230 unsafe string/input API attack — blocked
+[92mPASSED[0m case_cycle_status:4230 unbounded format-write attack — blocked
+[92mPASSED[0m case_cycle_status:4230 shell-command execution sink attack — blocked
+[92mPASSED[0m case_cycle_status:4230 predictable temporary-file attack — blocked
+[92mPASSED[0m case_cycle_status:4230 symlink file-creation attack — blocked
+[92mPASSED[0m case_cycle_status:4230 weak PRNG attack — blocked
+[92mPASSED[0m case_days_in_month:4257 unsafe string/input API attack — blocked
+[92mPASSED[0m case_days_in_month:4257 unbounded format-write attack — blocked
+[92mPASSED[0m case_days_in_month:4257 shell-command execution sink attack — blocked
+[92mPASSED[0m case_days_in_month:4257 predictable temporary-file attack — blocked
+[92mPASSED[0m case_days_in_month:4257 symlink file-creation attack — blocked
+[92mPASSED[0m case_days_in_month:4257 weak PRNG attack — blocked
+[92mPASSED[0m case_first_weekday:4280 unsafe string/input API attack — blocked
+[92mPASSED[0m case_first_weekday:4280 unbounded format-write attack — blocked
+[92mPASSED[0m case_first_weekday:4280 shell-command execution sink attack — blocked
+[92mPASSED[0m case_first_weekday:4280 predictable temporary-file attack — blocked
+[92mPASSED[0m case_first_weekday:4280 symlink file-creation attack — blocked
+[92mPASSED[0m case_first_weekday:4280 weak PRNG attack — blocked
+[92mPASSED[0m case_today_month_year:4301 unsafe string/input API attack — blocked
+[92mPASSED[0m case_today_month_year:4301 unbounded format-write attack — blocked
+[92mPASSED[0m case_today_month_year:4301 shell-command execution sink attack — blocked
+[92mPASSED[0m case_today_month_year:4301 predictable temporary-file attack — blocked
+[92mPASSED[0m case_today_month_year:4301 symlink file-creation attack — blocked
+[92mPASSED[0m case_today_month_year:4301 weak PRNG attack — blocked
+[92mPASSED[0m case_parse_mmddyyyy:4343 unsafe string/input API attack — blocked
+[92mPASSED[0m case_parse_mmddyyyy:4343 unbounded format-write attack — blocked
+[92mPASSED[0m case_parse_mmddyyyy:4343 shell-command execution sink attack — blocked
+[92mPASSED[0m case_parse_mmddyyyy:4343 predictable temporary-file attack — blocked
+[92mPASSED[0m case_parse_mmddyyyy:4343 symlink file-creation attack — blocked
+[92mPASSED[0m case_parse_mmddyyyy:4343 weak PRNG attack — blocked
+[92mPASSED[0m case_open_calendar_for_field:4446 unsafe string/input API attack — blocked
+[92mPASSED[0m case_open_calendar_for_field:4446 unbounded format-write attack — blocked
+[92mPASSED[0m case_open_calendar_for_field:4446 shell-command execution sink attack — blocked
+[92mPASSED[0m case_open_calendar_for_field:4446 predictable temporary-file attack — blocked
+[92mPASSED[0m case_open_calendar_for_field:4446 symlink file-creation attack — blocked
+[92mPASSED[0m case_open_calendar_for_field:4446 weak PRNG attack — blocked
+[92mPASSED[0m case_shift_calendar_month:4479 unsafe string/input API attack — blocked
+[92mPASSED[0m case_shift_calendar_month:4479 unbounded format-write attack — blocked
+[92mPASSED[0m case_shift_calendar_month:4479 shell-command execution sink attack — blocked
+[92mPASSED[0m case_shift_calendar_month:4479 predictable temporary-file attack — blocked
+[92mPASSED[0m case_shift_calendar_month:4479 symlink file-creation attack — blocked
+[92mPASSED[0m case_shift_calendar_month:4479 weak PRNG attack — blocked
+[92mPASSED[0m case_set_calendar_day:4496 unsafe string/input API attack — blocked
+[92mPASSED[0m case_set_calendar_day:4496 unbounded format-write attack — blocked
+[92mPASSED[0m case_set_calendar_day:4496 shell-command execution sink attack — blocked
+[92mPASSED[0m case_set_calendar_day:4496 predictable temporary-file attack — blocked
+[92mPASSED[0m case_set_calendar_day:4496 symlink file-creation attack — blocked
+[92mPASSED[0m case_set_calendar_day:4496 weak PRNG attack — blocked
+[92mPASSED[0m case_paste_description_from_clipboard:4546 unsafe string/input API attack — blocked
+[92mPASSED[0m case_paste_description_from_clipboard:4546 unbounded format-write attack — blocked
+[92mPASSED[0m case_paste_description_from_clipboard:4546 shell-command execution sink attack — blocked
+[92mPASSED[0m case_paste_description_from_clipboard:4546 predictable temporary-file attack — blocked
+[92mPASSED[0m case_paste_description_from_clipboard:4546 symlink file-creation attack — blocked
+[92mPASSED[0m case_paste_description_from_clipboard:4546 weak PRNG attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_enter_mode:4569 unsafe string/input API attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_enter_mode:4569 unbounded format-write attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_enter_mode:4569 shell-command execution sink attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_enter_mode:4569 predictable temporary-file attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_enter_mode:4569 symlink file-creation attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_enter_mode:4569 weak PRNG attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_exit_mode:4587 unsafe string/input API attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_exit_mode:4587 unbounded format-write attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_exit_mode:4587 shell-command execution sink attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_exit_mode:4587 predictable temporary-file attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_exit_mode:4587 symlink file-creation attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_exit_mode:4587 weak PRNG attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_is_text_entry_active:4616 unsafe string/input API attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_is_text_entry_active:4616 unbounded format-write attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_is_text_entry_active:4616 shell-command execution sink attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_is_text_entry_active:4616 predictable temporary-file attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_is_text_entry_active:4616 symlink file-creation attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_is_text_entry_active:4616 weak PRNG attack — blocked
+[92mPASSED[0m case_toolbar_rects:4629 unsafe string/input API attack — blocked
+[92mPASSED[0m case_toolbar_rects:4629 unbounded format-write attack — blocked
+[92mPASSED[0m case_toolbar_rects:4629 shell-command execution sink attack — blocked
+[92mPASSED[0m case_toolbar_rects:4629 predictable temporary-file attack — blocked
+[92mPASSED[0m case_toolbar_rects:4629 symlink file-creation attack — blocked
+[92mPASSED[0m case_toolbar_rects:4629 weak PRNG attack — blocked
+[92mPASSED[0m case_editor_field_rects:4704 unsafe string/input API attack — blocked
+[92mPASSED[0m case_editor_field_rects:4704 unbounded format-write attack — blocked
+[92mPASSED[0m case_editor_field_rects:4704 shell-command execution sink attack — blocked
+[92mPASSED[0m case_editor_field_rects:4704 predictable temporary-file attack — blocked
+[92mPASSED[0m case_editor_field_rects:4704 symlink file-creation attack — blocked
+[92mPASSED[0m case_editor_field_rects:4704 weak PRNG attack — blocked
+[92mPASSED[0m case_field_hit_rect:4774 unsafe string/input API attack — blocked
+[92mPASSED[0m case_field_hit_rect:4774 unbounded format-write attack — blocked
+[92mPASSED[0m case_field_hit_rect:4774 shell-command execution sink attack — blocked
+[92mPASSED[0m case_field_hit_rect:4774 predictable temporary-file attack — blocked
+[92mPASSED[0m case_field_hit_rect:4774 symlink file-creation attack — blocked
+[92mPASSED[0m case_field_hit_rect:4774 weak PRNG attack — blocked
+[92mPASSED[0m case_description_open_button_rect:4784 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_open_button_rect:4784 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_open_button_rect:4784 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_open_button_rect:4784 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_open_button_rect:4784 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_open_button_rect:4784 weak PRNG attack — blocked
+[92mPASSED[0m case_status_dropdown_rect:4794 unsafe string/input API attack — blocked
+[92mPASSED[0m case_status_dropdown_rect:4794 unbounded format-write attack — blocked
+[92mPASSED[0m case_status_dropdown_rect:4794 shell-command execution sink attack — blocked
+[92mPASSED[0m case_status_dropdown_rect:4794 predictable temporary-file attack — blocked
+[92mPASSED[0m case_status_dropdown_rect:4794 symlink file-creation attack — blocked
+[92mPASSED[0m case_status_dropdown_rect:4794 weak PRNG attack — blocked
+[92mPASSED[0m case_calendar_rect:4805 unsafe string/input API attack — blocked
+[92mPASSED[0m case_calendar_rect:4805 unbounded format-write attack — blocked
+[92mPASSED[0m case_calendar_rect:4805 shell-command execution sink attack — blocked
+[92mPASSED[0m case_calendar_rect:4805 predictable temporary-file attack — blocked
+[92mPASSED[0m case_calendar_rect:4805 symlink file-creation attack — blocked
+[92mPASSED[0m case_calendar_rect:4805 weak PRNG attack — blocked
+[92mPASSED[0m case_source_popup_rect:4815 unsafe string/input API attack — blocked
+[92mPASSED[0m case_source_popup_rect:4815 unbounded format-write attack — blocked
+[92mPASSED[0m case_source_popup_rect:4815 shell-command execution sink attack — blocked
+[92mPASSED[0m case_source_popup_rect:4815 predictable temporary-file attack — blocked
+[92mPASSED[0m case_source_popup_rect:4815 symlink file-creation attack — blocked
+[92mPASSED[0m case_source_popup_rect:4815 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_popup_rect:4861 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_popup_rect:4861 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_popup_rect:4861 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_popup_rect:4861 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_popup_rect:4861 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_popup_rect:4861 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_input_rect:4907 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_input_rect:4907 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_input_rect:4907 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_input_rect:4907 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_input_rect:4907 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_input_rect:4907 weak PRNG attack — blocked
+[92mPASSED[0m case_description_popup_rect:4931 unsafe string/input API attack — blocked
+[92mPASSED[0m case_description_popup_rect:4931 unbounded format-write attack — blocked
+[92mPASSED[0m case_description_popup_rect:4931 shell-command execution sink attack — blocked
+[92mPASSED[0m case_description_popup_rect:4931 predictable temporary-file attack — blocked
+[92mPASSED[0m case_description_popup_rect:4931 symlink file-creation attack — blocked
+[92mPASSED[0m case_description_popup_rect:4931 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_matches:4977 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_matches:4977 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_matches:4977 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_matches:4977 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_matches:4977 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_matches:4977 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_filtered_count:5011 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_filtered_count:5011 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_filtered_count:5011 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_filtered_count:5011 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_filtered_count:5011 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_filtered_count:5011 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_filtered_index_at:5029 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_filtered_index_at:5029 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_filtered_index_at:5029 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_filtered_index_at:5029 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_filtered_index_at:5029 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_filtered_index_at:5029 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_clamp_scroll:5060 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_clamp_scroll:5060 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_clamp_scroll:5060 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_clamp_scroll:5060 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_clamp_scroll:5060 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_clamp_scroll:5060 weak PRNG attack — blocked
+[92mPASSED[0m case_close_file_search_menu:5089 unsafe string/input API attack — blocked
+[92mPASSED[0m case_close_file_search_menu:5089 unbounded format-write attack — blocked
+[92mPASSED[0m case_close_file_search_menu:5089 shell-command execution sink attack — blocked
+[92mPASSED[0m case_close_file_search_menu:5089 predictable temporary-file attack — blocked
+[92mPASSED[0m case_close_file_search_menu:5089 symlink file-creation attack — blocked
+[92mPASSED[0m case_close_file_search_menu:5089 weak PRNG attack — blocked
+[92mPASSED[0m case_open_file_search_menu:5100 unsafe string/input API attack — blocked
+[92mPASSED[0m case_open_file_search_menu:5100 unbounded format-write attack — blocked
+[92mPASSED[0m case_open_file_search_menu:5100 shell-command execution sink attack — blocked
+[92mPASSED[0m case_open_file_search_menu:5100 predictable temporary-file attack — blocked
+[92mPASSED[0m case_open_file_search_menu:5100 symlink file-creation attack — blocked
+[92mPASSED[0m case_open_file_search_menu:5100 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_select_index:5131 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_select_index:5131 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_select_index:5131 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_select_index:5131 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_select_index:5131 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_select_index:5131 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_insert_text:5166 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_insert_text:5166 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_insert_text:5166 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_insert_text:5166 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_insert_text:5166 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_insert_text:5166 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_backspace:5216 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_backspace:5216 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_backspace:5216 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_backspace:5216 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_backspace:5216 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_backspace:5216 weak PRNG attack — blocked
+[92mPASSED[0m case_file_search_delete:5242 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_search_delete:5242 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_search_delete:5242 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_search_delete:5242 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_search_delete:5242 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_search_delete:5242 weak PRNG attack — blocked
+[92mPASSED[0m case_file_name_insert_text:5267 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_name_insert_text:5267 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_name_insert_text:5267 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_name_insert_text:5267 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_name_insert_text:5267 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_name_insert_text:5267 weak PRNG attack — blocked
+[92mPASSED[0m case_file_name_backspace:5333 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_name_backspace:5333 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_name_backspace:5333 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_name_backspace:5333 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_name_backspace:5333 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_name_backspace:5333 weak PRNG attack — blocked
+[92mPASSED[0m case_file_name_delete:5357 unsafe string/input API attack — blocked
+[92mPASSED[0m case_file_name_delete:5357 unbounded format-write attack — blocked
+[92mPASSED[0m case_file_name_delete:5357 shell-command execution sink attack — blocked
+[92mPASSED[0m case_file_name_delete:5357 predictable temporary-file attack — blocked
+[92mPASSED[0m case_file_name_delete:5357 symlink file-creation attack — blocked
+[92mPASSED[0m case_file_name_delete:5357 weak PRNG attack — blocked
+[92mPASSED[0m case_handle_file_search_event:5380 unsafe string/input API attack — blocked
+[92mPASSED[0m case_handle_file_search_event:5380 unbounded format-write attack — blocked
+[92mPASSED[0m case_handle_file_search_event:5380 shell-command execution sink attack — blocked
+[92mPASSED[0m case_handle_file_search_event:5380 predictable temporary-file attack — blocked
+[92mPASSED[0m case_handle_file_search_event:5380 symlink file-creation attack — blocked
+[92mPASSED[0m case_handle_file_search_event:5380 weak PRNG attack — blocked
+[92mPASSED[0m case_clamp_description_scroll:5598 unsafe string/input API attack — blocked
+[92mPASSED[0m case_clamp_description_scroll:5598 unbounded format-write attack — blocked
+[92mPASSED[0m case_clamp_description_scroll:5598 shell-command execution sink attack — blocked
+[92mPASSED[0m case_clamp_description_scroll:5598 predictable temporary-file attack — blocked
+[92mPASSED[0m case_clamp_description_scroll:5598 symlink file-creation attack — blocked
+[92mPASSED[0m case_clamp_description_scroll:5598 weak PRNG attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse_scrolled:5637 unsafe string/input API attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse_scrolled:5637 unbounded format-write attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse_scrolled:5637 shell-command execution sink attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse_scrolled:5637 predictable temporary-file attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse_scrolled:5637 symlink file-creation attack — blocked
+[92mPASSED[0m case_set_description_cursor_from_mouse_scrolled:5637 weak PRNG attack — blocked
+[92mPASSED[0m case_source_name_matches_search:5735 unsafe string/input API attack — blocked
+[92mPASSED[0m case_source_name_matches_search:5735 unbounded format-write attack — blocked
+[92mPASSED[0m case_source_name_matches_search:5735 shell-command execution sink attack — blocked
+[92mPASSED[0m case_source_name_matches_search:5735 predictable temporary-file attack — blocked
+[92mPASSED[0m case_source_name_matches_search:5735 symlink file-creation attack — blocked
+[92mPASSED[0m case_source_name_matches_search:5735 weak PRNG attack — blocked
+[92mPASSED[0m case_source_filtered_count:5770 unsafe string/input API attack — blocked
+[92mPASSED[0m case_source_filtered_count:5770 unbounded format-write attack — blocked
+[92mPASSED[0m case_source_filtered_count:5770 shell-command execution sink attack — blocked
+[92mPASSED[0m case_source_filtered_count:5770 predictable temporary-file attack — blocked
+[92mPASSED[0m case_source_filtered_count:5770 symlink file-creation attack — blocked
+[92mPASSED[0m case_source_filtered_count:5770 weak PRNG attack — blocked
+[92mPASSED[0m case_source_filtered_index_at:5788 unsafe string/input API attack — blocked
+[92mPASSED[0m case_source_filtered_index_at:5788 unbounded format-write attack — blocked
+[92mPASSED[0m case_source_filtered_index_at:5788 shell-command execution sink attack — blocked
+[92mPASSED[0m case_source_filtered_index_at:5788 predictable temporary-file attack — blocked
+[92mPASSED[0m case_source_filtered_index_at:5788 symlink file-creation attack — blocked
+[92mPASSED[0m case_source_filtered_index_at:5788 weak PRNG attack — blocked
+[92mPASSED[0m case_source_search_rect:5819 unsafe string/input API attack — blocked
+[92mPASSED[0m case_source_search_rect:5819 unbounded format-write attack — blocked
+[92mPASSED[0m case_source_search_rect:5819 shell-command execution sink attack — blocked
+[92mPASSED[0m case_source_search_rect:5819 predictable temporary-file attack — blocked
+[92mPASSED[0m case_source_search_rect:5819 symlink file-creation attack — blocked
+[92mPASSED[0m case_source_search_rect:5819 weak PRNG attack — blocked
+[92mPASSED[0m case_clamp_source_scroll:5843 unsafe string/input API attack — blocked
+[92mPASSED[0m case_clamp_source_scroll:5843 unbounded format-write attack — blocked
+[92mPASSED[0m case_clamp_source_scroll:5843 shell-command execution sink attack — blocked
+[92mPASSED[0m case_clamp_source_scroll:5843 predictable temporary-file attack — blocked
+[92mPASSED[0m case_clamp_source_scroll:5843 symlink file-creation attack — blocked
+[92mPASSED[0m case_clamp_source_scroll:5843 weak PRNG attack — blocked
+[92mPASSED[0m case_source_short_text:5872 unsafe string/input API attack — blocked
+[92mPASSED[0m case_source_short_text:5872 unbounded format-write attack — blocked
+[92mPASSED[0m case_source_short_text:5872 shell-command execution sink attack — blocked
+[92mPASSED[0m case_source_short_text:5872 predictable temporary-file attack — blocked
+[92mPASSED[0m case_source_short_text:5872 symlink file-creation attack — blocked
+[92mPASSED[0m case_source_short_text:5872 weak PRNG attack — blocked
+[92mPASSED[0m case_wrap_block_text_two_lines:5947 unsafe string/input API attack — blocked
+[92mPASSED[0m case_wrap_block_text_two_lines:5947 unbounded format-write attack — blocked
+[92mPASSED[0m case_wrap_block_text_two_lines:5947 shell-command execution sink attack — blocked
+[92mPASSED[0m case_wrap_block_text_two_lines:5947 predictable temporary-file attack — blocked
+[92mPASSED[0m case_wrap_block_text_two_lines:5947 symlink file-creation attack — blocked
+[92mPASSED[0m case_wrap_block_text_two_lines:5947 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_source_modal_button:6064 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_source_modal_button:6064 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_source_modal_button:6064 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_source_modal_button:6064 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_source_modal_button:6064 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_source_modal_button:6064 weak PRNG attack — blocked
+[92mPASSED[0m case_close_source_file_search_menu:6089 unsafe string/input API attack — blocked
+[92mPASSED[0m case_close_source_file_search_menu:6089 unbounded format-write attack — blocked
+[92mPASSED[0m case_close_source_file_search_menu:6089 shell-command execution sink attack — blocked
+[92mPASSED[0m case_close_source_file_search_menu:6089 predictable temporary-file attack — blocked
+[92mPASSED[0m case_close_source_file_search_menu:6089 symlink file-creation attack — blocked
+[92mPASSED[0m case_close_source_file_search_menu:6089 weak PRNG attack — blocked
+[92mPASSED[0m case_open_source_file_search_menu:6100 unsafe string/input API attack — blocked
+[92mPASSED[0m case_open_source_file_search_menu:6100 unbounded format-write attack — blocked
+[92mPASSED[0m case_open_source_file_search_menu:6100 shell-command execution sink attack — blocked
+[92mPASSED[0m case_open_source_file_search_menu:6100 predictable temporary-file attack — blocked
+[92mPASSED[0m case_open_source_file_search_menu:6100 symlink file-creation attack — blocked
+[92mPASSED[0m case_open_source_file_search_menu:6100 weak PRNG attack — blocked
+[92mPASSED[0m case_source_file_search_select_index:6124 unsafe string/input API attack — blocked
+[92mPASSED[0m case_source_file_search_select_index:6124 unbounded format-write attack — blocked
+[92mPASSED[0m case_source_file_search_select_index:6124 shell-command execution sink attack — blocked
+[92mPASSED[0m case_source_file_search_select_index:6124 predictable temporary-file attack — blocked
+[92mPASSED[0m case_source_file_search_select_index:6124 symlink file-creation attack — blocked
+[92mPASSED[0m case_source_file_search_select_index:6124 weak PRNG attack — blocked
+[92mPASSED[0m case_handle_source_popup_click:6150 unsafe string/input API attack — blocked
+[92mPASSED[0m case_handle_source_popup_click:6150 unbounded format-write attack — blocked
+[92mPASSED[0m case_handle_source_popup_click:6150 shell-command execution sink attack — blocked
+[92mPASSED[0m case_handle_source_popup_click:6150 predictable temporary-file attack — blocked
+[92mPASSED[0m case_handle_source_popup_click:6150 symlink file-creation attack — blocked
+[92mPASSED[0m case_handle_source_popup_click:6150 weak PRNG attack — blocked
+[92mPASSED[0m case_handle_status_dropdown_click:6220 unsafe string/input API attack — blocked
+[92mPASSED[0m case_handle_status_dropdown_click:6220 unbounded format-write attack — blocked
+[92mPASSED[0m case_handle_status_dropdown_click:6220 shell-command execution sink attack — blocked
+[92mPASSED[0m case_handle_status_dropdown_click:6220 predictable temporary-file attack — blocked
+[92mPASSED[0m case_handle_status_dropdown_click:6220 symlink file-creation attack — blocked
+[92mPASSED[0m case_handle_status_dropdown_click:6220 weak PRNG attack — blocked
+[92mPASSED[0m case_handle_calendar_click:6261 unsafe string/input API attack — blocked
+[92mPASSED[0m case_handle_calendar_click:6261 unbounded format-write attack — blocked
+[92mPASSED[0m case_handle_calendar_click:6261 shell-command execution sink attack — blocked
+[92mPASSED[0m case_handle_calendar_click:6261 predictable temporary-file attack — blocked
+[92mPASSED[0m case_handle_calendar_click:6261 symlink file-creation attack — blocked
+[92mPASSED[0m case_handle_calendar_click:6261 weak PRNG attack — blocked
+[92mPASSED[0m case_case_dropdown_rect:6329 unsafe string/input API attack — blocked
+[92mPASSED[0m case_case_dropdown_rect:6329 unbounded format-write attack — blocked
+[92mPASSED[0m case_case_dropdown_rect:6329 shell-command execution sink attack — blocked
+[92mPASSED[0m case_case_dropdown_rect:6329 predictable temporary-file attack — blocked
+[92mPASSED[0m case_case_dropdown_rect:6329 symlink file-creation attack — blocked
+[92mPASSED[0m case_case_dropdown_rect:6329 weak PRNG attack — blocked
+[92mPASSED[0m case_country_dropdown_rect:6339 unsafe string/input API attack — blocked
+[92mPASSED[0m case_country_dropdown_rect:6339 unbounded format-write attack — blocked
+[92mPASSED[0m case_country_dropdown_rect:6339 shell-command execution sink attack — blocked
+[92mPASSED[0m case_country_dropdown_rect:6339 predictable temporary-file attack — blocked
+[92mPASSED[0m case_country_dropdown_rect:6339 symlink file-creation attack — blocked
+[92mPASSED[0m case_country_dropdown_rect:6339 weak PRNG attack — blocked
+[92mPASSED[0m case_user_dropdown_rect:6349 unsafe string/input API attack — blocked
+[92mPASSED[0m case_user_dropdown_rect:6349 unbounded format-write attack — blocked
+[92mPASSED[0m case_user_dropdown_rect:6349 shell-command execution sink attack — blocked
+[92mPASSED[0m case_user_dropdown_rect:6349 predictable temporary-file attack — blocked
+[92mPASSED[0m case_user_dropdown_rect:6349 symlink file-creation attack — blocked
+[92mPASSED[0m case_user_dropdown_rect:6349 weak PRNG attack — blocked
+[92mPASSED[0m case_handle_case_dropdown_click:6359 unsafe string/input API attack — blocked
+[92mPASSED[0m case_handle_case_dropdown_click:6359 unbounded format-write attack — blocked
+[92mPASSED[0m case_handle_case_dropdown_click:6359 shell-command execution sink attack — blocked
+[92mPASSED[0m case_handle_case_dropdown_click:6359 predictable temporary-file attack — blocked
+[92mPASSED[0m case_handle_case_dropdown_click:6359 symlink file-creation attack — blocked
+[92mPASSED[0m case_handle_case_dropdown_click:6359 weak PRNG attack — blocked
+[92mPASSED[0m case_handle_country_dropdown_click:6419 unsafe string/input API attack — blocked
+[92mPASSED[0m case_handle_country_dropdown_click:6419 unbounded format-write attack — blocked
+[92mPASSED[0m case_handle_country_dropdown_click:6419 shell-command execution sink attack — blocked
+[92mPASSED[0m case_handle_country_dropdown_click:6419 predictable temporary-file attack — blocked
+[92mPASSED[0m case_handle_country_dropdown_click:6419 symlink file-creation attack — blocked
+[92mPASSED[0m case_handle_country_dropdown_click:6419 weak PRNG attack — blocked
+[92mPASSED[0m case_handle_user_dropdown_click:6479 unsafe string/input API attack — blocked
+[92mPASSED[0m case_handle_user_dropdown_click:6479 unbounded format-write attack — blocked
+[92mPASSED[0m case_handle_user_dropdown_click:6479 shell-command execution sink attack — blocked
+[92mPASSED[0m case_handle_user_dropdown_click:6479 predictable temporary-file attack — blocked
+[92mPASSED[0m case_handle_user_dropdown_click:6479 symlink file-creation attack — blocked
+[92mPASSED[0m case_handle_user_dropdown_click:6479 weak PRNG attack — blocked
+[92mPASSED[0m case_clamp_case_scroll:6540 unsafe string/input API attack — blocked
+[92mPASSED[0m case_clamp_case_scroll:6540 unbounded format-write attack — blocked
+[92mPASSED[0m case_clamp_case_scroll:6540 shell-command execution sink attack — blocked
+[92mPASSED[0m case_clamp_case_scroll:6540 predictable temporary-file attack — blocked
+[92mPASSED[0m case_clamp_case_scroll:6540 symlink file-creation attack — blocked
+[92mPASSED[0m case_clamp_case_scroll:6540 weak PRNG attack — blocked
+[92mPASSED[0m case_clamp_country_scroll:6569 unsafe string/input API attack — blocked
+[92mPASSED[0m case_clamp_country_scroll:6569 unbounded format-write attack — blocked
+[92mPASSED[0m case_clamp_country_scroll:6569 shell-command execution sink attack — blocked
+[92mPASSED[0m case_clamp_country_scroll:6569 predictable temporary-file attack — blocked
+[92mPASSED[0m case_clamp_country_scroll:6569 symlink file-creation attack — blocked
+[92mPASSED[0m case_clamp_country_scroll:6569 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_is_document_name:6598 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_is_document_name:6598 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_is_document_name:6598 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_is_document_name:6598 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_is_document_name:6598 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_is_document_name:6598 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_hash:6607 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_hash:6607 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_hash:6607 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_hash:6607 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_hash:6607 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_hash:6607 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_document_name:6624 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_document_name:6624 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_document_name:6624 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_document_name:6624 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_document_name:6624 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_document_name:6624 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_compare:6640 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_compare:6640 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_compare:6640 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_compare:6640 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_compare:6640 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_compare:6640 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_find:6651 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_find:6651 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_find:6651 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_find:6651 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_find:6651 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_find:6651 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_add:6675 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_add:6675 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_add:6675 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_add:6675 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_add:6675 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_add:6675 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_parse_content:6710 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_parse_content:6710 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_parse_content:6710 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_parse_content:6710 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_parse_content:6710 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_parse_content:6710 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_sync_editor:6761 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_sync_editor:6761 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_sync_editor:6761 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_sync_editor:6761 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_sync_editor:6761 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_sync_editor:6761 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_refresh:6785 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_refresh:6785 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_refresh:6785 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_refresh:6785 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_refresh:6785 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_refresh:6785 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_filtered_index_at:6915 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_filtered_index_at:6915 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_filtered_index_at:6915 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_filtered_index_at:6915 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_filtered_index_at:6915 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_filtered_index_at:6915 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_filtered_count:6943 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_filtered_count:6943 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_filtered_count:6943 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_filtered_count:6943 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_filtered_count:6943 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_filtered_count:6943 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_clamp_scroll:6956 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_clamp_scroll:6956 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_clamp_scroll:6956 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_clamp_scroll:6956 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_clamp_scroll:6956 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_clamp_scroll:6956 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_select:6984 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_select:6984 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_select:6984 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_select:6984 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_select:6984 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_select:6984 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_begin_create:7004 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_begin_create:7004 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_begin_create:7004 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_begin_create:7004 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_begin_create:7004 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_begin_create:7004 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_begin_rename:7021 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_begin_rename:7021 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_begin_rename:7021 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_begin_rename:7021 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_begin_rename:7021 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_begin_rename:7021 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_save_document:7039 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_save_document:7039 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_save_document:7039 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_save_document:7039 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_save_document:7039 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_save_document:7039 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_first_csv_field_end:7112 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_first_csv_field_end:7112 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_first_csv_field_end:7112 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_first_csv_field_end:7112 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_first_csv_field_end:7112 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_first_csv_field_end:7112 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_rewrite_classification:7144 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_rewrite_classification:7144 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_rewrite_classification:7144 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_rewrite_classification:7144 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_rewrite_classification:7144 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_rewrite_classification:7144 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_classification_name:7230 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_classification_name:7230 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_classification_name:7230 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_classification_name:7230 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_classification_name:7230 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_classification_name:7230 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_asset_document_name:7261 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_asset_document_name:7261 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_asset_document_name:7261 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_asset_document_name:7261 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_asset_document_name:7261 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_asset_document_name:7261 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_rename_asset:7278 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_rename_asset:7278 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_rename_asset:7278 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_rename_asset:7278 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_rename_asset:7278 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_rename_asset:7278 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_rename_classifications:7332 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_rename_classifications:7332 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_rename_classifications:7332 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_rename_classifications:7332 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_rename_classifications:7332 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_rename_classifications:7332 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_rewrite_graph:7402 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_rewrite_graph:7402 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_rewrite_graph:7402 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_rewrite_graph:7402 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_rewrite_graph:7402 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_rewrite_graph:7402 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_rename_graphs:7526 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_rename_graphs:7526 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_rename_graphs:7526 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_rename_graphs:7526 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_rename_graphs:7526 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_rename_graphs:7526 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_rename_selected:7586 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_rename_selected:7586 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_rename_selected:7586 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_rename_selected:7586 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_rename_selected:7586 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_rename_selected:7586 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_save_current:7659 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_save_current:7659 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_save_current:7659 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_save_current:7659 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_save_current:7659 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_save_current:7659 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_delete_case:7717 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_delete_case:7717 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_delete_case:7717 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_delete_case:7717 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_delete_case:7717 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_delete_case:7717 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_insert_text:7824 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_insert_text:7824 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_insert_text:7824 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_insert_text:7824 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_insert_text:7824 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_insert_text:7824 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_backspace:7883 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_backspace:7883 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_backspace:7883 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_backspace:7883 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_backspace:7883 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_backspace:7883 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_delete_at_cursor:7913 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_delete_at_cursor:7913 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_delete_at_cursor:7913 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_delete_at_cursor:7913 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_delete_at_cursor:7913 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_delete_at_cursor:7913 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_paste:7942 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_paste:7942 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_paste:7942 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_paste:7942 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_paste:7942 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_paste:7942 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_draw_input:7958 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_draw_input:7958 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_draw_input:7958 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_draw_input:7958 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_draw_input:7958 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_draw_input:7958 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_draw_description:8004 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_draw_description:8004 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_draw_description:8004 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_draw_description:8004 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_draw_description:8004 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_draw_description:8004 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_case_browser:8275 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_case_browser:8275 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_case_browser:8275 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_case_browser:8275 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_case_browser:8275 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_case_browser:8275 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_cancel_edit:8410 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_cancel_edit:8410 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_cancel_edit:8410 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_cancel_edit:8410 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_cancel_edit:8410 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_cancel_edit:8410 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_handle_delete_confirmation:8429 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_handle_delete_confirmation:8429 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_handle_delete_confirmation:8429 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_handle_delete_confirmation:8429 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_handle_delete_confirmation:8429 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_handle_delete_confirmation:8429 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_handle_event:8486 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_handle_event:8486 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_handle_event:8486 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_handle_event:8486 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_handle_event:8486 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_handle_event:8486 weak PRNG attack — blocked
+[92mPASSED[0m case_metadata_draw_delete_confirmation:8787 unsafe string/input API attack — blocked
+[92mPASSED[0m case_metadata_draw_delete_confirmation:8787 unbounded format-write attack — blocked
+[92mPASSED[0m case_metadata_draw_delete_confirmation:8787 shell-command execution sink attack — blocked
+[92mPASSED[0m case_metadata_draw_delete_confirmation:8787 predictable temporary-file attack — blocked
+[92mPASSED[0m case_metadata_draw_delete_confirmation:8787 symlink file-creation attack — blocked
+[92mPASSED[0m case_metadata_draw_delete_confirmation:8787 weak PRNG attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_handle_event:8847 unsafe string/input API attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_handle_event:8847 unbounded format-write attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_handle_event:8847 shell-command execution sink attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_handle_event:8847 predictable temporary-file attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_handle_event:8847 symlink file-creation attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_handle_event:8847 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_grid:10471 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_grid:10471 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_grid:10471 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_grid:10471 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_grid:10471 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_grid:10471 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_selection_box:10500 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_selection_box:10500 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_selection_box:10500 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_selection_box:10500 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_selection_box:10500 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_selection_box:10500 weak PRNG attack — blocked
+[92mPASSED[0m case_side_vector:10539 unsafe string/input API attack — blocked
+[92mPASSED[0m case_side_vector:10539 unbounded format-write attack — blocked
+[92mPASSED[0m case_side_vector:10539 shell-command execution sink attack — blocked
+[92mPASSED[0m case_side_vector:10539 predictable temporary-file attack — blocked
+[92mPASSED[0m case_side_vector:10539 symlink file-creation attack — blocked
+[92mPASSED[0m case_side_vector:10539 weak PRNG attack — blocked
+[92mPASSED[0m case_guess_end_side_for_preview:10585 unsafe string/input API attack — blocked
+[92mPASSED[0m case_guess_end_side_for_preview:10585 unbounded format-write attack — blocked
+[92mPASSED[0m case_guess_end_side_for_preview:10585 shell-command execution sink attack — blocked
+[92mPASSED[0m case_guess_end_side_for_preview:10585 predictable temporary-file attack — blocked
+[92mPASSED[0m case_guess_end_side_for_preview:10585 symlink file-creation attack — blocked
+[92mPASSED[0m case_guess_end_side_for_preview:10585 weak PRNG attack — blocked
+[92mPASSED[0m case_route_points:10603 unsafe string/input API attack — blocked
+[92mPASSED[0m case_route_points:10603 unbounded format-write attack — blocked
+[92mPASSED[0m case_route_points:10603 shell-command execution sink attack — blocked
+[92mPASSED[0m case_route_points:10603 predictable temporary-file attack — blocked
+[92mPASSED[0m case_route_points:10603 symlink file-creation attack — blocked
+[92mPASSED[0m case_route_points:10603 weak PRNG attack — blocked
+[92mPASSED[0m case_link_points:10673 unsafe string/input API attack — blocked
+[92mPASSED[0m case_link_points:10673 unbounded format-write attack — blocked
+[92mPASSED[0m case_link_points:10673 shell-command execution sink attack — blocked
+[92mPASSED[0m case_link_points:10673 predictable temporary-file attack — blocked
+[92mPASSED[0m case_link_points:10673 symlink file-creation attack — blocked
+[92mPASSED[0m case_link_points:10673 weak PRNG attack — blocked
+[92mPASSED[0m case_segment_distance2:10698 unsafe string/input API attack — blocked
+[92mPASSED[0m case_segment_distance2:10698 unbounded format-write attack — blocked
+[92mPASSED[0m case_segment_distance2:10698 shell-command execution sink attack — blocked
+[92mPASSED[0m case_segment_distance2:10698 predictable temporary-file attack — blocked
+[92mPASSED[0m case_segment_distance2:10698 symlink file-creation attack — blocked
+[92mPASSED[0m case_segment_distance2:10698 weak PRNG attack — blocked
+[92mPASSED[0m case_link_at:10730 unsafe string/input API attack — blocked
+[92mPASSED[0m case_link_at:10730 unbounded format-write attack — blocked
+[92mPASSED[0m case_link_at:10730 shell-command execution sink attack — blocked
+[92mPASSED[0m case_link_at:10730 predictable temporary-file attack — blocked
+[92mPASSED[0m case_link_at:10730 symlink file-creation attack — blocked
+[92mPASSED[0m case_link_at:10730 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_link:10752 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_link:10752 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_link:10752 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_link:10752 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_link:10752 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_link:10752 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_arrow_head:10806 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_arrow_head:10806 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_arrow_head:10806 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_arrow_head:10806 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_arrow_head:10806 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_arrow_head:10806 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_link_preview:10833 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_link_preview:10833 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_link_preview:10833 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_link_preview:10833 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_link_preview:10833 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_link_preview:10833 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_block:10892 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_block:10892 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_block:10892 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_block:10892 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_block:10892 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_block:10892 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_input:11090 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_input:11090 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_input:11090 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_input:11090 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_input:11090 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_input:11090 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_status_dropdown:11146 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_status_dropdown:11146 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_status_dropdown:11146 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_status_dropdown:11146 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_status_dropdown:11146 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_status_dropdown:11146 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_calendar:11178 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_calendar:11178 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_calendar:11178 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_calendar:11178 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_calendar:11178 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_calendar:11178 weak PRNG attack — blocked
+[92mPASSED[0m case_text_width:11257 unsafe string/input API attack — blocked
+[92mPASSED[0m case_text_width:11257 unbounded format-write attack — blocked
+[92mPASSED[0m case_text_width:11257 shell-command execution sink attack — blocked
+[92mPASSED[0m case_text_width:11257 predictable temporary-file attack — blocked
+[92mPASSED[0m case_text_width:11257 symlink file-creation attack — blocked
+[92mPASSED[0m case_text_width:11257 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_description_selection:11280 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_description_selection:11280 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_description_selection:11280 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_description_selection:11280 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_description_selection:11280 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_description_selection:11280 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_description_box:11396 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_description_box:11396 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_description_box:11396 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_description_box:11396 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_description_box:11396 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_description_box:11396 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_source_popup:11584 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_source_popup:11584 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_source_popup:11584 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_source_popup:11584 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_source_popup:11584 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_source_popup:11584 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_description_popup:11799 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_description_popup:11799 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_description_popup:11799 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_description_popup:11799 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_description_popup:11799 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_description_popup:11799 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_file_search_popup:11994 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_file_search_popup:11994 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_file_search_popup:11994 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_file_search_popup:11994 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_file_search_popup:11994 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_file_search_popup:11994 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_case_dropdown:12196 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_case_dropdown:12196 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_case_dropdown:12196 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_case_dropdown:12196 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_case_dropdown:12196 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_case_dropdown:12196 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_country_dropdown:12260 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_country_dropdown:12260 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_country_dropdown:12260 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_country_dropdown:12260 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_country_dropdown:12260 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_country_dropdown:12260 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_user_dropdown:12324 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_user_dropdown:12324 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_user_dropdown:12324 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_user_dropdown:12324 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_user_dropdown:12324 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_user_dropdown:12324 weak PRNG attack — blocked
+[92mPASSED[0m case_draw_editor:12394 unsafe string/input API attack — blocked
+[92mPASSED[0m case_draw_editor:12394 unbounded format-write attack — blocked
+[92mPASSED[0m case_draw_editor:12394 shell-command execution sink attack — blocked
+[92mPASSED[0m case_draw_editor:12394 predictable temporary-file attack — blocked
+[92mPASSED[0m case_draw_editor:12394 symlink file-creation attack — blocked
+[92mPASSED[0m case_draw_editor:12394 weak PRNG attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_draw_workstation:12520 unsafe string/input API attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_draw_workstation:12520 unbounded format-write attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_draw_workstation:12520 shell-command execution sink attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_draw_workstation:12520 predictable temporary-file attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_draw_workstation:12520 symlink file-creation attack — blocked
+[92mPASSED[0m CASE_MANAGEMENT_draw_workstation:12520 weak PRNG attack — blocked
+
+[96m=== Runtime hostile-input attacks: CaseManagementWorkstation.c ===[0m
+[92mPASSED[0m case management strips path traversal from save name
+[92mPASSED[0m case management supplies safe default filename
+[92mPASSED[0m case management trim removes control-edge whitespace
+[92mPASSED[0m case management rejects impossible calendar date
+[92mPASSED[0m case management rejects injected date
+
+CaseManagementWorkstation.c security summary: [92m1394 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

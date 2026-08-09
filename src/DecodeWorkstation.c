@@ -21,7 +21,9 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <math.h>
+#include <spawn.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +31,10 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+extern char **environ;
 
 #ifndef RETROSPECTRUM_DASHBOARD_TAB_BAR_H
 #define RETROSPECTRUM_DASHBOARD_TAB_BAR_H 56
@@ -2496,6 +2502,182 @@ static void decode_shell_quote(char *out, size_t out_size, const char *src) {
     out[pos] = '\0';
 }
 
+static FILE *decode_spawn_helper(const char *helper,
+                                 const char *input,
+                                 const char *mod,
+                                 int samples_per_symbol,
+                                 int start_sample,
+                                 int max_symbols,
+                                 int bits_per_symbol,
+                                 int normalize,
+                                 int invert,
+                                 int tight,
+                                 pid_t *child_pid) {
+    /*
+        Purpose: Launches the GNU Radio helper without invoking a shell
+        Returns: Readable helper stdout stream or NULL
+    */
+
+    int pipe_fd[2] = {-1, -1};
+    posix_spawn_file_actions_t actions;
+    pid_t pid;
+    char sps_text[32];
+    char start_text[32];
+    char max_text[32];
+    char bps_text[32];
+    char normalize_text[4];
+    char invert_text[4];
+    char tight_text[4];
+    FILE *stream;
+    int spawn_result;
+
+    if (!helper || helper[0] == '\0' ||
+        !input || input[0] == '\0' ||
+        !mod || mod[0] == '\0' ||
+        !child_pid) {
+
+        return NULL;
+
+    }
+
+    if (snprintf(sps_text, sizeof(sps_text), "%d", samples_per_symbol) >= (int)sizeof(sps_text) ||
+        snprintf(start_text, sizeof(start_text), "%d", start_sample) >= (int)sizeof(start_text) ||
+        snprintf(max_text, sizeof(max_text), "%d", max_symbols) >= (int)sizeof(max_text) ||
+        snprintf(bps_text, sizeof(bps_text), "%d", bits_per_symbol) >= (int)sizeof(bps_text) ||
+        snprintf(normalize_text, sizeof(normalize_text), "%d", normalize ? 1 : 0) >=
+            (int)sizeof(normalize_text) ||
+        snprintf(invert_text, sizeof(invert_text), "%d", invert ? 1 : 0) >=
+            (int)sizeof(invert_text) ||
+        snprintf(tight_text, sizeof(tight_text), "%d", tight ? 1 : 0) >=
+            (int)sizeof(tight_text)) {
+
+        return NULL;
+
+    }
+
+    char *argv[] = {
+        "python3",
+        (char *)helper,
+        "--input",
+        (char *)input,
+        "--mod",
+        (char *)mod,
+        "--sps",
+        sps_text,
+        "--start-sample",
+        start_text,
+        "--max-symbols",
+        max_text,
+        "--bits-per-symbol",
+        bps_text,
+        "--normalize",
+        normalize_text,
+        "--invert",
+        invert_text,
+        "--tight",
+        tight_text,
+        NULL
+    };
+
+    if (pipe(pipe_fd) != 0) {
+
+        return NULL;
+
+    }
+
+    if (posix_spawn_file_actions_init(&actions) != 0) {
+
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        return NULL;
+
+    }
+
+    if (posix_spawn_file_actions_addclose(&actions, pipe_fd[0]) != 0 ||
+        posix_spawn_file_actions_adddup2(&actions, pipe_fd[1], STDOUT_FILENO) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, pipe_fd[1]) != 0) {
+
+        posix_spawn_file_actions_destroy(&actions);
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        return NULL;
+
+    }
+
+    spawn_result = posix_spawnp(
+        &pid,
+        "python3",
+        &actions,
+        NULL,
+        argv,
+        environ);
+
+    posix_spawn_file_actions_destroy(&actions);
+    close(pipe_fd[1]);
+
+    if (spawn_result != 0) {
+
+        close(pipe_fd[0]);
+        return NULL;
+
+    }
+
+    stream = fdopen(pipe_fd[0], "r");
+
+    if (!stream) {
+        int status;
+
+        close(pipe_fd[0]);
+
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+
+        }
+
+        return NULL;
+
+    }
+
+    *child_pid = pid;
+    return stream;
+}
+
+static int decode_close_helper(FILE *pipe_stream, pid_t child_pid) {
+    /*
+        Purpose: Closes the GNU Radio helper stream and waits for the child
+        Returns: Child process exit status
+    */
+
+    int status = 0;
+    int close_result = -1;
+    pid_t waited = -1;
+
+    if (pipe_stream) {
+
+        close_result = fclose(pipe_stream);
+
+    }
+
+    if (child_pid > 0) {
+
+        do {
+
+            waited = waitpid(child_pid, &status, 0);
+
+        } while (waited < 0 && errno == EINTR);
+
+    }
+
+    if (close_result != 0 ||
+        waited != child_pid ||
+        !WIFEXITED(status)) {
+
+        return -1;
+
+    }
+
+    return WEXITSTATUS(status);
+}
+
 static void decode_scan_files(void) {
     /*
         Purpose: Scans the files
@@ -2710,10 +2892,8 @@ static int decode_run_helper_capture_bits(int samples_per_symbol, int max_bits, 
 
     char path[DECODE_MAX_PATH + DECODE_MAX_NAME + 4];
     char helper[DECODE_MAX_PATH];
-    char q_helper[DECODE_MAX_PATH * 2];
-    char q_input[(DECODE_MAX_PATH + DECODE_MAX_NAME + 4) * 2];
-    char cmd[8192];
     FILE *pipe = NULL;
+    pid_t child_pid = -1;
     int start_sample;
     int user_bps;
     int max_symbols;
@@ -2774,16 +2954,18 @@ static int decode_run_helper_capture_bits(int samples_per_symbol, int max_bits, 
 
     }
 
-    decode_shell_quote(q_helper, sizeof(q_helper), helper);
-    decode_shell_quote(q_input, sizeof(q_input), path);
-
-    snprintf(cmd, sizeof(cmd),
-             "python3 %s --input %s --mod %s --sps %d --start-sample %d --max-symbols "
-             "%d --bits-per-symbol %d --normalize %d --invert %d --tight 1",
-             q_helper, q_input, decode_mod_arg(), samples_per_symbol, start_sample, max_symbols, user_bps,
-             Global_Decode_Normalize ? 1 : 0, Global_Decode_Invert_Bits ? 1 : 0);
-
-    pipe = popen(cmd, "r");
+    pipe = decode_spawn_helper(
+        helper,
+        path,
+        decode_mod_arg(),
+        samples_per_symbol,
+        start_sample,
+        max_symbols,
+        user_bps,
+        Global_Decode_Normalize ? 1 : 0,
+        Global_Decode_Invert_Bits ? 1 : 0,
+        1,
+        &child_pid);
 
     if (!pipe) {
 
@@ -2809,7 +2991,7 @@ static int decode_run_helper_capture_bits(int samples_per_symbol, int max_bits, 
     }
     bits[out_len] = '\0';
 
-    pclose(pipe);
+    (void)decode_close_helper(pipe, child_pid);
     return out_len;
 }
 
@@ -3169,10 +3351,8 @@ static int decode_run_selected_file(void) {
 
     char path[DECODE_MAX_PATH + DECODE_MAX_NAME + 4];
     char helper[DECODE_MAX_PATH];
-    char q_helper[DECODE_MAX_PATH * 2];
-    char q_input[(DECODE_MAX_PATH + DECODE_MAX_NAME + 4) * 2];
-    char cmd[8192];
     FILE *pipe = NULL;
+    pid_t child_pid = -1;
     int samples_per_symbol;
     int start_sample;
     int max_symbols;
@@ -3200,15 +3380,6 @@ static int decode_run_selected_file(void) {
     max_symbols = decode_parse_int_field(DECODE_FIELD_MAX_SYMBOLS, DECODE_DEFAULT_MAX_SYMBOLS, 1, 200000);
     user_bps = decode_parse_int_field(DECODE_FIELD_BITS_PER_SYMBOL, 1, 1, 8);
 
-    decode_shell_quote(q_helper, sizeof(q_helper), helper);
-    decode_shell_quote(q_input, sizeof(q_input), path);
-
-    snprintf(cmd, sizeof(cmd),
-             "python3 %s --input %s --mod %s --sps %d --start-sample %d --max-symbols "
-             "%d --bits-per-symbol %d --normalize %d --invert %d --tight %d",
-             q_helper, q_input, decode_mod_arg(), samples_per_symbol, start_sample, max_symbols, user_bps,
-             Global_Decode_Normalize ? 1 : 0, Global_Decode_Invert_Bits ? 1 : 0, Global_Decode_Skip_Whitespace ? 1 : 0);
-
     Global_Decode_Bitstream_Len = 0;
     Global_Decode_Bitstream[0] = '\0';
     decode_classifier_clear_assignments();
@@ -3219,7 +3390,18 @@ static int decode_run_selected_file(void) {
     Global_Decode_Bit_Edit_Active = 0;
     decode_clear_bit_selection();
 
-    pipe = popen(cmd, "r");
+    pipe = decode_spawn_helper(
+        helper,
+        path,
+        decode_mod_arg(),
+        samples_per_symbol,
+        start_sample,
+        max_symbols,
+        user_bps,
+        Global_Decode_Normalize ? 1 : 0,
+        Global_Decode_Invert_Bits ? 1 : 0,
+        Global_Decode_Skip_Whitespace ? 1 : 0,
+        &child_pid);
 
     if (!pipe) {
 
@@ -3258,7 +3440,7 @@ static int decode_run_selected_file(void) {
         }
     }
 
-    rc = pclose(pipe);
+    rc = decode_close_helper(pipe, child_pid);
 
     if (decoded_chars <= 0) {
 

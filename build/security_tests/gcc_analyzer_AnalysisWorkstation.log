@@ -1,0 +1,4 @@
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AnalysisWorkstation.c: In function ‘ANALYSIS_get_hover_graph_layout’:
+/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/AnalysisWorkstation.c:1551:9: warning: unused variable ‘work_h’ [-Wunused-variable]
+ 1551 |     int work_h = win_h - work_y - MARGIN;
+      |         ^~~~~~

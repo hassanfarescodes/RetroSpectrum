@@ -16,6 +16,7 @@
  */
 
 #include "ServerIdentity.h"
+#include "SecureFunctions.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -124,7 +125,7 @@ static void server_identity_set_status(const char *status) {
     */
 
     pthread_mutex_lock(&Global_Server_Identity_Lock);
-    snprintf(Global_Server_Identity_Status, sizeof(Global_Server_Identity_Status), "%s", status ? status : "");
+    (void)sec_strcpy(Global_Server_Identity_Status, sizeof(Global_Server_Identity_Status), status ? status : "");
     pthread_mutex_unlock(&Global_Server_Identity_Lock);
 }
 
@@ -134,26 +135,13 @@ static int server_identity_ensure_directory(const char *path) {
         Returns: Success status
     */
 
-    struct stat st;
-
     if (!path || path[0] == '\0') {
 
         return 0;
 
     }
 
-    if (stat(path, &st) == 0) {
-
-        return S_ISDIR(st.st_mode);
-
-    }
-
-    if (mkdir(path, 0700) == 0) {
-
-        return 1;
-
-    }
-    return errno == EEXIST;
+    return sec_ensure_private_directory(path, 0700) ? 1 : 0;
 }
 
 static int server_identity_key_path(char *path, size_t path_size) {
@@ -175,7 +163,8 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     if (xdg_config && xdg_config[0] != '\0') {
 
-        if (snprintf(root, sizeof(root), "%s", xdg_config) >= (int)sizeof(root)) {
+        if (xdg_config[0] != '/' ||
+            !sec_strcpy(root, sizeof(root), xdg_config)) {
 
             return 0;
 
@@ -185,7 +174,8 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     else if (home && home[0] != '\0') {
 
-        if (snprintf(root, sizeof(root), "%s/.config", home) >= (int)sizeof(root)) {
+        if (home[0] != '/' ||
+            !sec_sprintf(root, sizeof(root), "%s/.config", home)) {
 
             return 0;
 
@@ -193,7 +183,7 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     }
 
-    else if (snprintf(root, sizeof(root), ".") >= (int)sizeof(root)) {
+    else {
 
         return 0;
 
@@ -205,7 +195,7 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     }
 
-    if (snprintf(directory, sizeof(directory), "%s/retrospectrum", root) >= (int)sizeof(directory)) {
+    if (!sec_sprintf(directory, sizeof(directory), "%s/retrospectrum", root)) {
 
         return 0;
 
@@ -217,12 +207,9 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     }
 
-    if (chmod(directory, 0700) != 0 && errno != EPERM) {
-
-        return 0;
-
-    }
-    return snprintf(path, path_size, "%s/server_identity_mldsa87.key", directory) < (int)path_size;
+    return sec_sprintf(path, path_size,
+                       "%s/server_identity_mldsa87.key",
+                       directory) ? 1 : 0;
 }
 
 static int server_identity_named_path(char *path, size_t path_size, const char *filename) {
@@ -244,7 +231,8 @@ static int server_identity_named_path(char *path, size_t path_size, const char *
 
     if (xdg_config && xdg_config[0] != '\0') {
 
-        if (snprintf(root, sizeof(root), "%s", xdg_config) >= (int)sizeof(root)) {
+        if (xdg_config[0] != '/' ||
+            !sec_strcpy(root, sizeof(root), xdg_config)) {
 
             return 0;
 
@@ -254,7 +242,8 @@ static int server_identity_named_path(char *path, size_t path_size, const char *
 
     else if (home && home[0] != '\0') {
 
-        if (snprintf(root, sizeof(root), "%s/.config", home) >= (int)sizeof(root)) {
+        if (home[0] != '/' ||
+            !sec_sprintf(root, sizeof(root), "%s/.config", home)) {
 
             return 0;
 
@@ -262,7 +251,7 @@ static int server_identity_named_path(char *path, size_t path_size, const char *
 
     }
 
-    else if (snprintf(root, sizeof(root), ".") >= (int)sizeof(root)) {
+    else {
 
         return 0;
 
@@ -274,19 +263,15 @@ static int server_identity_named_path(char *path, size_t path_size, const char *
 
     }
 
-    if (snprintf(directory, sizeof(directory), "%s/retrospectrum", root) >= (int)sizeof(directory) ||
+    if (!sec_sprintf(directory, sizeof(directory), "%s/retrospectrum", root) ||
         !server_identity_ensure_directory(directory)) {
 
         return 0;
 
     }
 
-    if (chmod(directory, 0700) != 0 && errno != EPERM) {
-
-        return 0;
-
-    }
-    return snprintf(path, path_size, "%s/%s", directory, filename) < (int)path_size;
+    return sec_sprintf(path, path_size, "%s/%s",
+                       directory, filename) ? 1 : 0;
 }
 
 static int server_identity_name_valid(const char *name) {
@@ -430,7 +415,12 @@ static int server_identity_load_or_create_name(char name[SERVER_IDENTITY_SERVER_
 
             if (server_identity_name_valid(buffer)) {
 
-                snprintf(name, SERVER_IDENTITY_SERVER_NAME_BUFFER, "%.96s", buffer);
+                if (!sec_strcpy(name, SERVER_IDENTITY_SERVER_NAME_BUFFER, buffer)) {
+
+                    return 0;
+
+                }
+
                 chmod(path, 0600);
                 return 1;
 
@@ -1072,8 +1062,17 @@ static int server_identity_decode_public_file(const unsigned char file_data[SERV
     }
 
     memset(identity, 0, sizeof(*identity));
-    memcpy(identity->server_name, file_data + SERVER_IDENTITY_PUBLIC_FILE_NAME_OFFSET, name_length);
+
+    if (!sec_memcpy(identity->server_name, sizeof(identity->server_name),
+        file_data + SERVER_IDENTITY_PUBLIC_FILE_NAME_OFFSET, name_length)) {
+
+        server_identity_secure_zero(expected_digest, sizeof(expected_digest));
+        return 0;
+
+    }
+
     identity->server_name[name_length] = '\0';
+
 
     if (!server_identity_name_valid(identity->server_name)) {
 
@@ -1152,12 +1151,12 @@ static int server_identity_write_public_file(const char *path, const char *serve
     mode_t previous_mask;
 
     if (!path || !server_name || !public_key ||
-        snprintf(temporary_path, sizeof(temporary_path), "%s.tmp.%ld", path, (long)getpid()) >=
-            (int)sizeof(temporary_path)) {
+        !sec_sprintf(temporary_path, sizeof(temporary_path), "%s.tmp.%ld", path, (long)getpid())) {
 
         return 0;
 
     }
+
     file_data = OPENSSL_malloc(SERVER_IDENTITY_PUBLIC_FILE_BYTES);
 
     if (!file_data || !server_identity_encode_public_file(server_name, public_key, file_data)) {
@@ -1418,7 +1417,10 @@ static void server_identity_mark_conflict(const struct sockaddr_in *source,
 
     pthread_mutex_lock(&Global_Server_Identity_Lock);
     Global_Server_Identity_Conflict = 1;
-    snprintf(Global_Server_Identity_Status, sizeof(Global_Server_Identity_Status), "%s", message);
+
+    (void)sec_strcpy(Global_Server_Identity_Status, sizeof(Global_Server_Identity_Status),
+                     message);
+
     pthread_mutex_unlock(&Global_Server_Identity_Lock);
 }
 
@@ -1556,7 +1558,10 @@ static void server_identity_handle_packet(const unsigned char *packet, size_t pa
         if (inet_ntop(AF_INET, &source->sin_addr, address, sizeof(address))) {
 
             pthread_mutex_lock(&Global_Server_Identity_Lock);
-            snprintf(Global_Server_Identity_Trusted_Host, sizeof(Global_Server_Identity_Trusted_Host), "%s", address);
+
+            (void)sec_strcpy(Global_Server_Identity_Trusted_Host, sizeof(Global_Server_Identity_Trusted_Host),
+                             address);
+
             Global_Server_Identity_Last_Verified_At = (int64_t)time(NULL);
 
             if (!Global_Server_Identity_Conflict) {
@@ -1609,9 +1614,25 @@ static void *server_identity_thread_main(void *unused) {
 
         }
 
-        memset(&source, 0, sizeof(source));
-        received = recvfrom(Global_Server_Identity_Socket, packet, SERVER_IDENTITY_PACKET_BYTES, 0,
-                            (struct sockaddr *)&source, &source_size);
+        {
+            int socket_fd = Global_Server_Identity_Socket;
+
+            if (socket_fd < 0) {
+
+                pthread_mutex_lock(&Global_Server_Identity_Lock);
+                Global_Server_Identity_Last_Verified_At = 0;
+                pthread_mutex_unlock(&Global_Server_Identity_Lock);
+
+                Global_Server_Identity_Running = 0;
+                server_identity_set_status("LAN identity socket is unavailable; duplicate-ID monitoring is disabled.");
+                break;
+
+            }
+
+            memset(&source, 0, sizeof(source));
+            received = recvfrom(socket_fd, packet, SERVER_IDENTITY_PACKET_BYTES, 0,
+                                (struct sockaddr *)&source, &source_size);
+        }
 
         if (received > 0) {
 
@@ -1900,15 +1921,17 @@ static int server_identity_resolve_import_path(const char *path, char *resolved,
 
         home = getenv("HOME");
 
-        if (!home || home[0] == '\0') {
+        if (!home || home[0] != '/') {
 
             return 0;
 
         }
-        return snprintf(resolved, resolved_size, "%s/%s", home, path + 2) < (int)resolved_size;
+
+        return sec_sprintf(resolved, resolved_size, "%s/%s", home, path + 2) ? 1 : 0;
 
     }
-    return snprintf(resolved, resolved_size, "%s", path) < (int)resolved_size;
+
+    return sec_strcpy(resolved, resolved_size, path) ? 1 : 0;
 }
 
 int SERVER_IDENTITY_preview_public_file(const char *path, Type_Server_Public_Identity *identity, char *message,
@@ -1946,7 +1969,7 @@ int SERVER_IDENTITY_preview_public_file(const char *path, Type_Server_Public_Ide
 
     if (message && message_size > 0) {
 
-        snprintf(message, message_size, "Public key loaded for %s.", identity->server_name);
+        (void)sec_sprintf(message, message_size, "Public key loaded for %s.", identity->server_name);
 
     }
     return 1;
@@ -1978,9 +2001,10 @@ int SERVER_IDENTITY_import_public_file(const char *path, char *message, size_t m
 
     if (message && message_size > 0) {
 
-        snprintf(message, message_size, "Trusted server changed to %s.", identity.server_name);
-
+        (void)sec_sprintf(message, message_size, "Trusted server changed to %s.", identity.server_name);
+    
     }
+
     success = 1;
 
 cleanup:
@@ -2045,17 +2069,23 @@ int SERVER_IDENTITY_get_trusted_host(char *host, size_t host_size) {
     */
 
     int available;
+    int copied;
 
     if (!host || host_size == 0) {
 
         return 0;
 
     }
+
     pthread_mutex_lock(&Global_Server_Identity_Lock);
     available = Global_Server_Identity_Trusted_Host[0] != '\0';
-    snprintf(host, host_size, "%s", Global_Server_Identity_Trusted_Host);
+    copied = sec_strcpy(host,
+                        host_size,
+                        Global_Server_Identity_Trusted_Host) ? 1 : 0;
     pthread_mutex_unlock(&Global_Server_Identity_Lock);
-    return available;
+
+    return available && copied;
+
 }
 
 int SERVER_IDENTITY_get_trusted_public(unsigned char public_key[SERVER_IDENTITY_PUBLIC_KEY_BYTES]) {

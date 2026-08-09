@@ -1,0 +1,322 @@
+
+[96mRetroSpectrum security target: world_map_bin_loader.c[0m
+Attack classes: unsafe-copy, unbounded-format, command execution, temporary-file race, symlink creation, weak RNG + runtime hostile probes.
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+
+[96m=== Per-function source attacks: world_map_bin_loader.c (51 functions discovered) ===[0m
+[92mPASSED[0m at least one production function discovered
+[92mPASSED[0m WM_destroy_render_cache:159 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_destroy_render_cache:159 unbounded format-write attack — blocked
+[92mPASSED[0m WM_destroy_render_cache:159 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_destroy_render_cache:159 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_destroy_render_cache:159 symlink file-creation attack — blocked
+[92mPASSED[0m WM_destroy_render_cache:159 weak PRNG attack — blocked
+[92mPASSED[0m WM_read_exact:174 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_read_exact:174 unbounded format-write attack — blocked
+[92mPASSED[0m WM_read_exact:174 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_read_exact:174 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_read_exact:174 symlink file-creation attack — blocked
+[92mPASSED[0m WM_read_exact:174 weak PRNG attack — blocked
+[92mPASSED[0m WM_read_u32:183 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_read_u32:183 unbounded format-write attack — blocked
+[92mPASSED[0m WM_read_u32:183 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_read_u32:183 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_read_u32:183 symlink file-creation attack — blocked
+[92mPASSED[0m WM_read_u32:183 weak PRNG attack — blocked
+[92mPASSED[0m WM_read_u16:200 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_read_u16:200 unbounded format-write attack — blocked
+[92mPASSED[0m WM_read_u16:200 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_read_u16:200 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_read_u16:200 symlink file-creation attack — blocked
+[92mPASSED[0m WM_read_u16:200 weak PRNG attack — blocked
+[92mPASSED[0m WM_read_i16:217 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_read_i16:217 unbounded format-write attack — blocked
+[92mPASSED[0m WM_read_i16:217 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_read_i16:217 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_read_i16:217 symlink file-creation attack — blocked
+[92mPASSED[0m WM_read_i16:217 weak PRNG attack — blocked
+[92mPASSED[0m WM_recompute_bounds_from_points:234 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_recompute_bounds_from_points:234 unbounded format-write attack — blocked
+[92mPASSED[0m WM_recompute_bounds_from_points:234 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_recompute_bounds_from_points:234 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_recompute_bounds_from_points:234 symlink file-creation attack — blocked
+[92mPASSED[0m WM_recompute_bounds_from_points:234 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_text:345 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_text:345 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_text:345 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_text:345 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_text:345 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_text:345 weak PRNG attack — blocked
+[92mPASSED[0m WM_copy_text:377 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_copy_text:377 unbounded format-write attack — blocked
+[92mPASSED[0m WM_copy_text:377 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_copy_text:377 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_copy_text:377 symlink file-creation attack — blocked
+[92mPASSED[0m WM_copy_text:377 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_text_wrapped:405 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_text_wrapped:405 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_text_wrapped:405 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_text_wrapped:405 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_text_wrapped:405 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_text_wrapped:405 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_free_flags:492 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_free_flags:492 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_free_flags:492 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_free_flags:492 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_free_flags:492 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_free_flags:492 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_reset_view:517 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_reset_view:517 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_reset_view:517 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_reset_view:517 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_reset_view:517 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_reset_view:517 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_free:542 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_free:542 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_free:542 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_free:542 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_free:542 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_free:542 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_load:560 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_load:560 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_load:560 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_load:560 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_load:560 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_load:560 weak PRNG attack — blocked
+[92mPASSED[0m WM_ensure_loaded:739 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_ensure_loaded:739 unbounded format-write attack — blocked
+[92mPASSED[0m WM_ensure_loaded:739 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_ensure_loaded:739 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_ensure_loaded:739 symlink file-creation attack — blocked
+[92mPASSED[0m WM_ensure_loaded:739 weak PRNG attack — blocked
+[92mPASSED[0m WM_project_point:760 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_project_point:760 unbounded format-write attack — blocked
+[92mPASSED[0m WM_project_point:760 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_project_point:760 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_project_point:760 symlink file-creation attack — blocked
+[92mPASSED[0m WM_project_point:760 weak PRNG attack — blocked
+[92mPASSED[0m WM_screen_to_lonlat100:822 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_screen_to_lonlat100:822 unbounded format-write attack — blocked
+[92mPASSED[0m WM_screen_to_lonlat100:822 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_screen_to_lonlat100:822 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_screen_to_lonlat100:822 symlink file-creation attack — blocked
+[92mPASSED[0m WM_screen_to_lonlat100:822 weak PRNG attack — blocked
+[92mPASSED[0m WM_point_in_polygon_lonlat:861 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_point_in_polygon_lonlat:861 unbounded format-write attack — blocked
+[92mPASSED[0m WM_point_in_polygon_lonlat:861 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_point_in_polygon_lonlat:861 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_point_in_polygon_lonlat:861 symlink file-creation attack — blocked
+[92mPASSED[0m WM_point_in_polygon_lonlat:861 weak PRNG attack — blocked
+[92mPASSED[0m WM_polygon_intersects_view:898 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_polygon_intersects_view:898 unbounded format-write attack — blocked
+[92mPASSED[0m WM_polygon_intersects_view:898 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_polygon_intersects_view:898 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_polygon_intersects_view:898 symlink file-creation attack — blocked
+[92mPASSED[0m WM_polygon_intersects_view:898 weak PRNG attack — blocked
+[92mPASSED[0m WM_zoom_to_country:917 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_zoom_to_country:917 unbounded format-write attack — blocked
+[92mPASSED[0m WM_zoom_to_country:917 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_zoom_to_country:917 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_zoom_to_country:917 symlink file-creation attack — blocked
+[92mPASSED[0m WM_zoom_to_country:917 weak PRNG attack — blocked
+[92mPASSED[0m WM_clamp_view:1007 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_clamp_view:1007 unbounded format-write attack — blocked
+[92mPASSED[0m WM_clamp_view:1007 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_clamp_view:1007 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_clamp_view:1007 symlink file-creation attack — blocked
+[92mPASSED[0m WM_clamp_view:1007 weak PRNG attack — blocked
+[92mPASSED[0m WM_zoom_view_at:1066 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_zoom_view_at:1066 unbounded format-write attack — blocked
+[92mPASSED[0m WM_zoom_view_at:1066 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_zoom_view_at:1066 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_zoom_view_at:1066 symlink file-creation attack — blocked
+[92mPASSED[0m WM_zoom_view_at:1066 weak PRNG attack — blocked
+[92mPASSED[0m WM_pan_view_pixels:1149 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_pan_view_pixels:1149 unbounded format-write attack — blocked
+[92mPASSED[0m WM_pan_view_pixels:1149 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_pan_view_pixels:1149 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_pan_view_pixels:1149 symlink file-creation attack — blocked
+[92mPASSED[0m WM_pan_view_pixels:1149 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_is_dragging:1187 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_is_dragging:1187 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_is_dragging:1187 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_is_dragging:1187 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_is_dragging:1187 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_is_dragging:1187 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_get_drag_offset:1196 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_get_drag_offset:1196 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_get_drag_offset:1196 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_get_drag_offset:1196 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_get_drag_offset:1196 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_get_drag_offset:1196 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_take_clicked_country:1215 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_take_clicked_country:1215 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_take_clicked_country:1215 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_take_clicked_country:1215 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_take_clicked_country:1215 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_take_clicked_country:1215 weak PRNG attack — blocked
+[92mPASSED[0m WM_clamp_drag_offset:1226 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_clamp_drag_offset:1226 unbounded format-write attack — blocked
+[92mPASSED[0m WM_clamp_drag_offset:1226 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_clamp_drag_offset:1226 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_clamp_drag_offset:1226 symlink file-creation attack — blocked
+[92mPASSED[0m WM_clamp_drag_offset:1226 weak PRNG attack — blocked
+[92mPASSED[0m WM_update_drag_position:1299 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_update_drag_position:1299 unbounded format-write attack — blocked
+[92mPASSED[0m WM_update_drag_position:1299 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_update_drag_position:1299 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_update_drag_position:1299 symlink file-creation attack — blocked
+[92mPASSED[0m WM_update_drag_position:1299 weak PRNG attack — blocked
+[92mPASSED[0m WM_finish_drag:1319 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_finish_drag:1319 unbounded format-write attack — blocked
+[92mPASSED[0m WM_finish_drag:1319 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_finish_drag:1319 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_finish_drag:1319 symlink file-creation attack — blocked
+[92mPASSED[0m WM_finish_drag:1319 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_handle_event:1367 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_handle_event:1367 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_handle_event:1367 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_handle_event:1367 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_handle_event:1367 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_handle_event:1367 weak PRNG attack — blocked
+[92mPASSED[0m WM_country_at:1472 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_country_at:1472 unbounded format-write attack — blocked
+[92mPASSED[0m WM_country_at:1472 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_country_at:1472 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_country_at:1472 symlink file-creation attack — blocked
+[92mPASSED[0m WM_country_at:1472 weak PRNG attack — blocked
+[92mPASSED[0m WM_fill_poly:1535 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_fill_poly:1535 unbounded format-write attack — blocked
+[92mPASSED[0m WM_fill_poly:1535 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_fill_poly:1535 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_fill_poly:1535 symlink file-creation attack — blocked
+[92mPASSED[0m WM_fill_poly:1535 weak PRNG attack — blocked
+[92mPASSED[0m WM_detail_segment_intersects_view:1600 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_detail_segment_intersects_view:1600 unbounded format-write attack — blocked
+[92mPASSED[0m WM_detail_segment_intersects_view:1600 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_detail_segment_intersects_view:1600 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_detail_segment_intersects_view:1600 symlink file-creation attack — blocked
+[92mPASSED[0m WM_detail_segment_intersects_view:1600 weak PRNG attack — blocked
+[92mPASSED[0m WM_lon_jump_crosses_dateline:1619 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_lon_jump_crosses_dateline:1619 unbounded format-write attack — blocked
+[92mPASSED[0m WM_lon_jump_crosses_dateline:1619 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_lon_jump_crosses_dateline:1619 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_lon_jump_crosses_dateline:1619 symlink file-creation attack — blocked
+[92mPASSED[0m WM_lon_jump_crosses_dateline:1619 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_detail_pair:1635 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_detail_pair:1635 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_detail_pair:1635 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_detail_pair:1635 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_detail_pair:1635 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_detail_pair:1635 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_detail_lines:1657 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_detail_lines:1657 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_detail_lines:1657 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_detail_lines:1657 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_detail_lines:1657 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_detail_lines:1657 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_hover_detail_lines:1697 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_hover_detail_lines:1697 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_hover_detail_lines:1697 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_hover_detail_lines:1697 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_hover_detail_lines:1697 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_hover_detail_lines:1697 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_polygon:1774 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_polygon:1774 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_polygon:1774 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_polygon:1774 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_polygon:1774 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_polygon:1774 weak PRNG attack — blocked
+[92mPASSED[0m WM_fill_map_background:1825 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_fill_map_background:1825 unbounded format-write attack — blocked
+[92mPASSED[0m WM_fill_map_background:1825 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_fill_map_background:1825 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_fill_map_background:1825 symlink file-creation attack — blocked
+[92mPASSED[0m WM_fill_map_background:1825 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_map_grid:1836 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_map_grid:1836 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_map_grid:1836 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_map_grid:1836 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_map_grid:1836 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_map_grid:1836 weak PRNG attack — blocked
+[92mPASSED[0m WM_render_base_map_layer:1854 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_render_base_map_layer:1854 unbounded format-write attack — blocked
+[92mPASSED[0m WM_render_base_map_layer:1854 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_render_base_map_layer:1854 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_render_base_map_layer:1854 symlink file-creation attack — blocked
+[92mPASSED[0m WM_render_base_map_layer:1854 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_hover_layer:1877 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_hover_layer:1877 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_hover_layer:1877 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_hover_layer:1877 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_hover_layer:1877 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_hover_layer:1877 weak PRNG attack — blocked
+[92mPASSED[0m WM_render_cache_factor:1905 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_render_cache_factor:1905 unbounded format-write attack — blocked
+[92mPASSED[0m WM_render_cache_factor:1905 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_render_cache_factor:1905 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_render_cache_factor:1905 symlink file-creation attack — blocked
+[92mPASSED[0m WM_render_cache_factor:1905 weak PRNG attack — blocked
+[92mPASSED[0m WM_render_cache_source_rect:1939 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_render_cache_source_rect:1939 unbounded format-write attack — blocked
+[92mPASSED[0m WM_render_cache_source_rect:1939 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_render_cache_source_rect:1939 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_render_cache_source_rect:1939 symlink file-creation attack — blocked
+[92mPASSED[0m WM_render_cache_source_rect:1939 weak PRNG attack — blocked
+[92mPASSED[0m WM_rebuild_render_cache:1989 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_rebuild_render_cache:1989 unbounded format-write attack — blocked
+[92mPASSED[0m WM_rebuild_render_cache:1989 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_rebuild_render_cache:1989 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_rebuild_render_cache:1989 symlink file-creation attack — blocked
+[92mPASSED[0m WM_rebuild_render_cache:1989 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_cached_base_map:2100 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_cached_base_map:2100 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_cached_base_map:2100 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_cached_base_map:2100 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_cached_base_map:2100 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_cached_base_map:2100 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_dragged_cached_base_map:2121 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_dragged_cached_base_map:2121 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_dragged_cached_base_map:2121 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_dragged_cached_base_map:2121 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_dragged_cached_base_map:2121 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_dragged_cached_base_map:2121 weak PRNG attack — blocked
+[92mPASSED[0m WM_load_flag:2188 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_load_flag:2188 unbounded format-write attack — blocked
+[92mPASSED[0m WM_load_flag:2188 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_load_flag:2188 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_load_flag:2188 symlink file-creation attack — blocked
+[92mPASSED[0m WM_load_flag:2188 weak PRNG attack — blocked
+[92mPASSED[0m WM_draw_sidebar:2218 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_draw_sidebar:2218 unbounded format-write attack — blocked
+[92mPASSED[0m WM_draw_sidebar:2218 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_draw_sidebar:2218 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_draw_sidebar:2218 symlink file-creation attack — blocked
+[92mPASSED[0m WM_draw_sidebar:2218 weak PRNG attack — blocked
+[92mPASSED[0m WORLD_MAP_draw:2281 unsafe string/input API attack — blocked
+[92mPASSED[0m WORLD_MAP_draw:2281 unbounded format-write attack — blocked
+[92mPASSED[0m WORLD_MAP_draw:2281 shell-command execution sink attack — blocked
+[92mPASSED[0m WORLD_MAP_draw:2281 predictable temporary-file attack — blocked
+[92mPASSED[0m WORLD_MAP_draw:2281 symlink file-creation attack — blocked
+[92mPASSED[0m WORLD_MAP_draw:2281 weak PRNG attack — blocked
+[92mPASSED[0m WM_load_font:2336 unsafe string/input API attack — blocked
+[92mPASSED[0m WM_load_font:2336 unbounded format-write attack — blocked
+[92mPASSED[0m WM_load_font:2336 shell-command execution sink attack — blocked
+[92mPASSED[0m WM_load_font:2336 predictable temporary-file attack — blocked
+[92mPASSED[0m WM_load_font:2336 symlink file-creation attack — blocked
+[92mPASSED[0m WM_load_font:2336 weak PRNG attack — blocked
+[92mPASSED[0m main:2358 unsafe string/input API attack — blocked
+[92mPASSED[0m main:2358 unbounded format-write attack — blocked
+[92mPASSED[0m main:2358 shell-command execution sink attack — blocked
+[92mPASSED[0m main:2358 predictable temporary-file attack — blocked
+[92mPASSED[0m main:2358 symlink file-creation attack — blocked
+[92mPASSED[0m main:2358 weak PRNG attack — blocked
+
+[96m=== Runtime hostile-input attacks: world_map_bin_loader.c ===[0m
+[92mPASSED[0m world-map bounded copy remains terminated
+[92mPASSED[0m world-map projection remains inside integer viewport
+[92mPASSED[0m world-map loader rejects NULL path
+
+world_map_bin_loader.c security summary: [92m312 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

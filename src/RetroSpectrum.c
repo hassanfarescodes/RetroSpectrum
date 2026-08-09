@@ -5805,6 +5805,22 @@ int main(int argc, char **argv) {
 
         fprintf(stderr, "allocation failed\n");
 
+        if (time_domain) {
+            fftw_free(time_domain);
+        }
+
+        if (freq_domain) {
+            fftw_free(freq_domain);
+        }
+
+        if (hann_window) {
+            free(hann_window);
+        }
+
+        if (db) {
+            free(db);
+        }
+
         if (dev) {
 
             (void)stop_radio(dev);
@@ -5814,6 +5830,7 @@ int main(int argc, char **argv) {
             Global_SDR_Connected = 0;
 
         }
+
         return 1;
 
     }

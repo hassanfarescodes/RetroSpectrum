@@ -17,6 +17,7 @@
 
 #include "AuthAdmin.h"
 #include "AuthScreen.h"
+#include "SecureFunctions.h"
 
 #include <ctype.h>
 #include <openssl/crypto.h>
@@ -150,7 +151,7 @@ static void admin_copy(char *destination, size_t destination_size, const char *s
         return;
 
     }
-    snprintf(destination, destination_size, "%s", source ? source : "");
+    (void)sec_strcpy(destination, destination_size, source ? source : "");
 }
 
 static int admin_point_in_rect(int x, int y, SDL_Rect rect) {
@@ -675,7 +676,11 @@ static void admin_render_users(SDL_Renderer *renderer, TTF_Font *font_small, TTF
             }
 
         }
-        snprintf(line, sizeof(line), "Username: %s", user->username);
+
+        if (!sec_sprintf(line, sizeof(line), "Username: %s", user->username)) {
+            line[0] = '\0';
+        }
+
         admin_text(renderer, font_small, line, details.x + 30, details.y + 26, Admin_TEXT);
         snprintf(line, sizeof(line), "Role: %s", admin_role_name(user->role));
         admin_text(renderer, font_small, line, details.x + 30, details.y + 56, admin_role_color(user->role));
@@ -806,7 +811,6 @@ static void admin_render_totp(SDL_Renderer *renderer, TTF_Font *font_small, TTF_
     SDL_Rect cancel = {panel.x + 75, create.y, 120, 40};
     char secret[128];
     char grouped[160];
-    char uri[384];
 
     memset(secret, 0, sizeof(secret));
     memset(grouped, 0, sizeof(grouped));
@@ -836,11 +840,6 @@ static void admin_render_totp(SDL_Renderer *renderer, TTF_Font *font_small, TTF_
     admin_outline(renderer, secret_box, Admin_BORDER);
     admin_centered(renderer, font_small, grouped,
                    (SDL_Rect){secret_box.x + 8, secret_box.y, secret_box.w - 16, secret_box.h}, Admin_TEXT);
-
-    snprintf(uri, sizeof(uri),
-             "otpauth://totp/RetroSpectrum:%s?secret=%s&issuer=RetroSpectrum&algorithm=SHA512&digits=6&period=30",
-             state->username, secret);
-    (void)uri;
 
     admin_button(renderer, font_small, copy, "COPY SECRET", admin_point_in_rect(mouse_x, mouse_y, copy), Admin_TEXT);
     admin_field(renderer, font_small, code, "Six-digit authenticator code", state->code,
@@ -874,11 +873,14 @@ static void admin_render_reset(SDL_Renderer *renderer, TTF_Font *font_small, TTF
     SDL_Rect cancel = {panel.x + 75, save.y, 120, 40};
     char title[256];
 
-    snprintf(title, sizeof(title), "RESET PASSWORD: %s", state->username);
+    if (!sec_sprintf(title, sizeof(title), "RESET PASSWORD: %s", state->username)) {
+        title[0] = '\0';
+    }
+
     admin_fill(renderer, panel, Admin_PANEL);
     admin_outline(renderer, panel, Admin_ACTIVE);
     admin_centered(renderer, font_medium, title, (SDL_Rect){panel.x, panel.y + 26, panel.w, 28}, Admin_TEXT);
-    admin_centered(renderer, font_small, "Resetting a password disables that account's existing 2FA enrollment.",
+    admin_centered(renderer, font_small, "Resetting a password preserves that account's existing 2FA enrollment.",
                    (SDL_Rect){panel.x + 30, panel.y + 78, panel.w - 60, 24}, Admin_WARN);
     admin_field(renderer, font_small, password, "New Password", state->password,
                 state->active_field == AUTH_ADMIN_FIELD_PASSWORD, 1);
@@ -911,7 +913,11 @@ static void admin_render_remove_totp(SDL_Renderer *renderer, TTF_Font *font_smal
     admin_outline(renderer, panel, Admin_ERROR);
     admin_centered(renderer, font_medium, "REMOVE TWO-FACTOR AUTHENTICATION",
                    (SDL_Rect){panel.x, panel.y + 40, panel.w, 28}, Admin_ERROR);
-    snprintf(line, sizeof(line), "Disable 2FA for account: %s", state->username);
+
+    if (!sec_sprintf(line, sizeof(line), "Disable 2FA for account: %s", state->username)) {
+        line[0] = '\0';
+    }
+
     admin_centered(renderer, font_small, line, (SDL_Rect){panel.x + 30, panel.y + 170, panel.w - 60, 28}, Admin_TEXT);
     admin_centered(renderer, font_small, "The account will require only its password until 2FA is enrolled again.",
                    (SDL_Rect){panel.x + 30, panel.y + 218, panel.w - 60, 28}, Admin_WARN);
@@ -1377,7 +1383,7 @@ static void admin_submit_reset(Type_Auth_Admin_State *state) {
     state->view = AUTH_ADMIN_VIEW_USERS;
     admin_refresh_users(state);
     admin_set_status(state, Admin_WARN,
-                     "Password reset. Server-wrapped 2FA was preserved; legacy password-wrapped 2FA may be disabled.");
+                 "Password reset. Existing 2FA enrollment was preserved.");
 }
 
 static void admin_submit_role(Type_Auth_Admin_State *state) {

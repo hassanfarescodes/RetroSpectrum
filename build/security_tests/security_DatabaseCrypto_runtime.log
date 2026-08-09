@@ -1,0 +1,240 @@
+
+[96mRetroSpectrum security target: DatabaseCrypto.c[0m
+Attack classes: unsafe-copy, unbounded-format, command execution, temporary-file race, symlink creation, weak RNG + runtime hostile probes.
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+
+[96m=== Per-function source attacks: DatabaseCrypto.c (35 functions discovered) ===[0m
+[92mPASSED[0m at least one production function discovered
+[92mPASSED[0m database_crypto_error:45 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_error:45 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_error:45 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_error:45 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_error:45 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_error:45 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_write_all:58 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_write_all:58 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_write_all:58 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_write_all:58 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_write_all:58 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_write_all:58 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_read_all:90 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_read_all:90 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_read_all:90 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_read_all:90 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_read_all:90 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_read_all:90 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_ensure_directory:122 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_ensure_directory:122 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_ensure_directory:122 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_ensure_directory:122 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_ensure_directory:122 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_ensure_directory:122 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_directory:168 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_directory:168 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_directory:168 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_directory:168 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_directory:168 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_directory:168 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_path:225 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_path:225 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_path:225 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_path:225 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_path:225 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_path:225 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_validate_key_file:241 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_validate_key_file:241 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_validate_key_file:241 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_validate_key_file:241 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_validate_key_file:241 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_validate_key_file:241 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_cleanup_cached_master:268 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_cleanup_cached_master:268 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_cleanup_cached_master:268 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_cleanup_cached_master:268 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_cleanup_cached_master:268 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_cleanup_cached_master:268 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_cache_master:286 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_cache_master:286 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_cache_master:286 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_cache_master:286 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_cache_master:286 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_cache_master:286 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_copy_cached_master:318 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_copy_cached_master:318 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_copy_cached_master:318 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_copy_cached_master:318 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_copy_cached_master:318 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_copy_cached_master:318 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_default_key_path:338 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_default_key_path:338 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_default_key_path:338 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_default_key_path:338 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_default_key_path:338 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_default_key_path:338 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_read_saved_key_path:347 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_read_saved_key_path:347 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_read_saved_key_path:347 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_read_saved_key_path:347 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_read_saved_key_path:347 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_read_saved_key_path:347 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_resolve_key_path:405 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_resolve_key_path:405 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_resolve_key_path:405 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_resolve_key_path:405 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_resolve_key_path:405 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_resolve_key_path:405 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_load_key_file:482 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_load_key_file:482 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_load_key_file:482 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_load_key_file:482 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_load_key_file:482 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_load_key_file:482 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_any_database_exists:531 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_any_database_exists:531 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_any_database_exists:531 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_any_database_exists:531 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_any_database_exists:531 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_any_database_exists:531 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_create_default_master:557 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_create_default_master:557 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_create_default_master:557 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_create_default_master:557 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_create_default_master:557 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_create_default_master:557 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_load_or_create_master:613 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_load_or_create_master:613 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_load_or_create_master:613 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_load_or_create_master:613 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_load_or_create_master:613 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_load_or_create_master:613 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_derive_from_master:667 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_derive_from_master:667 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_derive_from_master:667 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_derive_from_master:667 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_derive_from_master:667 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_derive_from_master:667 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_derive_key:698 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_derive_key:698 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_derive_key:698 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_derive_key:698 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_derive_key:698 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_derive_key:698 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_hex:721 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_hex:721 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_hex:721 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_hex:721 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_hex:721 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_hex:721 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_parse_version:736 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_parse_version:736 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_parse_version:736 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_parse_version:736 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_parse_version:736 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_parse_version:736 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_version_supported:808 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_version_supported:808 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_version_supported:808 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_version_supported:808 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_version_supported:808 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_version_supported:808 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_has_sqlcipher:838 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_has_sqlcipher:838 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_has_sqlcipher:838 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_has_sqlcipher:838 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_has_sqlcipher:838 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_has_sqlcipher:838 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_exec:863 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_exec:863 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_exec:863 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_exec:863 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_exec:863 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_exec:863 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_validate_database_file:882 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_validate_database_file:882 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_validate_database_file:882 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_validate_database_file:882 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_validate_database_file:882 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_validate_database_file:882 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_apply_key:926 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_apply_key:926 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_apply_key:926 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_apply_key:926 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_apply_key:926 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_apply_key:926 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_key_opens_database:976 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_key_opens_database:976 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_key_opens_database:976 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_key_opens_database:976 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_key_opens_database:976 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_key_opens_database:976 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_write_saved_key_path:1049 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_write_saved_key_path:1049 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_write_saved_key_path:1049 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_write_saved_key_path:1049 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_write_saved_key_path:1049 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_write_saved_key_path:1049 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_file_is_plaintext:1098 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_file_is_plaintext:1098 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_file_is_plaintext:1098 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_file_is_plaintext:1098 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_file_is_plaintext:1098 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_file_is_plaintext:1098 weak PRNG attack — blocked
+[92mPASSED[0m database_crypto_open:1120 unsafe string/input API attack — blocked
+[92mPASSED[0m database_crypto_open:1120 unbounded format-write attack — blocked
+[92mPASSED[0m database_crypto_open:1120 shell-command execution sink attack — blocked
+[92mPASSED[0m database_crypto_open:1120 predictable temporary-file attack — blocked
+[92mPASSED[0m database_crypto_open:1120 symlink file-creation attack — blocked
+[92mPASSED[0m database_crypto_open:1120 weak PRNG attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_auth:1203 unsafe string/input API attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_auth:1203 unbounded format-write attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_auth:1203 shell-command execution sink attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_auth:1203 predictable temporary-file attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_auth:1203 symlink file-creation attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_auth:1203 weak PRNG attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_data:1213 unsafe string/input API attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_data:1213 unbounded format-write attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_data:1213 shell-command execution sink attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_data:1213 predictable temporary-file attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_data:1213 symlink file-creation attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_open_data:1213 weak PRNG attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_set_key_path:1223 unsafe string/input API attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_set_key_path:1223 unbounded format-write attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_set_key_path:1223 shell-command execution sink attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_set_key_path:1223 predictable temporary-file attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_set_key_path:1223 symlink file-creation attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_set_key_path:1223 weak PRNG attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_is_unlocked:1284 unsafe string/input API attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_is_unlocked:1284 unbounded format-write attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_is_unlocked:1284 shell-command execution sink attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_is_unlocked:1284 predictable temporary-file attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_is_unlocked:1284 symlink file-creation attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_is_unlocked:1284 weak PRNG attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_key_path:1297 unsafe string/input API attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_key_path:1297 unbounded format-write attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_key_path:1297 shell-command execution sink attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_key_path:1297 predictable temporary-file attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_key_path:1297 symlink file-creation attack — blocked
+[92mPASSED[0m DATABASE_CRYPTO_key_path:1297 weak PRNG attack — blocked
+
+[96m=== Runtime hostile-input attacks: DatabaseCrypto.c ===[0m
+[92mPASSED[0m database crypto rejects malformed SQLCipher version
+[92mPASSED[0m database crypto rejects version trailing injection
+[92mPASSED[0m database crypto rejects absurd version overflow
+[92mPASSED[0m database crypto create plaintext attack fixture
+[92mPASSED[0m database crypto detects plaintext SQLite database
+[92mPASSED[0m database crypto HMAC-SHA512 derivation succeeds
+[92mPASSED[0m database crypto derivation is deterministic for same master/domain
+[92mPASSED[0m database crypto domain separation changes derived auth/data keys
+[92mPASSED[0m database crypto master-key bit change alters derived key
+[92mPASSED[0m database crypto derivation rejects NULL domain
+[92mPASSED[0m database crypto creates key-permission fixture
+[92mPASSED[0m database crypto accepts owner key file and restricts permissive mode
+[92mPASSED[0m database crypto creates wrong-size key fixture
+[92mPASSED[0m database crypto rejects wrong-size master key
+[92mPASSED[0m database crypto creates symlink key fixture
+[92mPASSED[0m database crypto key loader refuses symlink key path
+[92mPASSED[0m database crypto database-file validator refuses symlink path
+
+DatabaseCrypto.c security summary: [92m230 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

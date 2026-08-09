@@ -2,9 +2,11 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "DatabaseCrypto.h"
+#include "SecureFunctions.h"
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
@@ -48,7 +50,7 @@ static void database_crypto_error(char *error, size_t error_size, const char *me
 
     if (error && error_size > 0) {
 
-        snprintf(error, error_size, "%s", message ? message : "Database cryptography error.");
+        (void)sec_strcpy(error, error_size, message ? message : "Database cryptography error.");
 
     }
 }
@@ -181,7 +183,7 @@ static int database_crypto_directory(char *directory, size_t directory_size) {
 
     if (xdg && xdg[0] != '\0') {
 
-        if (snprintf(root, sizeof(root), "%s", xdg) >= (int)sizeof(root)) {
+        if (xdg[0] != '/' || !sec_strcpy(root, sizeof(root), xdg)) {
 
             return 0;
 
@@ -191,7 +193,7 @@ static int database_crypto_directory(char *directory, size_t directory_size) {
 
     else if (home && home[0] != '\0') {
 
-        if (snprintf(root, sizeof(root), "%s/.config", home) >= (int)sizeof(root)) {
+        if (home[0] != '/' || !sec_sprintf(root, sizeof(root), "%s/.config", home)) {
 
             return 0;
 
@@ -205,8 +207,7 @@ static int database_crypto_directory(char *directory, size_t directory_size) {
 
     }
 
-    if (!database_crypto_ensure_directory(root) ||
-        snprintf(directory, directory_size, "%s/retrospectrum", root) >= (int)directory_size ||
+    if (!database_crypto_ensure_directory(root) || !sec_sprintf(directory, directory_size, "%s/retrospectrum", root) ||
         !database_crypto_ensure_directory(directory)) {
 
         return 0;
@@ -234,7 +235,7 @@ static int database_crypto_path(char *path, size_t path_size, const char *filena
         return 0;
 
     }
-    return snprintf(path, path_size, "%s/%s", directory, filename) < (int)path_size;
+    return sec_sprintf(path, path_size, "%s/%s", directory, filename);
 }
 
 static int database_crypto_validate_key_file(int descriptor) {
@@ -386,17 +387,19 @@ static int database_crypto_read_saved_key_path(char *path, size_t path_size) {
         return -1;
 
     }
+
     buffer[received] = '\0';
     length = strcspn(buffer, "\r\n");
     buffer[length] = '\0';
 
-    if (buffer[0] != '/' || strlen(buffer) >= path_size) {
+    if (buffer[0] != '/' || !sec_strcpy(path, path_size, buffer)) {
 
         return -1;
 
     }
-    snprintf(path, path_size, "%s", buffer);
+
     return 1;
+
 }
 
 static int database_crypto_resolve_key_path(char *path, size_t path_size, char *error, size_t error_size) {
@@ -416,12 +419,19 @@ static int database_crypto_resolve_key_path(char *path, size_t path_size, char *
 
     pthread_mutex_lock(&Global_Database_Crypto_Key_Lock);
 
-    if (Global_Database_Crypto_Key_Path[0] != '\0') {
+    if (Global_Database_Crypto_Key_Path[0] != '\0' && !sec_strcpy(resolved,
+        sizeof(resolved), Global_Database_Crypto_Key_Path)) {
 
-        snprintf(resolved, sizeof(resolved), "%s", Global_Database_Crypto_Key_Path);
+        pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
+
+        database_crypto_error(error, error_size, "The cached database master-key path is invalid.");
+
+        return 0;
 
     }
+
     pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
+
 
     if (resolved[0] == '\0') {
 
@@ -443,21 +453,28 @@ static int database_crypto_resolve_key_path(char *path, size_t path_size, char *
 
     }
 
-    if (strlen(resolved) >= path_size) {
+    pthread_mutex_lock(&Global_Database_Crypto_Key_Lock);
+
+    if (Global_Database_Crypto_Key_Path[0] == '\0' && !sec_strcpy(Global_Database_Crypto_Key_Path,
+        sizeof(Global_Database_Crypto_Key_Path), resolved)) {
+
+        pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
 
         database_crypto_error(error, error_size, "The database master-key path is too long.");
+
         return 0;
 
     }
 
-    pthread_mutex_lock(&Global_Database_Crypto_Key_Lock);
+    if (!sec_strcpy(path, path_size, Global_Database_Crypto_Key_Path)) {
 
-    if (Global_Database_Crypto_Key_Path[0] == '\0') {
+        pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
 
-        snprintf(Global_Database_Crypto_Key_Path, sizeof(Global_Database_Crypto_Key_Path), "%s", resolved);
+        database_crypto_error(error, error_size, "The database master-key path is too long.");
 
+        return 0;
     }
-    snprintf(path, path_size, "%s", Global_Database_Crypto_Key_Path);
+
     pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
     return 1;
 }
@@ -482,9 +499,20 @@ static int database_crypto_load_key_file(const char *path, unsigned char master[
     if (descriptor < 0) {
 
         char message[PATH_MAX + 96];
-        snprintf(message, sizeof(message), "Unable to open database key file %s: %s", path, strerror(errno));
-        database_crypto_error(error, error_size, message);
-        return 0;
+
+        if (!sec_sprintf(message, sizeof(message), "Unable to open database key file %s: %s", path, strerror(errno))) {
+
+            database_crypto_error(error, error_size, "Unable to open database key file.");
+
+        }
+
+        else {
+
+            database_crypto_error(error, error_size, message);
+
+        }
+
+    return 0;
 
     }
 
@@ -707,18 +735,74 @@ static void database_crypto_hex(const unsigned char key[DATABASE_CRYPTO_DERIVED_
 
 static int database_crypto_parse_version(const char *version, int *major, int *minor, int *patch) {
     /*
-        Purpose: Parses the version
+        Purpose: Parses the SQLCipher version
         Returns: Success status
     */
 
-    char trailing = '\0';
+    const char *cursor;
+    char *end = NULL;
+    long value;
 
     if (!version || !major || !minor || !patch) {
-
         return 0;
-
     }
-    return sscanf(version, "%d.%d.%d%c", major, minor, patch, &trailing) >= 3;
+
+    cursor = version;
+
+    /* Major */
+    if (*cursor < '0' || *cursor > '9') {
+        return 0;
+    }
+
+    errno = 0;
+    value = strtol(cursor, &end, 10);
+
+    if (errno == ERANGE || end == cursor || value < 0 || value > INT_MAX || *end != '.') {
+        return 0;
+    }
+
+    *major = (int)value;
+    cursor = end + 1;
+
+    /* Minor */
+    if (*cursor < '0' || *cursor > '9') {
+        return 0;
+    }
+
+    errno = 0;
+    value = strtol(cursor, &end, 10);
+
+    if (errno == ERANGE || end == cursor || value < 0 || value > INT_MAX || *end != '.') {
+        return 0;
+    }
+
+    *minor = (int)value;
+    cursor = end + 1;
+
+    /* Patch */
+    if (*cursor < '0' || *cursor > '9') {
+        return 0;
+    }
+
+    errno = 0;
+    value = strtol(cursor, &end, 10);
+
+    if (errno == ERANGE || end == cursor || value < 0 || value > INT_MAX) {
+        return 0;
+    }
+
+    *patch = (int)value;
+
+    /* Accept either a bare version or SQLCipher's legitimate community suffix. */
+    if (*end == '\0') {
+        return 1;
+    }
+
+    if (strcmp(end, " community") == 0) {
+        return 1;
+    }
+
+    return 0;
 }
 
 static int database_crypto_version_supported(const char *version) {
@@ -924,7 +1008,9 @@ static int database_crypto_key_opens_database(const char *path, const char *doma
 
     if (result == (int)sizeof(header) && memcmp(header, "SQLite format 3\000", sizeof(header)) == 0) {
 
-        return 1;
+        database_crypto_error(error, error_size,
+                              "Plaintext SQLite databases are unsupported; only current SQLCipher databases are accepted.");
+        return 0;
 
     }
 
@@ -974,12 +1060,13 @@ static int database_crypto_write_saved_key_path(const char *path, char *error, s
     int success = 0;
 
     if (!path || !database_crypto_path(config_path, sizeof(config_path), DATABASE_CRYPTO_KEY_PATH_FILENAME) ||
-        snprintf(temporary, sizeof(temporary), "%s.tmp-%ld", config_path, (long)getpid()) >= (int)sizeof(temporary)) {
+        !sec_sprintf(temporary, sizeof(temporary), "%s.tmp-%ld", config_path, (long)getpid())) {
 
         database_crypto_error(error, error_size, "Unable to save the database key-file path.");
         return 0;
 
     }
+
     length = strlen(path);
     old_mask = umask(0077);
     descriptor = open(temporary, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
@@ -1030,482 +1117,6 @@ static int database_crypto_file_is_plaintext(const char *path) {
     return received == (ssize_t)sizeof(header) && memcmp(header, "SQLite format 3\0", 16) == 0;
 }
 
-static int database_crypto_parent_directory_writable(const char *path, char *error, size_t error_size) {
-    /*
-        Purpose: Checks whether the parent directory is writable
-        Returns: Success status
-    */
-
-    char directory[PATH_MAX];
-    char *separator;
-    struct stat st;
-
-    if (!path || snprintf(directory, sizeof(directory), "%s", path) >= (int)sizeof(directory)) {
-
-        database_crypto_error(error, error_size, "Invalid database migration path.");
-        return 0;
-
-    }
-
-    separator = strrchr(directory, '/');
-
-    if (!separator) {
-
-        snprintf(directory, sizeof(directory), ".");
-
-    }
-
-    else if (separator == directory) {
-
-        separator[1] = '\0';
-
-    }
-
-    else {
-
-        *separator = '\0';
-
-    }
-
-    if (lstat(directory, &st) != 0) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to inspect database directory %s: %s", directory, strerror(errno));
-
-        }
-        return 0;
-
-    }
-
-    if (!S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode)) {
-
-        database_crypto_error(error, error_size, "The database parent path is not a safe directory.");
-        return 0;
-
-    }
-
-    if (st.st_uid != geteuid()) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Database directory %s is not owned by the current user.", directory);
-
-        }
-        return 0;
-
-    }
-
-    if ((st.st_mode & 077) != 0 && chmod(directory, 0700) != 0) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to restrict database directory %s: %s", directory, strerror(errno));
-
-        }
-        return 0;
-
-    }
-
-    if (access(directory, R_OK | W_OK | X_OK) != 0) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Database directory %s is not writable: %s", directory, strerror(errno));
-
-        }
-        return 0;
-
-    }
-    return 1;
-}
-
-static int database_crypto_create_secure_empty_file(const char *path, char *error, size_t error_size) {
-    /*
-        Purpose: Creates the secure empty file
-        Returns: Success status
-    */
-
-    int descriptor;
-    mode_t previous_mask;
-
-    if (!path || path[0] == '\0') {
-
-        database_crypto_error(error, error_size, "Invalid temporary database path.");
-        return 0;
-
-    }
-
-    previous_mask = umask(0077);
-    descriptor = open(path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
-    umask(previous_mask);
-
-    if (descriptor < 0) {
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to create temporary SQLCipher database %s: %s", path, strerror(errno));
-
-        }
-        return 0;
-
-    }
-
-    if (fchmod(descriptor, 0600) != 0 || fsync(descriptor) != 0) {
-
-        int saved_errno = errno;
-        close(descriptor);
-        unlink(path);
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to initialize temporary SQLCipher database %s: %s", path,
-                     strerror(saved_errno));
-
-        }
-        return 0;
-
-    }
-
-    if (close(descriptor) != 0) {
-
-        int saved_errno = errno;
-        unlink(path);
-
-        if (error && error_size > 0) {
-
-            snprintf(error, error_size, "Unable to close temporary SQLCipher database %s: %s", path,
-                     strerror(saved_errno));
-
-        }
-        return 0;
-
-    }
-    return 1;
-}
-
-static int database_crypto_export_plaintext(sqlite3 *source, const char *destination_path,
-                                            const unsigned char key[DATABASE_CRYPTO_DERIVED_BYTES], char *error,
-                                            size_t error_size) {
-    /*
-        Purpose: Exports the plaintext
-        Returns: Success status
-    */
-
-    char key_hex[DATABASE_CRYPTO_HEX_BYTES + 1];
-    char *attach_sql = NULL;
-    int attached = 0;
-    int success = 0;
-
-    if (!source || !destination_path || !key) {
-
-        database_crypto_error(error, error_size, "Invalid database migration connection.");
-        return 0;
-
-    }
-
-    database_crypto_hex(key, key_hex);
-    attach_sql = sqlite3_mprintf("ATTACH DATABASE %Q AS encrypted KEY \"x'%s'\";", destination_path, key_hex);
-
-    if (!attach_sql) {
-
-        database_crypto_error(error, error_size, "Unable to allocate the SQLCipher migration command.");
-        goto cleanup;
-
-    }
-
-    if (!database_crypto_exec(source, attach_sql, error, error_size)) {
-
-        goto cleanup;
-
-    }
-    attached = 1;
-
-    /* SQLCipher 4.6.1 community rejects sqlite3_backup() when an encrypted
-     * database participates. sqlcipher_export() is the supported migration
-     * path for copying a plaintext main database into a keyed attached one. */
-
-    if (!database_crypto_exec(source, "PRAGMA encrypted.cipher_page_size = 4096;", error, error_size) ||
-        !database_crypto_exec(source, "PRAGMA encrypted.cipher_hmac_algorithm = HMAC_SHA512;", error, error_size) ||
-        !database_crypto_exec(source, "PRAGMA encrypted.cipher_kdf_algorithm = PBKDF2_HMAC_SHA512;", error,
-                              error_size) ||
-        !database_crypto_exec(source, "PRAGMA cipher_memory_security = ON;", error, error_size) ||
-        !database_crypto_exec(source, "SELECT sqlcipher_export('encrypted');", error, error_size) ||
-        !database_crypto_exec(source, "DETACH DATABASE encrypted;", error, error_size)) {
-
-        goto cleanup;
-
-    }
-    attached = 0;
-    success = 1;
-
-cleanup:
-
-    if (attached) {
-
-        sqlite3_exec(source, "DETACH DATABASE encrypted;", NULL, NULL, NULL);
-
-    }
-    sqlite3_free(attach_sql);
-    OPENSSL_cleanse(key_hex, sizeof(key_hex));
-    return success;
-}
-
-static int database_crypto_verify_encrypted_copy(const char *path,
-                                                 const unsigned char key[DATABASE_CRYPTO_DERIVED_BYTES], char *error,
-                                                 size_t error_size) {
-    /*
-        Purpose: Verifies the encrypted copy
-        Returns: Success status
-    */
-
-    sqlite3 *database = NULL;
-    sqlite3_stmt *statement = NULL;
-    int success = 0;
-
-    if (!path || !key ||
-        sqlite3_open_v2(path, &database, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, NULL) != SQLITE_OK) {
-
-        database_crypto_error(error, error_size, "Unable to reopen the migrated encrypted database.");
-        goto cleanup;
-
-    }
-
-    if (!database_crypto_apply_key(database, key, error, error_size) ||
-        sqlite3_prepare_v2(database, "PRAGMA integrity_check;", -1, &statement, NULL) != SQLITE_OK ||
-        sqlite3_step(statement) != SQLITE_ROW) {
-
-        if (error && error_size > 0 && error[0] == '\0') {
-
-            database_crypto_error(error, error_size, "The migrated encrypted database failed validation.");
-
-        }
-        goto cleanup;
-
-    }
-
-    {
-        const unsigned char *result = sqlite3_column_text(statement, 0);
-
-        if (!result || strcmp((const char *)result, "ok") != 0) {
-
-            database_crypto_error(error, error_size, "The migrated encrypted database failed integrity_check.");
-            goto cleanup;
-
-        }
-    }
-    success = 1;
-
-cleanup:
-    sqlite3_finalize(statement);
-
-    if (database) {
-
-        sqlite3_close(database);
-
-    }
-    return success;
-}
-
-static int database_crypto_fsync_file(const char *path) {
-    /*
-        Purpose: Synchronizes a file to storage
-        Returns: Success status
-    */
-
-    int descriptor;
-    int result;
-
-    descriptor = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
-
-    if (descriptor < 0) {
-
-        return 0;
-
-    }
-    result = fsync(descriptor) == 0;
-    close(descriptor);
-    return result;
-}
-
-static int database_crypto_fsync_parent_directory(const char *path) {
-    /*
-        Purpose: Synchronizes a parent directory to storage
-        Returns: Success status
-    */
-
-    char directory[PATH_MAX];
-    char *separator;
-    int descriptor;
-    int result;
-
-    if (!path || snprintf(directory, sizeof(directory), "%s", path) >= (int)sizeof(directory)) {
-
-        return 0;
-
-    }
-    separator = strrchr(directory, '/');
-
-    if (!separator) {
-
-        snprintf(directory, sizeof(directory), ".");
-
-    }
-
-    else if (separator == directory) {
-
-        separator[1] = '\0';
-
-    }
-
-    else {
-
-        *separator = '\0';
-
-    }
-
-    descriptor = open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
-
-    if (descriptor < 0) {
-
-        return 0;
-
-    }
-    result = fsync(descriptor) == 0;
-    close(descriptor);
-    return result;
-}
-
-static int database_crypto_migrate_plaintext(const char *path, const unsigned char key[DATABASE_CRYPTO_DERIVED_BYTES],
-                                             char *error, size_t error_size) {
-    /*
-        Purpose: Migrates the plaintext
-        Returns: Success status
-    */
-
-    sqlite3 *source = NULL;
-    char temporary[PATH_MAX];
-    char backup[PATH_MAX];
-    mode_t previous_mask;
-    int success = 0;
-
-    if (snprintf(temporary, sizeof(temporary), "%s.sqlcipher-new-%ld", path, (long)getpid()) >=
-            (int)sizeof(temporary) ||
-        snprintf(backup, sizeof(backup), "%s.plaintext-old-%ld", path, (long)getpid()) >= (int)sizeof(backup)) {
-
-        database_crypto_error(error, error_size, "Database migration path is too long.");
-        return 0;
-
-    }
-
-    if (!database_crypto_parent_directory_writable(path, error, error_size)) {
-
-        return 0;
-
-    }
-
-    if ((unlink(temporary) != 0 && errno != ENOENT) || (unlink(backup) != 0 && errno != ENOENT)) {
-
-        database_crypto_error(error, error_size, "Unable to remove a stale database migration file.");
-        return 0;
-
-    }
-
-    if (!database_crypto_create_secure_empty_file(temporary, error, error_size)) {
-
-        return 0;
-
-    }
-
-    if (sqlite3_open_v2(path, &source, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, NULL) != SQLITE_OK ||
-        !database_crypto_has_sqlcipher(source)) {
-
-        database_crypto_error(error, error_size,
-                              "Unable to open the existing plaintext database with SQLCipher 4.6.1+.");
-        goto cleanup;
-
-    }
-
-    previous_mask = umask(0077);
-    {
-        int export_ok = database_crypto_export_plaintext(source, temporary, key, error, error_size);
-        umask(previous_mask);
-
-        if (!export_ok) {
-
-            goto cleanup;
-
-        }
-    }
-
-    if (sqlite3_close(source) != SQLITE_OK) {
-
-        database_crypto_error(error, error_size, "Unable to close the plaintext database before migration.");
-        goto cleanup;
-
-    }
-    source = NULL;
-
-    if (chmod(temporary, 0600) != 0 || !database_crypto_fsync_file(temporary) ||
-        !database_crypto_verify_encrypted_copy(temporary, key, error, error_size)) {
-
-        goto cleanup;
-
-    }
-
-    if (rename(path, backup) != 0) {
-
-        database_crypto_error(error, error_size, "Unable to preserve the plaintext database during migration.");
-        goto cleanup;
-
-    }
-
-    if (rename(temporary, path) != 0) {
-
-        rename(backup, path);
-        database_crypto_error(error, error_size, "Unable to replace the plaintext database atomically.");
-        goto cleanup;
-
-    }
-
-    if (!database_crypto_fsync_parent_directory(path)) {
-
-        rename(path, temporary);
-        rename(backup, path);
-        database_crypto_error(error, error_size, "Unable to persist the encrypted database replacement.");
-        goto cleanup;
-
-    }
-
-    /* The plaintext backup is removed only after the encrypted copy has been
-     * reopened and passed SQLCipher key validation plus integrity_check. */
-
-    if (unlink(backup) != 0 || !database_crypto_fsync_parent_directory(path)) {
-
-        database_crypto_error(
-            error, error_size,
-            "Database encrypted successfully, but the temporary plaintext backup could not be removed safely.");
-        goto cleanup;
-
-    }
-    success = 1;
-
-cleanup:
-
-    if (source) {
-
-        sqlite3_close(source);
-
-    }
-
-    if (!success) {
-
-        unlink(temporary);
-
-    }
-    return success;
-}
-
 static int database_crypto_open(sqlite3 **database, char *path, size_t path_size, const char *filename,
                                 const char *domain, char *error, size_t error_size) {
     /*
@@ -1532,9 +1143,16 @@ static int database_crypto_open(sqlite3 **database, char *path, size_t path_size
 
     }
 
-    if (!database_crypto_validate_database_file(path, error, error_size) ||
-        (database_crypto_file_is_plaintext(path) && !database_crypto_migrate_plaintext(path, key, error, error_size))) {
+    if (!database_crypto_validate_database_file(path, error, error_size)) {
 
+        goto cleanup;
+
+    }
+
+    if (database_crypto_file_is_plaintext(path)) {
+
+        database_crypto_error(error, error_size,
+                              "Plaintext SQLite databases are unsupported; only current SQLCipher databases are accepted.");
         goto cleanup;
 
     }
@@ -1642,8 +1260,19 @@ int DATABASE_CRYPTO_set_key_path(const char *path, char *error, size_t error_siz
     }
 
     pthread_mutex_lock(&Global_Database_Crypto_Key_Lock);
-    snprintf(Global_Database_Crypto_Key_Path, sizeof(Global_Database_Crypto_Key_Path), "%s", canonical);
+
+    if (!sec_strcpy(Global_Database_Crypto_Key_Path, sizeof(Global_Database_Crypto_Key_Path), canonical)) {
+
+        pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
+
+        database_crypto_error(error, error_size, "The selected database key-file path is too long.");
+
+        goto cleanup;
+
+    }
+
     pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
+
     database_crypto_cache_master(master);
     success = 1;
 

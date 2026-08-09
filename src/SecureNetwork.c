@@ -3,6 +3,7 @@
 #include "SecureNetwork.h"
 #include "AuthService.h"
 #include "ServerIdentity.h"
+#include "SecureFunctions.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -130,7 +131,7 @@ static void secure_network_set_error(char *error, size_t error_size, const char 
 
     if (error && error_size > 0) {
 
-        snprintf(error, error_size, "%s", message ? message : "Secure network error.");
+        (void)sec_strcpy(error, error_size, message ? message : "Secure network error.");
 
     }
 }
@@ -142,7 +143,7 @@ static void secure_network_set_status(const char *message) {
     */
 
     pthread_mutex_lock(&Global_Secure_Server_Lock);
-    snprintf(Global_Secure_Status, sizeof(Global_Secure_Status), "%s", message ? message : "");
+    (void)sec_strcpy(Global_Secure_Status, sizeof(Global_Secure_Status), message ? message : "");
     pthread_mutex_unlock(&Global_Secure_Server_Lock);
 }
 
@@ -669,15 +670,26 @@ static int secure_network_send_status(SSL *ssl, uint16_t request_type, uint32_t 
 
     if (message_size > 0) {
 
-        memcpy(payload + 8, message, message_size);
+        if (!sec_memcpy(payload + 8, payload_size - 8, message, message_size)) {
+
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+
+        }
 
     }
 
     if (extra_size > 0) {
 
-        memcpy(payload + 8 + message_size, extra, extra_size);
+        if (!sec_memcpy(payload + 8 + message_size, payload_size - 8 - message_size,
+            extra, extra_size)) {
 
+            OPENSSL_clear_free(payload, payload_size);
+            return 0;
+
+        }
     }
+
     result =
         secure_network_send_frame(ssl, request_type | SECURE_NETWORK_RESPONSE_FLAG, request_id, payload, payload_size);
     OPENSSL_clear_free(payload, payload_size);
@@ -715,6 +727,25 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
 
     }
 
+    if (memchr(payload + offset, '\0', username_size) != NULL) {
+
+        return 0;
+
+    }
+
+    if (memchr(payload + offset + username_size, '\0', password_size) != NULL) {
+
+        return 0;
+
+    }
+
+    if (totp_size > 0 &&
+        memchr(payload + offset + username_size + password_size, '\0', totp_size) != NULL) {
+
+        return 0;
+
+    }
+
     *username = OPENSSL_zalloc((size_t)username_size + 1);
     *password = OPENSSL_zalloc((size_t)password_size + 1);
     *totp = OPENSSL_zalloc((size_t)totp_size + 1);
@@ -724,16 +755,36 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
         return 0;
 
     }
-    memcpy(*username, payload + offset, username_size);
+
+    if (!sec_str_memcpy(*username, (size_t)username_size + 1U, 
+        (const char *)payload + offset, username_size)) {
+
+        return 0;
+
+    }           
+
     offset += username_size;
-    memcpy(*password, payload + offset, password_size);
+
+    if (!sec_str_memcpy(*password, (size_t)password_size + 1U,
+        (const char *)payload + offset, password_size)) {
+
+        return 0;
+
+    }
+
     offset += password_size;
 
     if (totp_size > 0) {
 
-        memcpy(*totp, payload + offset, totp_size);
+        if (!sec_str_memcpy(*totp, (size_t)totp_size + 1U, (const char *)payload + offset,
+            totp_size)) {
+
+            return 0;
+
+        }
 
     }
+
     return 1;
 }
 
@@ -805,7 +856,20 @@ static int secure_network_handle_auth(SSL *ssl, uint32_t request_id, const unsig
 
         if (authenticated_username && authenticated_username_size > 0) {
 
-            snprintf(authenticated_username, authenticated_username_size, "%s", username);
+            if (!sec_strcpy(authenticated_username, authenticated_username_size, username)) {
+
+                *authenticated = 0;
+                *is_admin = 0;
+
+                secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id,
+                                           SECURE_NETWORK_STATUS_ERROR, 
+                                           "Authenticated username exceeds the session buffer.",
+                                           NULL, 0);
+
+                goto cleanup;
+
+            }
+
 
         }
         secure_network_store_u32(extra, (uint32_t)admin);
@@ -883,22 +947,40 @@ static int secure_network_handle_save(SSL *ssl, uint32_t request_id, const unsig
                                           "Malformed save request.", NULL, 0);
 
     }
-    memcpy(kind, payload + offset, kind_size);
-    kind[kind_size] = '\0';
+
+    if (!sec_str_memcpy(kind, sizeof(kind), (const char *)payload + offset, kind_size)) {
+
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id,
+                                          SECURE_NETWORK_STATUS_ERROR, "Malformed save request.", NULL, 0);
+
+    }
+
     offset += kind_size;
-    memcpy(name, payload + offset, name_size);
-    name[name_size] = '\0';
+
+    if (!sec_str_memcpy(name, sizeof(name), (const char *)payload + offset, name_size)) {
+
+    return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                      "Malformed save request.", NULL, 0);
+
+    }
+
     offset += name_size;
-    memcpy(case_number, payload + offset, case_size);
-    case_number[case_size] = '\0';
+
+    if (!sec_str_memcpy(case_number, sizeof(case_number), (const char *)payload + offset, case_size)) {
+
+    return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                      "Malformed save request.", NULL, 0);
+
+    }
+
     offset += case_size;
 
     if (!DATASTORE_server_save_content(kind, name, case_number, payload + offset, content_size, error, sizeof(error))) {
 
         return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR, error,
                                           NULL, 0);
-
     }
+
     return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_OK, "Saved.",
                                       NULL, 0);
 }
@@ -936,10 +1018,14 @@ static int secure_network_handle_load(SSL *ssl, uint32_t request_id, const unsig
                                           "Malformed load request.", NULL, 0);
 
     }
-    memcpy(kind, payload + 4, kind_size);
-    kind[kind_size] = '\0';
-    memcpy(name, payload + 4 + kind_size, name_size);
-    name[name_size] = '\0';
+
+    if (!sec_str_memcpy(kind, sizeof(kind), (const char *)payload + 4, kind_size) ||
+        !sec_str_memcpy(name, sizeof(name), (const char *)payload + 4 + kind_size, name_size)) {
+
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LOAD, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed load request.", NULL, 0);
+
+    }
 
     if (!DATASTORE_server_load_content(kind, name, &content, &content_size, &found, error, sizeof(error))) {
 
@@ -961,7 +1047,13 @@ static int secure_network_handle_load(SSL *ssl, uint32_t request_id, const unsig
 
     if (content_size > 0) {
 
-        memcpy(extra + 8, content, content_size);
+        if (!sec_memcpy(extra + 8, extra_size - 8, content, content_size)) {
+
+            OPENSSL_clear_free(extra, extra_size);
+            DATASTORE_free_content(content, content_size);
+            return 0;
+
+        }
 
     }
     result = secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LOAD, request_id, SECURE_NETWORK_STATUS_OK, "Loaded.",
@@ -1004,10 +1096,13 @@ static int secure_network_handle_delete(SSL *ssl, uint32_t request_id, const uns
 
     }
 
-    memcpy(kind, payload + 4, kind_size);
-    kind[kind_size] = '\0';
-    memcpy(name, payload + 4 + kind_size, name_size);
-    name[name_size] = '\0';
+    if (!sec_str_memcpy(kind, sizeof(kind), (const char *)payload + 4, kind_size) ||
+        !sec_str_memcpy(name, sizeof(name), (const char *)payload + 4 + kind_size, name_size)) {
+
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_DELETE, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed delete request.", NULL, 0);
+
+    }
 
     if (!DATASTORE_server_delete_content(kind, name, &deleted, error, sizeof(error))) {
 
@@ -1052,8 +1147,13 @@ static int secure_network_handle_list(SSL *ssl, uint32_t request_id, const unsig
                                           "Malformed list request.", NULL, 0);
 
     }
-    memcpy(kind, payload + 2, kind_size);
-    kind[kind_size] = '\0';
+
+    if (!sec_str_memcpy(kind, sizeof(kind), (const char *)payload + 2, kind_size)) {
+
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_LIST, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed list request.", NULL, 0);
+
+    }
 
     if (!DATASTORE_server_list_documents(kind, documents, 512, &count, error, sizeof(error))) {
 
@@ -1185,19 +1285,43 @@ static int secure_network_handle_user_admin(SSL *ssl, uint32_t request_id, const
 
     }
 
-    memcpy(username, payload + offset, username_size);
+    if (!sec_str_memcpy(username, sizeof(username), (const char *)payload + offset, username_size)) {
+
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed account-management request.", NULL, 0);
+
+    }
+
     offset += username_size;
 
     if (password_size > 0) {
 
-        memcpy(password, payload + offset, password_size);
+
+        if (!sec_str_memcpy(password, sizeof(password), (const char *)payload + offset, password_size)) {
+
+            OPENSSL_cleanse(password, sizeof(password));
+            OPENSSL_cleanse(secret, sizeof(secret));
+
+            return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed account-management request.", NULL, 0);
+
+        }
+
         offset += password_size;
 
     }
 
     if (secret_size > 0) {
 
-        memcpy(secret, payload + offset, secret_size);
+        if (!sec_memcpy(secret, sizeof(secret), payload + offset, secret_size)) {
+
+            OPENSSL_cleanse(password, sizeof(password));
+            OPENSSL_cleanse(secret, sizeof(secret));
+
+            return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed account-management request.", NULL, 0);
+
+        }
 
     }
 
@@ -1878,8 +2002,13 @@ static int secure_network_receive_status_locked(uint16_t request_type, uint32_t 
     if (message && message_size > 0) {
 
         size_t copy = message_length < message_size - 1 ? message_length : message_size - 1;
-        memcpy(message, payload + 8, copy);
-        message[copy] = '\0';
+
+        if (!sec_str_memcpy(message, message_size, (const char *)payload + 8, copy)) {
+
+            OPENSSL_clear_free(payload, payload_size);
+            return 0;
+
+        }
 
     }
 
@@ -1898,7 +2027,17 @@ static int secure_network_receive_status_locked(uint16_t request_type, uint32_t 
                 return 0;
 
             }
-            memcpy(*extra, payload + 8 + message_length, *extra_size);
+
+            if (!sec_memcpy(*extra, *extra_size, payload + 8 + message_length, *extra_size)) {
+
+                OPENSSL_clear_free(*extra, *extra_size);
+                *extra = NULL;
+                *extra_size = 0;
+
+                OPENSSL_clear_free(payload, payload_size);
+                return 0;
+
+            }
 
         }
 
@@ -1956,14 +2095,16 @@ int SECURE_NETWORK_authenticate(const char *username, const char *password, cons
     secure_network_store_u16(payload + 2, (uint16_t)password_size);
     secure_network_store_u16(payload + 4, (uint16_t)totp_size);
     secure_network_store_u16(payload + 6, SECURE_NETWORK_AUTH_MODE_LOGIN);
-    memcpy(payload + 8, username, username_size);
-    memcpy(payload + 8 + username_size, password, password_size);
 
-    if (totp_size > 0) {
+    if (!sec_memcpy(payload + 8, payload_size - 8, username, username_size) ||
+        !sec_memcpy(payload + 8 + username_size, payload_size - 8 - username_size, password, password_size) ||
+        (totp_size > 0 && !sec_memcpy(payload + 8 + username_size + password_size,
+        payload_size - 8 - username_size - password_size, totp, totp_size))) {
 
-        memcpy(payload + 8 + username_size + password_size, totp, totp_size);
+    secure_network_set_error(error, error_size, "Unable to safely construct authentication payload.");
+    goto cleanup;
 
-    }
+}
 
     request_id = Global_Secure_Request_Id++;
 
@@ -2070,8 +2211,15 @@ int SECURE_NETWORK_verify_password(const char *username, const char *password, c
     secure_network_store_u16(payload + 2, (uint16_t)password_size);
     secure_network_store_u16(payload + 4, 0U);
     secure_network_store_u16(payload + 6, SECURE_NETWORK_AUTH_MODE_REAUTH);
-    memcpy(payload + 8, username, username_size);
-    memcpy(payload + 8 + username_size, password, password_size);
+
+    if (!sec_memcpy(payload + 8, payload_size - 8, username, username_size) ||
+        !sec_memcpy(payload + 8 + username_size, payload_size - 8 - username_size, password, password_size)) {
+
+        secure_network_set_error(error, error_size, "Unable to safely construct password-verification payload.");
+    goto cleanup;
+
+    }
+
     request_id = Global_Secure_Request_Id++;
 
     if (!secure_network_send_frame(Global_Secure_Client_SSL, SECURE_NETWORK_TYPE_AUTH, request_id, payload,
@@ -2233,7 +2381,7 @@ int SECURE_NETWORK_save_document(const char *document_kind, const char *document
     int success = 0;
 
     if (kind_size == 0 || kind_size > 63 || name_size == 0 || name_size >= DATASTORE_DOCUMENT_NAME_MAX ||
-        case_size >= DATASTORE_CASE_NUMBER_MAX || content_size > 64U * 1024U * 1024U) {
+        case_size >= DATASTORE_CASE_NUMBER_MAX || content_size > 64U * 1024U * 1024U || (content_size > 0 && !content)) {
 
         secure_network_set_error(error, error_size, "Invalid remote document save request.");
         return 0;
@@ -2251,21 +2399,46 @@ int SECURE_NETWORK_save_document(const char *document_kind, const char *document
     secure_network_store_u16(payload + 4, (uint16_t)case_size);
     secure_network_store_u16(payload + 6, 0);
     secure_network_store_u32(payload + 8, (uint32_t)content_size);
-    memcpy(payload + offset, document_kind, kind_size);
+
+    if (!sec_memcpy(payload + offset, payload_size - offset, document_kind, kind_size)) {
+
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+
+    }
+
     offset += kind_size;
-    memcpy(payload + offset, document_name, name_size);
+
+    if (!sec_memcpy(payload + offset, payload_size - offset, document_name, name_size)) {
+
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+
+    }
+
     offset += name_size;
 
     if (case_size > 0) {
 
-        memcpy(payload + offset, case_number, case_size);
+        if (!sec_memcpy(payload + offset, payload_size - offset, case_number, case_size)) {
+
+            OPENSSL_clear_free(payload, payload_size);
+            return 0;
+
+        }
+
         offset += case_size;
 
     }
 
     if (content_size > 0) {
 
-        memcpy(payload + offset, content, content_size);
+        if (!sec_memcpy(payload + offset, payload_size - offset, content, content_size)) {
+
+            OPENSSL_clear_free(payload, payload_size);
+            return 0;
+
+        }
 
     }
 
@@ -2311,8 +2484,14 @@ int SECURE_NETWORK_load_document(const char *document_kind, const char *document
     }
     secure_network_store_u16(payload, (uint16_t)kind_size);
     secure_network_store_u16(payload + 2, (uint16_t)name_size);
-    memcpy(payload + 4, document_kind, kind_size);
-    memcpy(payload + 4 + kind_size, document_name, name_size);
+
+    if (!sec_memcpy(payload + 4, payload_size - 4, document_kind, kind_size) ||
+        !sec_memcpy(payload + 4 + kind_size, payload_size - 4 - kind_size, document_name, name_size)) {
+
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+
+    }
 
     pthread_mutex_lock(&Global_Secure_Client_Lock);
 
@@ -2335,15 +2514,20 @@ int SECURE_NETWORK_load_document(const char *document_kind, const char *document
 
     if (*found && length > 0) {
 
-        *content = malloc((size_t)length + 1u);
+        *content = sec_calloc_array((size_t)length + 1U, 1U, SECURE_NETWORK_MAX_PAYLOAD + 1U);
 
         if (!*content) {
 
             goto cleanup;
 
         }
-        memcpy(*content, extra + 8, length);
-        (*content)[length] = '\0';
+
+        if (!sec_memcpy(*content, (size_t)length + 1U, extra + 8, length)) {
+
+            goto cleanup;
+
+        }
+
         *content_size = (size_t)length;
 
     }
@@ -2405,8 +2589,14 @@ int SECURE_NETWORK_delete_document(const char *document_kind, const char *docume
 
     secure_network_store_u16(payload, (uint16_t)kind_size);
     secure_network_store_u16(payload + 2, (uint16_t)name_size);
-    memcpy(payload + 4, document_kind, kind_size);
-    memcpy(payload + 4 + kind_size, document_name, name_size);
+
+    if (!sec_memcpy(payload + 4, payload_size - 4, document_kind, kind_size) ||
+        !sec_memcpy(payload + 4 + kind_size, payload_size - 4 - kind_size, document_name, name_size)) {
+
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+
+    }
 
     pthread_mutex_lock(&Global_Secure_Client_Lock);
 
@@ -2448,7 +2638,13 @@ int SECURE_NETWORK_list_documents(const char *document_kind, Type_DataStore_Docu
     }
     *count = 0;
     secure_network_store_u16(payload, (uint16_t)kind_size);
-    memcpy(payload + 2, document_kind, kind_size);
+
+    if (!sec_memcpy(payload + 2, sizeof(payload) - 2, document_kind, kind_size)) {
+
+        return 0;
+
+    }
+
     pthread_mutex_lock(&Global_Secure_Client_Lock);
 
     if (!secure_network_request_locked(SECURE_NETWORK_TYPE_LIST, payload, 2 + kind_size, &status, error, error_size,
@@ -2483,10 +2679,14 @@ int SECURE_NETWORK_list_documents(const char *document_kind, Type_DataStore_Docu
 
         if (i < available) {
 
-            memcpy(documents[i].document_name, extra + offset, name_size);
-            documents[i].document_name[name_size] = '\0';
-            memcpy(documents[i].case_number, extra + offset + name_size, case_size);
-            documents[i].case_number[case_size] = '\0';
+            if (!sec_str_memcpy(documents[i].document_name, sizeof(documents[i].document_name),
+                (const char *)extra + offset, name_size) || !sec_str_memcpy(documents[i].case_number,
+                sizeof(documents[i].case_number), (const char *)extra + offset + name_size, case_size)) {
+
+                goto cleanup;
+
+            }
+
             documents[i].updated_at = (long long)updated;
 
         }
@@ -2567,8 +2767,14 @@ int SECURE_NETWORK_list_users(Type_Auth_User_Summary *users, size_t capacity, si
         if (i < available) {
 
             memset(&users[i], 0, sizeof(users[i]));
-            memcpy(users[i].username, extra + offset, username_size);
-            users[i].username[username_size] = '\0';
+
+            if (!sec_str_memcpy(users[i].username, sizeof(users[i].username), (const char *)extra + offset,
+                username_size)) {
+
+            goto cleanup;
+
+        }
+
             users[i].role = role <= AUTH_ROLE_ADMIN ? (int)role : (is_admin ? AUTH_ROLE_CO_ADMIN : AUTH_ROLE_USER);
             users[i].is_admin = users[i].role >= AUTH_ROLE_CO_ADMIN;
             users[i].totp_enabled = totp_enabled != 0;
@@ -2629,19 +2835,42 @@ static int secure_network_admin_request(uint16_t action, const char *username, c
     secure_network_store_u16(payload + 6, (uint16_t)secret_size);
     secure_network_store_u16(payload + 8, (uint16_t)role);
     secure_network_store_u16(payload + 10, (uint16_t)flags);
-    memcpy(payload + offset, username, username_size);
+
+    if (!sec_memcpy(payload + offset, payload_size - offset, username, username_size)) {
+
+        secure_network_set_error(error, error_size, "Unable to safely construct account-management request.");
+        OPENSSL_clear_free(payload, payload_size);
+        return 0;
+
+    }
+
     offset += username_size;
 
     if (password_size > 0) {
 
-        memcpy(payload + offset, password, password_size);
+        if (!sec_memcpy(payload + offset, payload_size - offset, password, password_size)) {
+
+            secure_network_set_error(error, error_size, "Unable to safely construct account-management request.");
+            OPENSSL_clear_free(payload, payload_size);
+            return 0;
+
+        }
+
         offset += password_size;
 
     }
 
     if (secret_size > 0) {
 
-        memcpy(payload + offset, secret, secret_size);
+
+        if (!sec_memcpy(payload + offset, payload_size - offset, secret, secret_size)) {
+
+            secure_network_set_error(error, error_size, "Unable to safely construct account-management request.");
+            OPENSSL_clear_free(payload, payload_size);
+            return 0;
+
+        }
+
 
     }
 

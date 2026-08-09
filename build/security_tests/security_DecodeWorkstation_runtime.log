@@ -1,0 +1,660 @@
+
+[96mRetroSpectrum security target: DecodeWorkstation.c[0m
+Attack classes: unsafe-copy, unbounded-format, command execution, temporary-file race, symlink creation, weak RNG + runtime hostile probes.
+
+[92mPASSED[0m SDL initialization
+[92mPASSED[0m SDL_ttf initialization
+
+[96m=== Per-function source attacks: DecodeWorkstation.c (107 functions discovered) ===[0m
+[92mPASSED[0m at least one production function discovered
+[92mPASSED[0m decode_get_adjusted_mouse_state:73 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_get_adjusted_mouse_state:73 unbounded format-write attack — blocked
+[92mPASSED[0m decode_get_adjusted_mouse_state:73 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_get_adjusted_mouse_state:73 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_get_adjusted_mouse_state:73 symlink file-creation attack — blocked
+[92mPASSED[0m decode_get_adjusted_mouse_state:73 weak PRNG attack — blocked
+[92mPASSED[0m decode_preamble_search_thread_entry:367 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_preamble_search_thread_entry:367 unbounded format-write attack — blocked
+[92mPASSED[0m decode_preamble_search_thread_entry:367 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_preamble_search_thread_entry:367 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_preamble_search_thread_entry:367 symlink file-creation attack — blocked
+[92mPASSED[0m decode_preamble_search_thread_entry:367 weak PRNG attack — blocked
+[92mPASSED[0m decode_start_preamble_search_thread:382 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_start_preamble_search_thread:382 unbounded format-write attack — blocked
+[92mPASSED[0m decode_start_preamble_search_thread:382 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_start_preamble_search_thread:382 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_start_preamble_search_thread:382 symlink file-creation attack — blocked
+[92mPASSED[0m decode_start_preamble_search_thread:382 weak PRNG attack — blocked
+[92mPASSED[0m decode_point_in_rect:422 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_point_in_rect:422 unbounded format-write attack — blocked
+[92mPASSED[0m decode_point_in_rect:422 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_point_in_rect:422 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_point_in_rect:422 symlink file-creation attack — blocked
+[92mPASSED[0m decode_point_in_rect:422 weak PRNG attack — blocked
+[92mPASSED[0m decode_copy_text:431 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_copy_text:431 unbounded format-write attack — blocked
+[92mPASSED[0m decode_copy_text:431 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_copy_text:431 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_copy_text:431 symlink file-creation attack — blocked
+[92mPASSED[0m decode_copy_text:431 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_add_label_internal:457 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_add_label_internal:457 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_add_label_internal:457 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_add_label_internal:457 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_add_label_internal:457 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_add_label_internal:457 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_document_clear_selection:474 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_document_clear_selection:474 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_document_clear_selection:474 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_document_clear_selection:474 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_document_clear_selection:474 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_document_clear_selection:474 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_document_get_selection:480 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_document_get_selection:480 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_document_get_selection:480 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_document_get_selection:480 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_document_get_selection:480 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_document_get_selection:480 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_document_delete_selection:531 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_document_delete_selection:531 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_document_delete_selection:531 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_document_delete_selection:531 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_document_delete_selection:531 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_document_delete_selection:531 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_document_update_metrics:550 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_document_update_metrics:550 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_document_update_metrics:550 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_document_update_metrics:550 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_document_update_metrics:550 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_document_update_metrics:550 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_document_index_from_x:579 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_document_index_from_x:579 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_document_index_from_x:579 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_document_index_from_x:579 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_document_index_from_x:579 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_document_index_from_x:579 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_get_active_text_target:615 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_get_active_text_target:615 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_get_active_text_target:615 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_get_active_text_target:615 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_get_active_text_target:615 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_get_active_text_target:615 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_sync_rgb_from_selected:723 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_sync_rgb_from_selected:723 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_sync_rgb_from_selected:723 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_sync_rgb_from_selected:723 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_sync_rgb_from_selected:723 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_sync_rgb_from_selected:723 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_parse_rgb_component:746 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_parse_rgb_component:746 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_parse_rgb_component:746 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_parse_rgb_component:746 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_parse_rgb_component:746 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_parse_rgb_component:746 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_apply_custom_rgb:768 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_apply_custom_rgb:768 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_apply_custom_rgb:768 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_apply_custom_rgb:768 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_apply_custom_rgb:768 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_apply_custom_rgb:768 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_initialize:794 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_initialize:794 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_initialize:794 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_initialize:794 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_initialize:794 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_initialize:794 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_has_assignments:820 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_has_assignments:820 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_has_assignments:820 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_has_assignments:820 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_has_assignments:820 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_has_assignments:820 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_clear_assignments:846 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_clear_assignments:846 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_clear_assignments:846 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_clear_assignments:846 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_clear_assignments:846 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_clear_assignments:846 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_invalidate_assignments:851 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_invalidate_assignments:851 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_invalidate_assignments:851 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_invalidate_assignments:851 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_invalidate_assignments:851 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_invalidate_assignments:851 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_trim_text:860 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_trim_text:860 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_trim_text:860 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_trim_text:860 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_trim_text:860 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_trim_text:860 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_derive_document_name:899 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_derive_document_name:899 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_derive_document_name:899 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_derive_document_name:899 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_derive_document_name:899 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_derive_document_name:899 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_segment_count:940 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_segment_count:940 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_segment_count:940 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_segment_count:940 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_segment_count:940 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_segment_count:940 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_label_bit_count:957 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_label_bit_count:957 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_label_bit_count:957 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_label_bit_count:957 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_label_bit_count:957 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_label_bit_count:957 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_apply_selected_label:977 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_apply_selected_label:977 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_apply_selected_label:977 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_apply_selected_label:977 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_apply_selected_label:977 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_apply_selected_label:977 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_remove_selected_tag:1014 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_remove_selected_tag:1014 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_remove_selected_tag:1014 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_remove_selected_tag:1014 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_remove_selected_tag:1014 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_remove_selected_tag:1014 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_add_custom_label:1037 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_add_custom_label:1037 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_add_custom_label:1037 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_add_custom_label:1037 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_add_custom_label:1037 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_add_custom_label:1037 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_store_u32:1079 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_store_u32:1079 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_store_u32:1079 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_store_u32:1079 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_store_u32:1079 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_store_u32:1079 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_read_u32:1086 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_read_u32:1086 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_read_u32:1086 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_read_u32:1086 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_read_u32:1086 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_read_u32:1086 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_save:1101 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_save:1101 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_save:1101 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_save:1101 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_save:1101 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_save:1101 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_load:1231 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_load:1231 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_load:1231 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_load:1231 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_load:1231 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_load:1231 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_split_bits_rect:1426 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_split_bits_rect:1426 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_split_bits_rect:1426 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_split_bits_rect:1426 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_split_bits_rect:1426 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_split_bits_rect:1426 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_get_layout:1450 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_get_layout:1450 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_get_layout:1450 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_get_layout:1450 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_get_layout:1450 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_get_layout:1450 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_clamp_label_scroll:1548 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_clamp_label_scroll:1548 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_clamp_label_scroll:1548 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_clamp_label_scroll:1548 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_clamp_label_scroll:1548 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_clamp_label_scroll:1548 weak PRNG attack — blocked
+[92mPASSED[0m decode_name_compare:1578 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_name_compare:1578 unbounded format-write attack — blocked
+[92mPASSED[0m decode_name_compare:1578 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_name_compare:1578 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_name_compare:1578 symlink file-creation attack — blocked
+[92mPASSED[0m decode_name_compare:1578 weak PRNG attack — blocked
+[92mPASSED[0m decode_has_complex16_extension:1589 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_has_complex16_extension:1589 unbounded format-write attack — blocked
+[92mPASSED[0m decode_has_complex16_extension:1589 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_has_complex16_extension:1589 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_has_complex16_extension:1589 symlink file-creation attack — blocked
+[92mPASSED[0m decode_has_complex16_extension:1589 weak PRNG attack — blocked
+[92mPASSED[0m decode_text_contains_ci:1612 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_text_contains_ci:1612 unbounded format-write attack — blocked
+[92mPASSED[0m decode_text_contains_ci:1612 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_text_contains_ci:1612 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_text_contains_ci:1612 symlink file-creation attack — blocked
+[92mPASSED[0m decode_text_contains_ci:1612 weak PRNG attack — blocked
+[92mPASSED[0m decode_get_layout:1648 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_get_layout:1648 unbounded format-write attack — blocked
+[92mPASSED[0m decode_get_layout:1648 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_get_layout:1648 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_get_layout:1648 symlink file-creation attack — blocked
+[92mPASSED[0m decode_get_layout:1648 weak PRNG attack — blocked
+[92mPASSED[0m decode_short_text:1745 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_short_text:1745 unbounded format-write attack — blocked
+[92mPASSED[0m decode_short_text:1745 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_short_text:1745 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_short_text:1745 symlink file-creation attack — blocked
+[92mPASSED[0m decode_short_text:1745 weak PRNG attack — blocked
+[92mPASSED[0m decode_set_status:1798 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_set_status:1798 unbounded format-write attack — blocked
+[92mPASSED[0m decode_set_status:1798 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_set_status:1798 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_set_status:1798 symlink file-creation attack — blocked
+[92mPASSED[0m decode_set_status:1798 weak PRNG attack — blocked
+[92mPASSED[0m decode_get_progress_font:1808 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_get_progress_font:1808 unbounded format-write attack — blocked
+[92mPASSED[0m decode_get_progress_font:1808 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_get_progress_font:1808 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_get_progress_font:1808 symlink file-creation attack — blocked
+[92mPASSED[0m decode_get_progress_font:1808 weak PRNG attack — blocked
+[92mPASSED[0m decode_draw_centered_text:1838 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_draw_centered_text:1838 unbounded format-write attack — blocked
+[92mPASSED[0m decode_draw_centered_text:1838 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_draw_centered_text:1838 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_draw_centered_text:1838 symlink file-creation attack — blocked
+[92mPASSED[0m decode_draw_centered_text:1838 weak PRNG attack — blocked
+[92mPASSED[0m decode_get_bit_selection:1864 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_get_bit_selection:1864 unbounded format-write attack — blocked
+[92mPASSED[0m decode_get_bit_selection:1864 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_get_bit_selection:1864 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_get_bit_selection:1864 symlink file-creation attack — blocked
+[92mPASSED[0m decode_get_bit_selection:1864 weak PRNG attack — blocked
+[92mPASSED[0m decode_clear_bit_selection:1938 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_clear_bit_selection:1938 unbounded format-write attack — blocked
+[92mPASSED[0m decode_clear_bit_selection:1938 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_clear_bit_selection:1938 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_clear_bit_selection:1938 symlink file-creation attack — blocked
+[92mPASSED[0m decode_clear_bit_selection:1938 weak PRNG attack — blocked
+[92mPASSED[0m decode_clamp_bit_cursor:1949 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_clamp_bit_cursor:1949 unbounded format-write attack — blocked
+[92mPASSED[0m decode_clamp_bit_cursor:1949 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_clamp_bit_cursor:1949 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_clamp_bit_cursor:1949 symlink file-creation attack — blocked
+[92mPASSED[0m decode_clamp_bit_cursor:1949 weak PRNG attack — blocked
+[92mPASSED[0m decode_set_bit_cursor_visible:1968 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_set_bit_cursor_visible:1968 unbounded format-write attack — blocked
+[92mPASSED[0m decode_set_bit_cursor_visible:1968 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_set_bit_cursor_visible:1968 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_set_bit_cursor_visible:1968 symlink file-creation attack — blocked
+[92mPASSED[0m decode_set_bit_cursor_visible:1968 weak PRNG attack — blocked
+[92mPASSED[0m decode_delete_selected_bits:2020 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_delete_selected_bits:2020 unbounded format-write attack — blocked
+[92mPASSED[0m decode_delete_selected_bits:2020 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_delete_selected_bits:2020 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_delete_selected_bits:2020 symlink file-creation attack — blocked
+[92mPASSED[0m decode_delete_selected_bits:2020 weak PRNG attack — blocked
+[92mPASSED[0m decode_insert_bit_text:2054 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_insert_bit_text:2054 unbounded format-write attack — blocked
+[92mPASSED[0m decode_insert_bit_text:2054 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_insert_bit_text:2054 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_insert_bit_text:2054 symlink file-creation attack — blocked
+[92mPASSED[0m decode_insert_bit_text:2054 weak PRNG attack — blocked
+[92mPASSED[0m decode_backspace_bitstream:2119 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_backspace_bitstream:2119 unbounded format-write attack — blocked
+[92mPASSED[0m decode_backspace_bitstream:2119 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_backspace_bitstream:2119 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_backspace_bitstream:2119 symlink file-creation attack — blocked
+[92mPASSED[0m decode_backspace_bitstream:2119 weak PRNG attack — blocked
+[92mPASSED[0m decode_delete_bitstream:2151 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_delete_bitstream:2151 unbounded format-write attack — blocked
+[92mPASSED[0m decode_delete_bitstream:2151 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_delete_bitstream:2151 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_delete_bitstream:2151 symlink file-creation attack — blocked
+[92mPASSED[0m decode_delete_bitstream:2151 weak PRNG attack — blocked
+[92mPASSED[0m decode_update_ascii_from_bitstream:2182 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_update_ascii_from_bitstream:2182 unbounded format-write attack — blocked
+[92mPASSED[0m decode_update_ascii_from_bitstream:2182 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_update_ascii_from_bitstream:2182 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_update_ascii_from_bitstream:2182 symlink file-creation attack — blocked
+[92mPASSED[0m decode_update_ascii_from_bitstream:2182 weak PRNG attack — blocked
+[92mPASSED[0m decode_copy_bitstream_to_clipboard:2239 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_copy_bitstream_to_clipboard:2239 unbounded format-write attack — blocked
+[92mPASSED[0m decode_copy_bitstream_to_clipboard:2239 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_copy_bitstream_to_clipboard:2239 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_copy_bitstream_to_clipboard:2239 symlink file-creation attack — blocked
+[92mPASSED[0m decode_copy_bitstream_to_clipboard:2239 weak PRNG attack — blocked
+[92mPASSED[0m decode_parse_int_field:2310 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_parse_int_field:2310 unbounded format-write attack — blocked
+[92mPASSED[0m decode_parse_int_field:2310 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_parse_int_field:2310 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_parse_int_field:2310 symlink file-creation attack — blocked
+[92mPASSED[0m decode_parse_int_field:2310 weak PRNG attack — blocked
+[92mPASSED[0m decode_update_bits_per_symbol_from_modulation:2346 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_update_bits_per_symbol_from_modulation:2346 unbounded format-write attack — blocked
+[92mPASSED[0m decode_update_bits_per_symbol_from_modulation:2346 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_update_bits_per_symbol_from_modulation:2346 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_update_bits_per_symbol_from_modulation:2346 symlink file-creation attack — blocked
+[92mPASSED[0m decode_update_bits_per_symbol_from_modulation:2346 weak PRNG attack — blocked
+[92mPASSED[0m decode_mod_arg:2385 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_mod_arg:2385 unbounded format-write attack — blocked
+[92mPASSED[0m decode_mod_arg:2385 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_mod_arg:2385 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_mod_arg:2385 symlink file-creation attack — blocked
+[92mPASSED[0m decode_mod_arg:2385 weak PRNG attack — blocked
+[92mPASSED[0m decode_find_gnuradio_helper:2418 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_find_gnuradio_helper:2418 unbounded format-write attack — blocked
+[92mPASSED[0m decode_find_gnuradio_helper:2418 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_find_gnuradio_helper:2418 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_find_gnuradio_helper:2418 symlink file-creation attack — blocked
+[92mPASSED[0m decode_find_gnuradio_helper:2418 weak PRNG attack — blocked
+[92mPASSED[0m decode_shell_quote:2453 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_shell_quote:2453 unbounded format-write attack — blocked
+[92mPASSED[0m decode_shell_quote:2453 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_shell_quote:2453 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_shell_quote:2453 symlink file-creation attack — blocked
+[92mPASSED[0m decode_shell_quote:2453 weak PRNG attack — blocked
+[92mPASSED[0m decode_spawn_helper:2505 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_spawn_helper:2505 unbounded format-write attack — blocked
+[92mPASSED[0m decode_spawn_helper:2505 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_spawn_helper:2505 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_spawn_helper:2505 symlink file-creation attack — blocked
+[92mPASSED[0m decode_spawn_helper:2505 weak PRNG attack — blocked
+[92mPASSED[0m decode_close_helper:2644 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_close_helper:2644 unbounded format-write attack — blocked
+[92mPASSED[0m decode_close_helper:2644 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_close_helper:2644 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_close_helper:2644 symlink file-creation attack — blocked
+[92mPASSED[0m decode_close_helper:2644 weak PRNG attack — blocked
+[92mPASSED[0m decode_scan_files:2681 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_scan_files:2681 unbounded format-write attack — blocked
+[92mPASSED[0m decode_scan_files:2681 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_scan_files:2681 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_scan_files:2681 symlink file-creation attack — blocked
+[92mPASSED[0m decode_scan_files:2681 weak PRNG attack — blocked
+[92mPASSED[0m decode_open_file_search_menu:2754 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_open_file_search_menu:2754 unbounded format-write attack — blocked
+[92mPASSED[0m decode_open_file_search_menu:2754 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_open_file_search_menu:2754 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_open_file_search_menu:2754 symlink file-creation attack — blocked
+[92mPASSED[0m decode_open_file_search_menu:2754 weak PRNG attack — blocked
+[92mPASSED[0m decode_close_file_search_menu:2780 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_close_file_search_menu:2780 unbounded format-write attack — blocked
+[92mPASSED[0m decode_close_file_search_menu:2780 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_close_file_search_menu:2780 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_close_file_search_menu:2780 symlink file-creation attack — blocked
+[92mPASSED[0m decode_close_file_search_menu:2780 weak PRNG attack — blocked
+[92mPASSED[0m decode_file_search_clamp_scroll:2791 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_file_search_clamp_scroll:2791 unbounded format-write attack — blocked
+[92mPASSED[0m decode_file_search_clamp_scroll:2791 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_file_search_clamp_scroll:2791 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_file_search_clamp_scroll:2791 symlink file-creation attack — blocked
+[92mPASSED[0m decode_file_search_clamp_scroll:2791 weak PRNG attack — blocked
+[92mPASSED[0m decode_file_search_select_index:2820 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_file_search_select_index:2820 unbounded format-write attack — blocked
+[92mPASSED[0m decode_file_search_select_index:2820 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_file_search_select_index:2820 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_file_search_select_index:2820 symlink file-creation attack — blocked
+[92mPASSED[0m decode_file_search_select_index:2820 weak PRNG attack — blocked
+[92mPASSED[0m decode_selected_file_path:2850 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_selected_file_path:2850 unbounded format-write attack — blocked
+[92mPASSED[0m decode_selected_file_path:2850 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_selected_file_path:2850 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_selected_file_path:2850 symlink file-creation attack — blocked
+[92mPASSED[0m decode_selected_file_path:2850 weak PRNG attack — blocked
+[92mPASSED[0m decode_append_bit:2871 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_append_bit:2871 unbounded format-write attack — blocked
+[92mPASSED[0m decode_append_bit:2871 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_append_bit:2871 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_append_bit:2871 symlink file-creation attack — blocked
+[92mPASSED[0m decode_append_bit:2871 weak PRNG attack — blocked
+[92mPASSED[0m decode_run_helper_capture_bits:2887 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_run_helper_capture_bits:2887 unbounded format-write attack — blocked
+[92mPASSED[0m decode_run_helper_capture_bits:2887 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_run_helper_capture_bits:2887 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_run_helper_capture_bits:2887 symlink file-creation attack — blocked
+[92mPASSED[0m decode_run_helper_capture_bits:2887 weak PRNG attack — blocked
+[92mPASSED[0m decode_pattern_has_zero_and_one:2998 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_pattern_has_zero_and_one:2998 unbounded format-write attack — blocked
+[92mPASSED[0m decode_pattern_has_zero_and_one:2998 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_pattern_has_zero_and_one:2998 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_pattern_has_zero_and_one:2998 symlink file-creation attack — blocked
+[92mPASSED[0m decode_pattern_has_zero_and_one:2998 weak PRNG attack — blocked
+[92mPASSED[0m decode_find_repeated_preamble_in_bits:3035 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_find_repeated_preamble_in_bits:3035 unbounded format-write attack — blocked
+[92mPASSED[0m decode_find_repeated_preamble_in_bits:3035 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_find_repeated_preamble_in_bits:3035 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_find_repeated_preamble_in_bits:3035 symlink file-creation attack — blocked
+[92mPASSED[0m decode_find_repeated_preamble_in_bits:3035 weak PRNG attack — blocked
+[92mPASSED[0m decode_preamble_search_next:3156 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_preamble_search_next:3156 unbounded format-write attack — blocked
+[92mPASSED[0m decode_preamble_search_next:3156 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_preamble_search_next:3156 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_preamble_search_next:3156 symlink file-creation attack — blocked
+[92mPASSED[0m decode_preamble_search_next:3156 weak PRNG attack — blocked
+[92mPASSED[0m decode_export_preamble_candidate_to_decoder:3321 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_export_preamble_candidate_to_decoder:3321 unbounded format-write attack — blocked
+[92mPASSED[0m decode_export_preamble_candidate_to_decoder:3321 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_export_preamble_candidate_to_decoder:3321 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_export_preamble_candidate_to_decoder:3321 symlink file-creation attack — blocked
+[92mPASSED[0m decode_export_preamble_candidate_to_decoder:3321 weak PRNG attack — blocked
+[92mPASSED[0m decode_run_selected_file:3346 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_run_selected_file:3346 unbounded format-write attack — blocked
+[92mPASSED[0m decode_run_selected_file:3346 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_run_selected_file:3346 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_run_selected_file:3346 symlink file-creation attack — blocked
+[92mPASSED[0m decode_run_selected_file:3346 weak PRNG attack — blocked
+[92mPASSED[0m decode_insert_text:3480 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_insert_text:3480 unbounded format-write attack — blocked
+[92mPASSED[0m decode_insert_text:3480 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_insert_text:3480 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_insert_text:3480 symlink file-creation attack — blocked
+[92mPASSED[0m decode_insert_text:3480 weak PRNG attack — blocked
+[92mPASSED[0m decode_backspace_text:3520 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_backspace_text:3520 unbounded format-write attack — blocked
+[92mPASSED[0m decode_backspace_text:3520 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_backspace_text:3520 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_backspace_text:3520 symlink file-creation attack — blocked
+[92mPASSED[0m decode_backspace_text:3520 weak PRNG attack — blocked
+[92mPASSED[0m decode_delete_text:3550 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_delete_text:3550 unbounded format-write attack — blocked
+[92mPASSED[0m decode_delete_text:3550 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_delete_text:3550 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_delete_text:3550 symlink file-creation attack — blocked
+[92mPASSED[0m decode_delete_text:3550 weak PRNG attack — blocked
+[92mPASSED[0m decode_clamp_cursor:3579 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_clamp_cursor:3579 unbounded format-write attack — blocked
+[92mPASSED[0m decode_clamp_cursor:3579 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_clamp_cursor:3579 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_clamp_cursor:3579 symlink file-creation attack — blocked
+[92mPASSED[0m decode_clamp_cursor:3579 weak PRNG attack — blocked
+[92mPASSED[0m decode_filtered_index_to_file_index:3607 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_filtered_index_to_file_index:3607 unbounded format-write attack — blocked
+[92mPASSED[0m decode_filtered_index_to_file_index:3607 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_filtered_index_to_file_index:3607 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_filtered_index_to_file_index:3607 symlink file-creation attack — blocked
+[92mPASSED[0m decode_filtered_index_to_file_index:3607 weak PRNG attack — blocked
+[92mPASSED[0m decode_filtered_file_count:3632 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_filtered_file_count:3632 unbounded format-write attack — blocked
+[92mPASSED[0m decode_filtered_file_count:3632 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_filtered_file_count:3632 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_filtered_file_count:3632 symlink file-creation attack — blocked
+[92mPASSED[0m decode_filtered_file_count:3632 weak PRNG attack — blocked
+[92mPASSED[0m decode_draw_modal_button:3650 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_draw_modal_button:3650 unbounded format-write attack — blocked
+[92mPASSED[0m decode_draw_modal_button:3650 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_draw_modal_button:3650 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_draw_modal_button:3650 symlink file-creation attack — blocked
+[92mPASSED[0m decode_draw_modal_button:3650 weak PRNG attack — blocked
+[92mPASSED[0m decode_file_search_button_rect:3690 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_file_search_button_rect:3690 unbounded format-write attack — blocked
+[92mPASSED[0m decode_file_search_button_rect:3690 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_file_search_button_rect:3690 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_file_search_button_rect:3690 symlink file-creation attack — blocked
+[92mPASSED[0m decode_file_search_button_rect:3690 weak PRNG attack — blocked
+[92mPASSED[0m decode_file_search_popup_rect:3715 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_file_search_popup_rect:3715 unbounded format-write attack — blocked
+[92mPASSED[0m decode_file_search_popup_rect:3715 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_file_search_popup_rect:3715 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_file_search_popup_rect:3715 symlink file-creation attack — blocked
+[92mPASSED[0m decode_file_search_popup_rect:3715 weak PRNG attack — blocked
+[92mPASSED[0m decode_file_search_input_rect:3761 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_file_search_input_rect:3761 unbounded format-write attack — blocked
+[92mPASSED[0m decode_file_search_input_rect:3761 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_file_search_input_rect:3761 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_file_search_input_rect:3761 symlink file-creation attack — blocked
+[92mPASSED[0m decode_file_search_input_rect:3761 weak PRNG attack — blocked
+[92mPASSED[0m decode_handle_file_search_event:3785 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_handle_file_search_event:3785 unbounded format-write attack — blocked
+[92mPASSED[0m decode_handle_file_search_event:3785 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_handle_file_search_event:3785 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_handle_file_search_event:3785 symlink file-creation attack — blocked
+[92mPASSED[0m decode_handle_file_search_event:3785 weak PRNG attack — blocked
+[92mPASSED[0m decode_draw_file_search_popup:3998 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_draw_file_search_popup:3998 unbounded format-write attack — blocked
+[92mPASSED[0m decode_draw_file_search_popup:3998 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_draw_file_search_popup:3998 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_draw_file_search_popup:3998 symlink file-creation attack — blocked
+[92mPASSED[0m decode_draw_file_search_popup:3998 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_filtered_document_count:4225 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_filtered_document_count:4225 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_filtered_document_count:4225 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_filtered_document_count:4225 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_filtered_document_count:4225 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_filtered_document_count:4225 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_filtered_index_to_document_index:4240 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_filtered_index_to_document_index:4240 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_filtered_index_to_document_index:4240 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_filtered_index_to_document_index:4240 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_filtered_index_to_document_index:4240 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_filtered_index_to_document_index:4240 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_search_clamp_scroll:4268 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_search_clamp_scroll:4268 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_search_clamp_scroll:4268 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_search_clamp_scroll:4268 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_search_clamp_scroll:4268 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_search_clamp_scroll:4268 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_refresh_search_documents:4292 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_refresh_search_documents:4292 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_refresh_search_documents:4292 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_refresh_search_documents:4292 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_refresh_search_documents:4292 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_refresh_search_documents:4292 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_close_search_menu:4320 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_close_search_menu:4320 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_close_search_menu:4320 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_close_search_menu:4320 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_close_search_menu:4320 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_close_search_menu:4320 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_open_search_menu:4326 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_open_search_menu:4326 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_open_search_menu:4326 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_open_search_menu:4326 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_open_search_menu:4326 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_open_search_menu:4326 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_search_select_index:4346 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_search_select_index:4346 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_search_select_index:4346 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_search_select_index:4346 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_search_select_index:4346 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_search_select_index:4346 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_handle_search_event:4369 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_handle_search_event:4369 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_handle_search_event:4369 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_handle_search_event:4369 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_handle_search_event:4369 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_handle_search_event:4369 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_draw_search_popup:4579 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_draw_search_popup:4579 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_draw_search_popup:4579 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_draw_search_popup:4579 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_draw_search_popup:4579 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_draw_search_popup:4579 weak PRNG attack — blocked
+[92mPASSED[0m decode_draw_input_field:4784 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_draw_input_field:4784 unbounded format-write attack — blocked
+[92mPASSED[0m decode_draw_input_field:4784 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_draw_input_field:4784 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_draw_input_field:4784 symlink file-creation attack — blocked
+[92mPASSED[0m decode_draw_input_field:4784 weak PRNG attack — blocked
+[92mPASSED[0m decode_draw_checkbox:4818 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_draw_checkbox:4818 unbounded format-write attack — blocked
+[92mPASSED[0m decode_draw_checkbox:4818 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_draw_checkbox:4818 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_draw_checkbox:4818 symlink file-creation attack — blocked
+[92mPASSED[0m decode_draw_checkbox:4818 weak PRNG attack — blocked
+[92mPASSED[0m decode_bit_metrics:4838 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_bit_metrics:4838 unbounded format-write attack — blocked
+[92mPASSED[0m decode_bit_metrics:4838 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_bit_metrics:4838 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_bit_metrics:4838 symlink file-creation attack — blocked
+[92mPASSED[0m decode_bit_metrics:4838 weak PRNG attack — blocked
+[92mPASSED[0m decode_bit_index_from_point:4964 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_bit_index_from_point:4964 unbounded format-write attack — blocked
+[92mPASSED[0m decode_bit_index_from_point:4964 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_bit_index_from_point:4964 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_bit_index_from_point:4964 symlink file-creation attack — blocked
+[92mPASSED[0m decode_bit_index_from_point:4964 weak PRNG attack — blocked
+[92mPASSED[0m decode_draw_wrapped_bits:5035 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_draw_wrapped_bits:5035 unbounded format-write attack — blocked
+[92mPASSED[0m decode_draw_wrapped_bits:5035 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_draw_wrapped_bits:5035 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_draw_wrapped_bits:5035 symlink file-creation attack — blocked
+[92mPASSED[0m decode_draw_wrapped_bits:5035 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_draw_text_field:5228 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_draw_text_field:5228 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_draw_text_field:5228 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_draw_text_field:5228 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_draw_text_field:5228 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_draw_text_field:5228 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_draw_rgb_field:5311 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_draw_rgb_field:5311 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_draw_rgb_field:5311 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_draw_rgb_field:5311 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_draw_rgb_field:5311 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_draw_rgb_field:5311 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_draw_panel:5351 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_draw_panel:5351 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_draw_panel:5351 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_draw_panel:5351 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_draw_panel:5351 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_draw_panel:5351 weak PRNG attack — blocked
+[92mPASSED[0m decode_classifier_handle_panel_click:5498 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_classifier_handle_panel_click:5498 unbounded format-write attack — blocked
+[92mPASSED[0m decode_classifier_handle_panel_click:5498 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_classifier_handle_panel_click:5498 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_classifier_handle_panel_click:5498 symlink file-creation attack — blocked
+[92mPASSED[0m decode_classifier_handle_panel_click:5498 weak PRNG attack — blocked
+[92mPASSED[0m DECODE_enter_mode:5666 unsafe string/input API attack — blocked
+[92mPASSED[0m DECODE_enter_mode:5666 unbounded format-write attack — blocked
+[92mPASSED[0m DECODE_enter_mode:5666 shell-command execution sink attack — blocked
+[92mPASSED[0m DECODE_enter_mode:5666 predictable temporary-file attack — blocked
+[92mPASSED[0m DECODE_enter_mode:5666 symlink file-creation attack — blocked
+[92mPASSED[0m DECODE_enter_mode:5666 weak PRNG attack — blocked
+[92mPASSED[0m DECODE_exit_mode:5685 unsafe string/input API attack — blocked
+[92mPASSED[0m DECODE_exit_mode:5685 unbounded format-write attack — blocked
+[92mPASSED[0m DECODE_exit_mode:5685 shell-command execution sink attack — blocked
+[92mPASSED[0m DECODE_exit_mode:5685 predictable temporary-file attack — blocked
+[92mPASSED[0m DECODE_exit_mode:5685 symlink file-creation attack — blocked
+[92mPASSED[0m DECODE_exit_mode:5685 weak PRNG attack — blocked
+[92mPASSED[0m DECODE_is_text_entry_active:5704 unsafe string/input API attack — blocked
+[92mPASSED[0m DECODE_is_text_entry_active:5704 unbounded format-write attack — blocked
+[92mPASSED[0m DECODE_is_text_entry_active:5704 shell-command execution sink attack — blocked
+[92mPASSED[0m DECODE_is_text_entry_active:5704 predictable temporary-file attack — blocked
+[92mPASSED[0m DECODE_is_text_entry_active:5704 symlink file-creation attack — blocked
+[92mPASSED[0m DECODE_is_text_entry_active:5704 weak PRNG attack — blocked
+[92mPASSED[0m decode_draw_ascii_panel:5716 unsafe string/input API attack — blocked
+[92mPASSED[0m decode_draw_ascii_panel:5716 unbounded format-write attack — blocked
+[92mPASSED[0m decode_draw_ascii_panel:5716 shell-command execution sink attack — blocked
+[92mPASSED[0m decode_draw_ascii_panel:5716 predictable temporary-file attack — blocked
+[92mPASSED[0m decode_draw_ascii_panel:5716 symlink file-creation attack — blocked
+[92mPASSED[0m decode_draw_ascii_panel:5716 weak PRNG attack — blocked
+[92mPASSED[0m DECODE_handle_event:5759 unsafe string/input API attack — blocked
+[92mPASSED[0m DECODE_handle_event:5759 unbounded format-write attack — blocked
+[92mPASSED[0m DECODE_handle_event:5759 shell-command execution sink attack — blocked
+[92mPASSED[0m DECODE_handle_event:5759 predictable temporary-file attack — blocked
+[92mPASSED[0m DECODE_handle_event:5759 symlink file-creation attack — blocked
+[92mPASSED[0m DECODE_handle_event:5759 weak PRNG attack — blocked
+[92mPASSED[0m DECODE_draw_workstation:6903 unsafe string/input API attack — blocked
+[92mPASSED[0m DECODE_draw_workstation:6903 unbounded format-write attack — blocked
+[92mPASSED[0m DECODE_draw_workstation:6903 shell-command execution sink attack — blocked
+[92mPASSED[0m DECODE_draw_workstation:6903 predictable temporary-file attack — blocked
+[92mPASSED[0m DECODE_draw_workstation:6903 symlink file-creation attack — blocked
+[92mPASSED[0m DECODE_draw_workstation:6903 weak PRNG attack — blocked
+
+[96m=== Runtime hostile-input attacks: DecodeWorkstation.c ===[0m
+[92mPASSED[0m decode RGB rejects negative
+[92mPASSED[0m decode RGB rejects >255
+[92mPASSED[0m decode RGB rejects trailing command payload
+[92mPASSED[0m decode RGB rejects integer overflow
+[92mPASSED[0m decode classifier trim canonicalizes hostile whitespace
+
+DecodeWorkstation.c security summary: [92m650 passed[0m, [91m0 failed[0m, [93m0 skipped[0m

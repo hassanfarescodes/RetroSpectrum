@@ -7,8 +7,8 @@
  * Description:     Local SQLite-backed RetroSpectrum authentication screen.
  *                  Supports Argon2id password verification, optional encrypted
  *                  TOTP secrets, administrator-only account management,
- *                  cryptographic server identities, rate limiting, and a login
- *                  transition.
+ *                  cryptographic server identities, rate limiting, and login 
+ *                  animations.
  *
  * Language:        C
  * Compiler:        GCC
@@ -22,6 +22,7 @@
 #include "DatabaseCrypto.h"
 #include "SecureNetwork.h"
 #include "ServerIdentity.h"
+#include "SecureFunctions.h"
 
 #include <stddef.h>
 
@@ -63,8 +64,6 @@ int SECURE_NETWORK_admin_delete_user(const char *username, char *error, size_t e
 #define AUTH_CODE_MAX 6
 #define AUTH_STATUS_MAX 384
 
-#define AUTH_LEGACY_PASSWORD_SALT_BYTES 16
-#define AUTH_LEGACY_PASSWORD_HASH_BYTES 32
 #define AUTH_ARGON2_SALT_BYTES 16
 #define AUTH_ARGON2_HASH_BYTES 32
 #define AUTH_ARGON2_ENCODED_MAX 256
@@ -72,7 +71,6 @@ int SECURE_NETWORK_admin_delete_user(const char *username, char *error, size_t e
 #define AUTH_ARGON2_MEMORY_KIB 65536U
 #define AUTH_ARGON2_PARALLELISM 4U
 
-#define AUTH_TOTP_LEGACY_SECRET_BYTES 20
 #define AUTH_TOTP_SECRET_BYTES 32
 #define AUTH_TOTP_SALT_BYTES 16
 #define AUTH_TOTP_NONCE_BYTES 12
@@ -81,13 +79,9 @@ int SECURE_NETWORK_admin_delete_user(const char *username, char *error, size_t e
 #define AUTH_TOTP_BASE32_MAX 128
 #define AUTH_TOTP_ALGORITHM_MAX 16
 #define AUTH_TOTP_ALGORITHM_DEFAULT "sha512"
-#define AUTH_TOTP_ALGORITHM_LEGACY "sha1"
 #define AUTH_TOTP_KDF_DEFAULT "server-sha512"
-#define AUTH_TOTP_KDF_PASSWORD_SHA512 "sha512"
-#define AUTH_TOTP_KDF_LEGACY "sha256"
 #define AUTH_TOTP_MASTER_KEY_BYTES 32
 #define AUTH_TOTP_MASTER_KEY_FILENAME "totp_master.key"
-#define AUTH_TOTP_KEY_ITERATIONS 300000
 #define AUTH_TOTP_PERIOD_SECONDS 30
 #define AUTH_TOTP_DIGITS 6
 
@@ -117,16 +111,11 @@ typedef enum Type_Auth_Stage {
 
 typedef struct Type_Auth_User_Record {
     char password_encoded[AUTH_ARGON2_ENCODED_MAX];
-    int password_is_argon2id;
-    unsigned char legacy_password_salt[AUTH_LEGACY_PASSWORD_SALT_BYTES];
-    unsigned char legacy_password_hash[AUTH_LEGACY_PASSWORD_HASH_BYTES];
-    int legacy_password_iterations;
     int totp_enabled;
     char totp_algorithm[AUTH_TOTP_ALGORITHM_MAX];
     int totp_secret_bytes;
     char totp_kdf_algorithm[AUTH_TOTP_ALGORITHM_MAX];
     int role;
-    int is_admin;
     int64_t last_totp_counter;
     unsigned char totp_salt[AUTH_TOTP_SALT_BYTES];
     unsigned char totp_nonce[AUTH_TOTP_NONCE_BYTES];
@@ -196,20 +185,6 @@ static void auth_secure_zero(void *memory, size_t size) {
     }
 }
 
-static int auth_constant_time_equal(const unsigned char *left, const unsigned char *right, size_t size) {
-    /*
-        Purpose: Compares byte sequences in constant time
-        Returns: Boolean status
-    */
-
-    if (!left || !right) {
-
-        return 0;
-
-    }
-    return CRYPTO_memcmp(left, right, size) == 0;
-}
-
 static void auth_copy_text(char *destination, size_t destination_size, const char *source) {
     /*
         Purpose: Copies the text
@@ -227,7 +202,7 @@ static void auth_copy_text(char *destination, size_t destination_size, const cha
         source = "";
 
     }
-    snprintf(destination, destination_size, "%s", source);
+    (void)sec_strcpy(destination, destination_size, source);
 }
 
 static void auth_set_status(Type_Auth_State *state, SDL_Color color, const char *message) {
@@ -256,10 +231,13 @@ static size_t auth_utf8_previous_index(const char *text, size_t index) {
         return 0;
 
     }
+
     index--;
+
     while (index > 0 && (((unsigned char)text[index] & 0xC0U) == 0x80U)) {
         index--;
     }
+
     return index;
 }
 
@@ -378,9 +356,17 @@ static void auth_import_path_insert(Type_Auth_State *state, const char *text) {
 
     }
 
-    memmove(state->import_path + state->import_cursor + filtered_length, state->import_path + state->import_cursor,
-            current_length - state->import_cursor + 1);
-    memcpy(state->import_path + state->import_cursor, filtered, filtered_length);
+    if (!sec_memmove(state->import_path + state->import_cursor + filtered_length,
+        sizeof(state->import_path) - state->import_cursor - filtered_length,
+        state->import_path + state->import_cursor, current_length - state->import_cursor + 1) ||
+        !sec_memcpy(state->import_path + state->import_cursor, sizeof(state->import_path) - state->import_cursor,
+        filtered, filtered_length)) {
+
+            return;
+    
+
+    }
+
     state->import_cursor += filtered_length;
 }
 
@@ -414,8 +400,14 @@ static void auth_import_path_backspace(Type_Auth_State *state) {
     }
     length = strlen(state->import_path);
     previous = auth_utf8_previous_index(state->import_path, state->import_cursor);
-    memmove(state->import_path + previous, state->import_path + state->import_cursor,
-            length - state->import_cursor + 1);
+
+    if (!sec_memmove(state->import_path + previous, sizeof(state->import_path) - previous,
+        state->import_path + state->import_cursor, length - state->import_cursor + 1)) {
+
+        return;
+
+    }
+
     state->import_cursor = previous;
 }
 
@@ -449,7 +441,14 @@ static void auth_import_path_delete(Type_Auth_State *state) {
 
     }
     next = auth_utf8_next_index(state->import_path, length, state->import_cursor);
-    memmove(state->import_path + state->import_cursor, state->import_path + next, length - next + 1);
+    
+    if (!sec_memmove(state->import_path + state->import_cursor, sizeof(state->import_path) - state->import_cursor, 
+        state->import_path + next, length - next + 1)) {
+
+        return;
+
+    }
+
 }
 
 static void auth_import_path_copy(Type_Auth_State *state) {
@@ -867,8 +866,12 @@ static size_t auth_path_line_end(TTF_Font *font, const char *text, size_t start,
             break;
 
         }
-        memcpy(segment, text + start, bytes);
-        segment[bytes] = '\0';
+
+        if (!sec_str_memcpy(segment, sizeof(segment), text + start, bytes)) {
+
+            return best;
+
+        }
 
         if (TTF_SizeUTF8(font, segment, &width, &height) != 0 || width > maximum_width) {
 
@@ -936,6 +939,7 @@ static void auth_draw_import_path_field(SDL_Renderer *renderer, TTF_Font *font, 
 
         }
     }
+
     maximum_lines = clip.h / line_height;
 
     if (maximum_lines < 1) {
@@ -1019,8 +1023,14 @@ static void auth_draw_import_path_field(SDL_Renderer *renderer, TTF_Font *font, 
             bytes = sizeof(segment) - 1;
 
         }
-        memcpy(segment, state->import_path + starts[line], bytes);
-        segment[bytes] = '\0';
+
+        if (!sec_str_memcpy(segment, sizeof(segment), state->import_path + starts[line],
+            bytes)) {
+
+            break;
+
+        }
+
         y = clip.y + visible * line_height;
 
         if (state->import_select_all && length > 0) {
@@ -1046,8 +1056,14 @@ static void auth_draw_import_path_field(SDL_Renderer *renderer, TTF_Font *font, 
                 prefix_bytes = sizeof(prefix) - 1;
 
             }
-            memcpy(prefix, state->import_path + starts[line], prefix_bytes);
-            prefix[prefix_bytes] = '\0';
+
+            if (!sec_str_memcpy(prefix, sizeof(prefix), state->import_path + starts[line],
+                prefix_bytes)) {
+
+                prefix[0] = '\0';
+
+            }
+
             (void)TTF_SizeUTF8(font, prefix, &prefix_width, &prefix_height);
             cursor_x = clip.x + prefix_width + 1;
             SDL_SetRenderDrawColor(renderer, AUTH_BORDER_ACTIVE.r, AUTH_BORDER_ACTIVE.g, AUTH_BORDER_ACTIVE.b,
@@ -1403,7 +1419,12 @@ static void auth_render(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *fo
         SDL_Rect code = auth_field_rect(panel, 1);
         char identity[128];
 
-        snprintf(identity, sizeof(identity), "Authenticating as %s", state->username);
+        if (!sec_sprintf(identity, sizeof(identity), "Authenticating as %s", state->username)) {
+          
+            identity[0] = '\0';
+
+        }
+
         auth_draw_centered_text(renderer, font_small,
                                 state->stage == AUTH_STAGE_LOGIN_TWO_FACTOR
                                     ? "TWO-FACTOR AUTHENTICATION"
@@ -1678,7 +1699,7 @@ static int auth_database_path(char *path, size_t path_size) {
 
     if (xdg_config && xdg_config[0] != '\0') {
 
-        if (snprintf(config_root, sizeof(config_root), "%s", xdg_config) >= (int)sizeof(config_root)) {
+        if (!sec_strcpy(config_root, sizeof(config_root), xdg_config)) {
 
             return 0;
 
@@ -1688,7 +1709,7 @@ static int auth_database_path(char *path, size_t path_size) {
 
     else if (home && home[0] != '\0') {
 
-        if (snprintf(config_root, sizeof(config_root), "%s/.config", home) >= (int)sizeof(config_root)) {
+        if (!sec_sprintf(config_root, sizeof(config_root), "%s/.config", home)) {
 
             return 0;
 
@@ -1698,7 +1719,7 @@ static int auth_database_path(char *path, size_t path_size) {
 
     else {
 
-        if (snprintf(config_root, sizeof(config_root), ".") >= (int)sizeof(config_root)) {
+        if (!sec_strcpy(config_root, sizeof(config_root), ".")) {
 
             return 0;
 
@@ -1712,20 +1733,19 @@ static int auth_database_path(char *path, size_t path_size) {
 
     }
 
-    if (snprintf(app_directory, sizeof(app_directory), "%s/retrospectrum", config_root) >= (int)sizeof(app_directory)) {
+    if (!sec_sprintf(app_directory, sizeof(app_directory), "%s/retrospectrum", config_root)) {
 
         return 0;
 
     }
 
-    if (!auth_ensure_directory(app_directory)) {
+    if (!sec_ensure_private_directory(app_directory, 0700)) {
 
         return 0;
 
     }
-    (void)chmod(app_directory, 0700);
 
-    if (snprintf(path, path_size, "%s/auth.db", app_directory) >= (int)path_size) {
+    if (!sec_sprintf(path, path_size, "%s/auth.db", app_directory)) {
 
         return 0;
 
@@ -1757,7 +1777,7 @@ static int auth_totp_master_key_path(char *path, size_t path_size) {
     }
     *slash = '\0';
 
-    return snprintf(path, path_size, "%s/%s", database_path, AUTH_TOTP_MASTER_KEY_FILENAME) < (int)path_size;
+    return sec_sprintf(path, path_size, "%s/%s", database_path, AUTH_TOTP_MASTER_KEY_FILENAME);
 }
 
 static int auth_read_exact_fd(int fd, unsigned char *buffer, size_t size) {
@@ -2033,173 +2053,6 @@ static int auth_execute_sql(sqlite3 *database, const char *sql) {
     return 1;
 }
 
-static int auth_ensure_admin_column(sqlite3 *database) {
-    /*
-        Purpose: Ensures the admin column
-        Returns: Success status
-    */
-
-    sqlite3_stmt *statement = NULL;
-    int has_column = 0;
-
-    if (!database || sqlite3_prepare_v2(database, "PRAGMA table_info(users);", -1, &statement, NULL) != SQLITE_OK) {
-
-        return 0;
-
-    }
-    while (sqlite3_step(statement) == SQLITE_ROW) {
-        const unsigned char *name = sqlite3_column_text(statement, 1);
-
-        if (name && strcmp((const char *)name, "is_admin") == 0) {
-
-            has_column = 1;
-            break;
-
-        }
-    }
-    sqlite3_finalize(statement);
-
-    if (!has_column &&
-        !auth_execute_sql(database, "ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;")) {
-
-        return 0;
-
-    }
-
-    return auth_execute_sql(database, "UPDATE users SET is_admin = 1 "
-                                      "WHERE id = (SELECT MIN(id) FROM users) "
-                                      "AND NOT EXISTS (SELECT 1 FROM users WHERE is_admin = 1);");
-}
-
-static int auth_table_has_column(sqlite3 *database, const char *table_name, const char *column_name) {
-    /*
-        Purpose: Checks whether the table has column
-        Returns: Success status
-    */
-
-    sqlite3_stmt *statement = NULL;
-    char sql[128];
-    int found = 0;
-
-    if (!database || !table_name || !column_name ||
-        snprintf(sql, sizeof(sql), "PRAGMA table_info(%s);", table_name) >= (int)sizeof(sql) ||
-        sqlite3_prepare_v2(database, sql, -1, &statement, NULL) != SQLITE_OK) {
-
-        return 0;
-
-    }
-
-    while (sqlite3_step(statement) == SQLITE_ROW) {
-        const unsigned char *name = sqlite3_column_text(statement, 1);
-
-        if (name && strcmp((const char *)name, column_name) == 0) {
-
-            found = 1;
-            break;
-
-        }
-    }
-
-    sqlite3_finalize(statement);
-    return found;
-}
-
-static int auth_ensure_role_column(sqlite3 *database) {
-    /*
-        Purpose: Ensures the role column
-        Returns: Success status
-    */
-
-    if (!database) {
-
-        return 0;
-
-    }
-
-    if (!auth_table_has_column(database, "users", "role") &&
-        !auth_execute_sql(database, "ALTER TABLE users ADD COLUMN role INTEGER NOT NULL DEFAULT 0;")) {
-
-        return 0;
-
-    }
-
-    /* Migrate the old boolean administrator model. The oldest legacy
-     * administrator remains the protected primary administrator; any other
-     * legacy administrators become co-administrators. */
-
-    if (!auth_execute_sql(database, "UPDATE users SET role = 0 WHERE role NOT IN (0, 1, 2);") ||
-        !auth_execute_sql(database, "UPDATE users SET role = 1 WHERE is_admin = 1 AND role = 0;") ||
-        !auth_execute_sql(database, "UPDATE users SET role = 1 WHERE role = 2 AND id <> "
-                                    "(SELECT MIN(id) FROM users WHERE role = 2);") ||
-        !auth_execute_sql(database, "UPDATE users SET role = 2 WHERE id = "
-                                    "(SELECT MIN(id) FROM users WHERE role IN (1, 2)) "
-                                    "AND NOT EXISTS (SELECT 1 FROM users WHERE role = 2);") ||
-        !auth_execute_sql(database, "UPDATE users SET is_admin = CASE WHEN role IN (1, 2) THEN 1 ELSE 0 END;") ||
-        !auth_execute_sql(database, "CREATE UNIQUE INDEX IF NOT EXISTS users_single_primary_admin "
-                                    "ON users(role) WHERE role = 2;") ||
-        !auth_execute_sql(database, "CREATE TRIGGER IF NOT EXISTS users_protect_primary_delete "
-                                    "BEFORE DELETE ON users WHEN OLD.role = 2 BEGIN "
-                                    "SELECT RAISE(ABORT, 'primary administrator cannot be deleted'); END;") ||
-        !auth_execute_sql(database, "CREATE TRIGGER IF NOT EXISTS users_protect_primary_role "
-                                    "BEFORE UPDATE OF role, is_admin ON users "
-                                    "WHEN OLD.role = 2 AND (NEW.role <> 2 OR NEW.is_admin <> 1) BEGIN "
-                                    "SELECT RAISE(ABORT, 'primary administrator role cannot be changed'); END;")) {
-
-        return 0;
-
-    }
-
-    return 1;
-}
-
-static int auth_ensure_password_columns(sqlite3 *database) {
-    /*
-        Purpose: Ensures the password columns
-        Returns: Success status
-    */
-
-    if (!auth_table_has_column(database, "users", "password_encoded") &&
-        !auth_execute_sql(database, "ALTER TABLE users ADD COLUMN password_encoded TEXT;")) {
-
-        return 0;
-
-    }
-
-    if (!auth_table_has_column(database, "users", "password_algorithm") &&
-        !auth_execute_sql(database, "ALTER TABLE users ADD COLUMN password_algorithm TEXT NOT NULL "
-                                    "DEFAULT 'pbkdf2-sha256';")) {
-
-        return 0;
-
-    }
-
-    if (!auth_table_has_column(database, "users", "totp_algorithm") &&
-        !auth_execute_sql(database, "ALTER TABLE users ADD COLUMN totp_algorithm TEXT NOT NULL "
-                                    "DEFAULT 'sha1';")) {
-
-        return 0;
-
-    }
-
-    if (!auth_table_has_column(database, "users", "totp_secret_bytes") &&
-        !auth_execute_sql(database, "ALTER TABLE users ADD COLUMN totp_secret_bytes INTEGER NOT NULL "
-                                    "DEFAULT 20;")) {
-
-        return 0;
-
-    }
-
-    if (!auth_table_has_column(database, "users", "totp_kdf_algorithm") &&
-        !auth_execute_sql(database, "ALTER TABLE users ADD COLUMN totp_kdf_algorithm TEXT NOT NULL "
-                                    "DEFAULT 'sha256';")) {
-
-        return 0;
-
-    }
-
-    return 1;
-}
-
 static void auth_rate_limit_scope(char *output, size_t output_size, const char *category, const char *username) {
     /*
         Purpose: Builds a rate-limit scope
@@ -2224,7 +2077,12 @@ static void auth_rate_limit_scope(char *output, size_t output_size, const char *
 
     }
 
-    snprintf(output, output_size, "%s:%s", category, username);
+    if (!sec_sprintf(output, output_size, "%s:%s", category, username)) {
+
+        output[0] = '\0';
+
+    }
+
 }
 
 static int auth_rate_limit_remaining(sqlite3 *database, const char *scope) {
@@ -2474,16 +2332,13 @@ static int auth_open_database(sqlite3 **database, char *path, size_t path_size) 
         !auth_execute_sql(*database, "CREATE TABLE IF NOT EXISTS users ("
                                      "id INTEGER PRIMARY KEY AUTOINCREMENT,"
                                      "username TEXT NOT NULL UNIQUE COLLATE BINARY,"
-                                     "password_salt BLOB NOT NULL,"
-                                     "password_hash BLOB NOT NULL,"
-                                     "password_iterations INTEGER NOT NULL,"
-                                     "password_encoded TEXT,"
-                                     "password_algorithm TEXT NOT NULL DEFAULT 'argon2id',"
+                                     "password_encoded TEXT NOT NULL,"
+                                     "password_algorithm TEXT NOT NULL DEFAULT 'argon2id' CHECK(password_algorithm = 'argon2id'),"
                                      "totp_enabled INTEGER NOT NULL DEFAULT 0,"
-                                     "totp_algorithm TEXT NOT NULL DEFAULT 'sha512',"
-                                     "totp_secret_bytes INTEGER NOT NULL DEFAULT 32,"
-                                     "totp_kdf_algorithm TEXT NOT NULL DEFAULT 'server-sha512',"
-                                     "is_admin INTEGER NOT NULL DEFAULT 0,"
+                                     "totp_algorithm TEXT NOT NULL DEFAULT 'sha512' CHECK(totp_algorithm = 'sha512'),"
+                                     "totp_secret_bytes INTEGER NOT NULL DEFAULT 32 CHECK(totp_secret_bytes = 32),"
+                                     "totp_kdf_algorithm TEXT NOT NULL DEFAULT 'server-sha512' "
+                                     "CHECK(totp_kdf_algorithm = 'server-sha512'),"
                                      "role INTEGER NOT NULL DEFAULT 0 CHECK(role IN (0, 1, 2)),"
                                      "totp_salt BLOB,"
                                      "totp_nonce BLOB,"
@@ -2504,11 +2359,15 @@ static int auth_open_database(sqlite3 **database, char *path, size_t path_size) 
                                      "locked_until INTEGER NOT NULL,"
                                      "last_failure_at INTEGER NOT NULL"
                                      ");") ||
-        !auth_ensure_admin_column(*database) || !auth_ensure_role_column(*database) ||
-        !auth_ensure_password_columns(*database) ||
-        (!auth_table_has_column(*database, "users", "last_totp_counter") &&
-         !auth_execute_sql(*database, "ALTER TABLE users ADD COLUMN last_totp_counter "
-                                      "INTEGER NOT NULL DEFAULT -1;"))) {
+        !auth_execute_sql(*database, "CREATE UNIQUE INDEX IF NOT EXISTS users_single_primary_admin "
+                                     "ON users(role) WHERE role = 2;") ||
+        !auth_execute_sql(*database, "CREATE TRIGGER IF NOT EXISTS users_protect_primary_delete "
+                                     "BEFORE DELETE ON users WHEN OLD.role = 2 BEGIN "
+                                     "SELECT RAISE(ABORT, 'primary administrator cannot be deleted'); END;") ||
+        !auth_execute_sql(*database, "CREATE TRIGGER IF NOT EXISTS users_protect_primary_role "
+                                     "BEFORE UPDATE OF role ON users "
+                                     "WHEN OLD.role = 2 AND NEW.role <> 2 BEGIN "
+                                     "SELECT RAISE(ABORT, 'primary administrator role cannot be changed'); END;")) {
 
         sqlite3_close(*database);
         *database = NULL;
@@ -2598,35 +2457,6 @@ static int auth_user_exists(sqlite3 *database, const char *username) {
     return exists;
 }
 
-static int auth_pbkdf2_derive_key_with_digest(const char *password, const unsigned char *salt, int salt_size,
-                                              int iterations, const EVP_MD *digest, unsigned char *output,
-                                              int output_size) {
-    /*
-        Purpose: Derives the PBKDF2 key with digest
-        Returns: Success status
-    */
-
-    if (!password || !salt || salt_size <= 0 || !digest || !output || output_size <= 0 || iterations < 10000 ||
-        iterations > 2000000) {
-
-        return 0;
-
-    }
-
-    return PKCS5_PBKDF2_HMAC(password, (int)strlen(password), salt, salt_size, iterations, digest, output_size,
-                             output) == 1;
-}
-
-static int auth_pbkdf2_derive_key(const char *password, const unsigned char *salt, int salt_size, int iterations,
-                                  unsigned char *output, int output_size) {
-    /*
-        Purpose: Derives the PBKDF2 key
-        Returns: Success status
-    */
-
-    return auth_pbkdf2_derive_key_with_digest(password, salt, salt_size, iterations, EVP_sha256(), output, output_size);
-}
-
 static const EVP_MD *auth_digest_from_name(const char *name) {
     /*
         Purpose: Gets the digest from the name
@@ -2639,27 +2469,7 @@ static const EVP_MD *auth_digest_from_name(const char *name) {
 
     }
 
-    if (name && strcmp(name, AUTH_TOTP_ALGORITHM_LEGACY) == 0) {
-
-        return EVP_sha1();
-
-    }
-
-    if (name && strcmp(name, AUTH_TOTP_KDF_LEGACY) == 0) {
-
-        return EVP_sha256();
-
-    }
     return NULL;
-}
-
-static int auth_totp_kdf_valid(const char *name) {
-    /*
-        Purpose: Checks whether the kdf is valid
-        Returns: Boolean status
-    */
-
-    return name && (strcmp(name, AUTH_TOTP_KDF_DEFAULT) == 0 || auth_digest_from_name(name) != NULL);
 }
 
 static int auth_hash_password_argon2id(const char *password, char encoded[AUTH_ARGON2_ENCODED_MAX]) {
@@ -2731,36 +2541,25 @@ static void auth_dummy_password_work(const char *password) {
     auth_secure_zero(output, sizeof(output));
 }
 
-static int auth_derive_totp_encryption_key(const char *username, const char *password, const char *kdf_algorithm,
+static int auth_derive_totp_encryption_key(const char *username,
                                            const unsigned char salt[AUTH_TOTP_SALT_BYTES], unsigned char key[32]) {
     /*
         Purpose: Derives the TOTP encryption key
         Returns: Success status
     */
 
-    const EVP_MD *kdf_digest;
-
-    if (!username || !kdf_algorithm || !salt || !key) {
+    if (!username || !salt || !key) {
 
         return 0;
 
     }
 
-    if (strcmp(kdf_algorithm, AUTH_TOTP_KDF_DEFAULT) == 0) {
-
-        return auth_derive_server_totp_key(username, salt, key);
-
-    }
-
-    kdf_digest = auth_digest_from_name(kdf_algorithm);
-    return password && kdf_digest &&
-           auth_pbkdf2_derive_key_with_digest(password, salt, AUTH_TOTP_SALT_BYTES, AUTH_TOTP_KEY_ITERATIONS,
-                                              kdf_digest, key, 32);
+    return auth_derive_server_totp_key(username, salt, key);
 }
 
-static int auth_encrypt_totp_secret(const char *username, const char *password, const unsigned char *secret,
-                                    int secret_size, const char *kdf_algorithm, unsigned char *salt,
-                                    unsigned char *nonce, unsigned char *tag, unsigned char *ciphertext) {
+static int auth_encrypt_totp_secret(const char *username, const unsigned char *secret, int secret_size,
+                                    unsigned char *salt, unsigned char *nonce, unsigned char *tag,
+                                    unsigned char *ciphertext) {
     /*
         Purpose: Encrypts the TOTP secret
         Returns: Success status
@@ -2774,10 +2573,10 @@ static int auth_encrypt_totp_secret(const char *username, const char *password, 
 
     memset(key, 0, sizeof(key));
 
-    if (!username || !secret || secret_size < AUTH_TOTP_LEGACY_SECRET_BYTES || secret_size > AUTH_TOTP_SECRET_BYTES ||
-        !kdf_algorithm || !salt || !nonce || !tag || !ciphertext || RAND_bytes(salt, AUTH_TOTP_SALT_BYTES) != 1 ||
+    if (!username || !secret || secret_size != AUTH_TOTP_SECRET_BYTES ||
+        !salt || !nonce || !tag || !ciphertext || RAND_bytes(salt, AUTH_TOTP_SALT_BYTES) != 1 ||
         RAND_bytes(nonce, AUTH_TOTP_NONCE_BYTES) != 1 ||
-        !auth_derive_totp_encryption_key(username, password, kdf_algorithm, salt, key)) {
+        !auth_derive_totp_encryption_key(username, salt, key)) {
 
         goto cleanup;
 
@@ -2805,7 +2604,7 @@ cleanup:
     return success;
 }
 
-static int auth_decrypt_totp_secret(const char *username, const char *password, const Type_Auth_User_Record *record,
+static int auth_decrypt_totp_secret(const char *username, const Type_Auth_User_Record *record,
                                     unsigned char *secret) {
     /*
         Purpose: Decrypts the TOTP secret
@@ -2820,9 +2619,10 @@ static int auth_decrypt_totp_secret(const char *username, const char *password, 
 
     memset(key, 0, sizeof(key));
 
-    if (!username || !record || !secret || record->totp_secret_bytes < AUTH_TOTP_LEGACY_SECRET_BYTES ||
-        record->totp_secret_bytes > AUTH_TOTP_SECRET_BYTES ||
-        !auth_derive_totp_encryption_key(username, password, record->totp_kdf_algorithm, record->totp_salt, key)) {
+    if (!username || !record || !secret || record->totp_secret_bytes != AUTH_TOTP_SECRET_BYTES ||
+        strcmp(record->totp_algorithm, AUTH_TOTP_ALGORITHM_DEFAULT) != 0 ||
+        strcmp(record->totp_kdf_algorithm, AUTH_TOTP_KDF_DEFAULT) != 0 ||
+        !auth_derive_totp_encryption_key(username, record->totp_salt, key)) {
 
         goto cleanup;
 
@@ -2878,9 +2678,9 @@ static int auth_store_server_wrapped_totp(sqlite3 *database, const char *usernam
     memset(tag, 0, sizeof(tag));
     memset(ciphertext, 0, sizeof(ciphertext));
 
-    if (!database || !username || !secret || !totp_algorithm ||
-        !auth_encrypt_totp_secret(username, NULL, secret, secret_size, AUTH_TOTP_KDF_DEFAULT, salt, nonce, tag,
-                                  ciphertext) ||
+    if (!database || !username || !secret || secret_size != AUTH_TOTP_SECRET_BYTES || !totp_algorithm ||
+        strcmp(totp_algorithm, AUTH_TOTP_ALGORITHM_DEFAULT) != 0 ||
+        !auth_encrypt_totp_secret(username, secret, secret_size, salt, nonce, tag, ciphertext) ||
         sqlite3_prepare_v2(database, sql, -1, &statement, NULL) != SQLITE_OK) {
 
         goto cleanup;
@@ -2906,23 +2706,6 @@ cleanup:
     return success;
 }
 
-static void auth_migrate_totp_to_server_key(sqlite3 *database, const char *username,
-                                            const Type_Auth_User_Record *record, const unsigned char *secret) {
-    /*
-        Purpose: Migrates the TOTP to server key
-        Returns: No value
-    */
-
-    if (!database || !username || !record || !secret || !record->totp_enabled ||
-        strcmp(record->totp_kdf_algorithm, AUTH_TOTP_KDF_DEFAULT) == 0) {
-
-        return;
-
-    }
-
-    (void)auth_store_server_wrapped_totp(database, username, secret, record->totp_secret_bytes, record->totp_algorithm);
-}
-
 static int auth_load_user(sqlite3 *database, const char *username, Type_Auth_User_Record *record) {
     /*
         Purpose: Loads the user
@@ -2930,9 +2713,8 @@ static int auth_load_user(sqlite3 *database, const char *username, Type_Auth_Use
     */
 
     static const char sql[] =
-        "SELECT password_encoded, password_algorithm, password_salt, password_hash, password_iterations, "
-        "totp_enabled, totp_algorithm, totp_secret_bytes, totp_kdf_algorithm, is_admin, role, "
-        "totp_salt, totp_nonce, totp_tag, totp_ciphertext, last_totp_counter "
+        "SELECT password_encoded, password_algorithm, totp_enabled, totp_algorithm, totp_secret_bytes, "
+        "totp_kdf_algorithm, role, totp_salt, totp_nonce, totp_tag, totp_ciphertext, last_totp_counter "
         "FROM users WHERE username = ?1 LIMIT 1;";
     sqlite3_stmt *statement = NULL;
     int result = 0;
@@ -2947,50 +2729,29 @@ static int auth_load_user(sqlite3 *database, const char *username, Type_Auth_Use
     sqlite3_bind_text(statement, 1, username, -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(statement) == SQLITE_ROW) {
-
         const unsigned char *encoded = sqlite3_column_text(statement, 0);
         const unsigned char *algorithm = sqlite3_column_text(statement, 1);
+        const unsigned char *totp_algorithm = sqlite3_column_text(statement, 3);
+        const unsigned char *totp_kdf_algorithm = sqlite3_column_text(statement, 5);
 
-        if (encoded && algorithm && strcmp((const char *)algorithm, "argon2id") == 0 &&
-            strncmp((const char *)encoded, "$argon2id$", 10) == 0) {
+        if (!encoded || !algorithm || strcmp((const char *)algorithm, "argon2id") != 0 ||
+            strncmp((const char *)encoded, "$argon2id$", 10) != 0 ||
+            !totp_algorithm || strcmp((const char *)totp_algorithm, AUTH_TOTP_ALGORITHM_DEFAULT) != 0 ||
+            sqlite3_column_int(statement, 4) != AUTH_TOTP_SECRET_BYTES ||
+            !totp_kdf_algorithm || strcmp((const char *)totp_kdf_algorithm, AUTH_TOTP_KDF_DEFAULT) != 0) {
 
-            auth_copy_text(record->password_encoded, sizeof(record->password_encoded), (const char *)encoded);
-            record->password_is_argon2id = 1;
-
-        }
-
-        else {
-
-            const void *password_salt = sqlite3_column_blob(statement, 2);
-            const void *password_hash = sqlite3_column_blob(statement, 3);
-            int password_salt_size = sqlite3_column_bytes(statement, 2);
-            int password_hash_size = sqlite3_column_bytes(statement, 3);
-
-            if (!password_salt || !password_hash || password_salt_size != AUTH_LEGACY_PASSWORD_SALT_BYTES ||
-                password_hash_size != AUTH_LEGACY_PASSWORD_HASH_BYTES) {
-
-                result = -1;
-                goto cleanup;
-
-            }
-
-            memcpy(record->legacy_password_salt, password_salt, AUTH_LEGACY_PASSWORD_SALT_BYTES);
-            memcpy(record->legacy_password_hash, password_hash, AUTH_LEGACY_PASSWORD_HASH_BYTES);
-            record->legacy_password_iterations = sqlite3_column_int(statement, 4);
+            result = -1;
+            goto cleanup;
 
         }
 
-        record->totp_enabled = sqlite3_column_int(statement, 5) != 0;
-        {
-            const unsigned char *totp_algorithm = sqlite3_column_text(statement, 6);
-            const unsigned char *totp_kdf_algorithm = sqlite3_column_text(statement, 8);
-            auth_copy_text(record->totp_algorithm, sizeof(record->totp_algorithm),
-                           totp_algorithm ? (const char *)totp_algorithm : AUTH_TOTP_ALGORITHM_LEGACY);
-            record->totp_secret_bytes = sqlite3_column_int(statement, 7);
-            auth_copy_text(record->totp_kdf_algorithm, sizeof(record->totp_kdf_algorithm),
-                           totp_kdf_algorithm ? (const char *)totp_kdf_algorithm : AUTH_TOTP_KDF_LEGACY);
-        }
-        record->role = sqlite3_column_int(statement, 10);
+        auth_copy_text(record->password_encoded, sizeof(record->password_encoded), (const char *)encoded);
+        record->totp_enabled = sqlite3_column_int(statement, 2) != 0;
+        auth_copy_text(record->totp_algorithm, sizeof(record->totp_algorithm), (const char *)totp_algorithm);
+        record->totp_secret_bytes = sqlite3_column_int(statement, 4);
+        auth_copy_text(record->totp_kdf_algorithm, sizeof(record->totp_kdf_algorithm),
+                       (const char *)totp_kdf_algorithm);
+        record->role = sqlite3_column_int(statement, 6);
 
         if (record->role < AUTH_ROLE_USER || record->role > AUTH_ROLE_ADMIN) {
 
@@ -2998,23 +2759,19 @@ static int auth_load_user(sqlite3 *database, const char *username, Type_Auth_Use
             goto cleanup;
 
         }
-        record->is_admin = record->role >= AUTH_ROLE_CO_ADMIN;
-        record->last_totp_counter = sqlite3_column_int64(statement, 15);
+        record->last_totp_counter = sqlite3_column_int64(statement, 11);
 
         if (record->totp_enabled) {
+            const void *totp_salt = sqlite3_column_blob(statement, 7);
+            const void *totp_nonce = sqlite3_column_blob(statement, 8);
+            const void *totp_tag = sqlite3_column_blob(statement, 9);
+            const void *totp_ciphertext = sqlite3_column_blob(statement, 10);
 
-            const void *totp_salt = sqlite3_column_blob(statement, 11);
-            const void *totp_nonce = sqlite3_column_blob(statement, 12);
-            const void *totp_tag = sqlite3_column_blob(statement, 13);
-            const void *totp_ciphertext = sqlite3_column_blob(statement, 14);
-
-            if (!auth_digest_from_name(record->totp_algorithm) || !auth_totp_kdf_valid(record->totp_kdf_algorithm) ||
-                record->totp_secret_bytes < AUTH_TOTP_LEGACY_SECRET_BYTES ||
-                record->totp_secret_bytes > AUTH_TOTP_SECRET_BYTES || !totp_salt || !totp_nonce || !totp_tag ||
-                !totp_ciphertext || sqlite3_column_bytes(statement, 11) != AUTH_TOTP_SALT_BYTES ||
-                sqlite3_column_bytes(statement, 12) != AUTH_TOTP_NONCE_BYTES ||
-                sqlite3_column_bytes(statement, 13) != AUTH_TOTP_TAG_BYTES ||
-                sqlite3_column_bytes(statement, 14) != record->totp_secret_bytes) {
+            if (!totp_salt || !totp_nonce || !totp_tag || !totp_ciphertext ||
+                sqlite3_column_bytes(statement, 7) != AUTH_TOTP_SALT_BYTES ||
+                sqlite3_column_bytes(statement, 8) != AUTH_TOTP_NONCE_BYTES ||
+                sqlite3_column_bytes(statement, 9) != AUTH_TOTP_TAG_BYTES ||
+                sqlite3_column_bytes(statement, 10) != AUTH_TOTP_SECRET_BYTES) {
 
                 result = -1;
                 goto cleanup;
@@ -3024,7 +2781,7 @@ static int auth_load_user(sqlite3 *database, const char *username, Type_Auth_Use
             memcpy(record->totp_salt, totp_salt, AUTH_TOTP_SALT_BYTES);
             memcpy(record->totp_nonce, totp_nonce, AUTH_TOTP_NONCE_BYTES);
             memcpy(record->totp_tag, totp_tag, AUTH_TOTP_TAG_BYTES);
-            memcpy(record->totp_ciphertext, totp_ciphertext, (size_t)record->totp_secret_bytes);
+            memcpy(record->totp_ciphertext, totp_ciphertext, AUTH_TOTP_SECRET_BYTES);
 
         }
 
@@ -3037,46 +2794,11 @@ cleanup:
     return result;
 }
 
-static int auth_upgrade_legacy_password(sqlite3 *database, const char *username, const char *password) {
-    /*
-        Purpose: Upgrades the legacy password
-        Returns: Success status
-    */
-
-    sqlite3_stmt *statement = NULL;
-    char encoded[AUTH_ARGON2_ENCODED_MAX];
-    int success = 0;
-
-    memset(encoded, 0, sizeof(encoded));
-
-    if (!database || !username || !password || !auth_hash_password_argon2id(password, encoded) ||
-        sqlite3_prepare_v2(database,
-                           "UPDATE users SET password_encoded = ?1, password_algorithm = 'argon2id' "
-                           "WHERE username = ?2;",
-                           -1, &statement, NULL) != SQLITE_OK) {
-
-        auth_secure_zero(encoded, sizeof(encoded));
-        return 0;
-
-    }
-
-    sqlite3_bind_text(statement, 1, encoded, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(statement, 2, username, -1, SQLITE_TRANSIENT);
-    success = sqlite3_step(statement) == SQLITE_DONE;
-    sqlite3_finalize(statement);
-    auth_secure_zero(encoded, sizeof(encoded));
-    return success;
-}
-
-static int auth_verify_password(sqlite3 *database, const char *username, const char *password,
-                                const Type_Auth_User_Record *record) {
+static int auth_verify_password(const char *password, const Type_Auth_User_Record *record) {
     /*
         Purpose: Verifies the password
         Returns: Success status
     */
-
-    unsigned char candidate[AUTH_LEGACY_PASSWORD_HASH_BYTES];
-    int valid = 0;
 
     if (!password || !record) {
 
@@ -3084,30 +2806,7 @@ static int auth_verify_password(sqlite3 *database, const char *username, const c
 
     }
 
-    if (record->password_is_argon2id) {
-
-        return auth_verify_argon2id(password, record->password_encoded);
-
-    }
-
-    memset(candidate, 0, sizeof(candidate));
-
-    if (record->legacy_password_iterations >= 10000 &&
-        auth_pbkdf2_derive_key(password, record->legacy_password_salt, AUTH_LEGACY_PASSWORD_SALT_BYTES,
-                               record->legacy_password_iterations, candidate, sizeof(candidate))) {
-
-        valid = auth_constant_time_equal(candidate, record->legacy_password_hash, sizeof(candidate));
-
-    }
-    auth_secure_zero(candidate, sizeof(candidate));
-
-    if (valid) {
-
-        (void)auth_upgrade_legacy_password(database, username, password);
-
-    }
-
-    return valid;
+    return auth_verify_argon2id(password, record->password_encoded);
 }
 
 static int auth_insert_user(sqlite3 *database, const char *username, const char *password, int enable_totp,
@@ -3119,14 +2818,10 @@ static int auth_insert_user(sqlite3 *database, const char *username, const char 
 
     static const char sql[] =
         "INSERT INTO users "
-        "(username, password_salt, password_hash, password_iterations, password_encoded, password_algorithm, "
-        "totp_enabled, totp_algorithm, totp_secret_bytes, totp_kdf_algorithm, is_admin, role, "
-        "totp_salt, totp_nonce, totp_tag, totp_ciphertext, created_at) "
-        "VALUES (?1, ?2, ?3, ?4, ?5, 'argon2id', ?6, 'sha512', 32, 'server-sha512', "
-        "?7, ?8, ?9, ?10, ?11, ?12, ?13);";
+        "(username, password_encoded, password_algorithm, totp_enabled, totp_algorithm, totp_secret_bytes, "
+        "totp_kdf_algorithm, role, totp_salt, totp_nonce, totp_tag, totp_ciphertext, created_at) "
+        "VALUES (?1, ?2, 'argon2id', ?3, 'sha512', 32, 'server-sha512', ?4, ?5, ?6, ?7, ?8, ?9);";
     sqlite3_stmt *statement = NULL;
-    unsigned char compatibility_salt[AUTH_LEGACY_PASSWORD_SALT_BYTES];
-    unsigned char compatibility_hash[AUTH_LEGACY_PASSWORD_HASH_BYTES];
     char password_encoded[AUTH_ARGON2_ENCODED_MAX];
     unsigned char totp_salt[AUTH_TOTP_SALT_BYTES];
     unsigned char totp_nonce[AUTH_TOTP_NONCE_BYTES];
@@ -3134,30 +2829,21 @@ static int auth_insert_user(sqlite3 *database, const char *username, const char 
     unsigned char totp_ciphertext[AUTH_TOTP_CIPHER_BYTES];
     int success = 0;
 
-    memset(compatibility_salt, 0, sizeof(compatibility_salt));
-    memset(compatibility_hash, 0, sizeof(compatibility_hash));
     memset(password_encoded, 0, sizeof(password_encoded));
     memset(totp_salt, 0, sizeof(totp_salt));
     memset(totp_nonce, 0, sizeof(totp_nonce));
     memset(totp_tag, 0, sizeof(totp_tag));
     memset(totp_ciphertext, 0, sizeof(totp_ciphertext));
 
-    /*
-     * The legacy columns remain NOT NULL in existing databases. New accounts
-     * store harmless compatibility values there while password verification
-     * uses only password_encoded.
-     */
-
-    if (!database || !username || !password || RAND_bytes(compatibility_salt, sizeof(compatibility_salt)) != 1 ||
-        !auth_hash_password_argon2id(password, password_encoded)) {
+    if (!database || !username || !password || !auth_hash_password_argon2id(password, password_encoded)) {
 
         goto cleanup;
 
     }
 
-    if (enable_totp && (!totp_secret || !auth_encrypt_totp_secret(username, password, totp_secret,
-                                                                  AUTH_TOTP_SECRET_BYTES, AUTH_TOTP_KDF_DEFAULT,
-                                                                  totp_salt, totp_nonce, totp_tag, totp_ciphertext))) {
+    if (enable_totp && (!totp_secret || !auth_encrypt_totp_secret(username, totp_secret, AUTH_TOTP_SECRET_BYTES,
+                                                                  totp_salt, totp_nonce, totp_tag,
+                                                                  totp_ciphertext))) {
 
         goto cleanup;
 
@@ -3170,39 +2856,33 @@ static int auth_insert_user(sqlite3 *database, const char *username, const char 
     }
 
     sqlite3_bind_text(statement, 1, username, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_blob(statement, 2, compatibility_salt, sizeof(compatibility_salt), SQLITE_TRANSIENT);
-    sqlite3_bind_blob(statement, 3, compatibility_hash, sizeof(compatibility_hash), SQLITE_TRANSIENT);
-    sqlite3_bind_int(statement, 4, 0);
-    sqlite3_bind_text(statement, 5, password_encoded, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(statement, 6, enable_totp ? 1 : 0);
-    sqlite3_bind_int(statement, 7, is_admin ? 1 : 0);
-    sqlite3_bind_int(statement, 8, is_admin ? AUTH_ROLE_ADMIN : AUTH_ROLE_USER);
+    sqlite3_bind_text(statement, 2, password_encoded, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(statement, 3, enable_totp ? 1 : 0);
+    sqlite3_bind_int(statement, 4, is_admin ? AUTH_ROLE_ADMIN : AUTH_ROLE_USER);
 
     if (enable_totp) {
 
-        sqlite3_bind_blob(statement, 9, totp_salt, sizeof(totp_salt), SQLITE_TRANSIENT);
-        sqlite3_bind_blob(statement, 10, totp_nonce, sizeof(totp_nonce), SQLITE_TRANSIENT);
-        sqlite3_bind_blob(statement, 11, totp_tag, sizeof(totp_tag), SQLITE_TRANSIENT);
-        sqlite3_bind_blob(statement, 12, totp_ciphertext, AUTH_TOTP_SECRET_BYTES, SQLITE_TRANSIENT);
+        sqlite3_bind_blob(statement, 5, totp_salt, sizeof(totp_salt), SQLITE_TRANSIENT);
+        sqlite3_bind_blob(statement, 6, totp_nonce, sizeof(totp_nonce), SQLITE_TRANSIENT);
+        sqlite3_bind_blob(statement, 7, totp_tag, sizeof(totp_tag), SQLITE_TRANSIENT);
+        sqlite3_bind_blob(statement, 8, totp_ciphertext, AUTH_TOTP_SECRET_BYTES, SQLITE_TRANSIENT);
 
     }
 
     else {
 
-        sqlite3_bind_null(statement, 9);
-        sqlite3_bind_null(statement, 10);
-        sqlite3_bind_null(statement, 11);
-        sqlite3_bind_null(statement, 12);
+        sqlite3_bind_null(statement, 5);
+        sqlite3_bind_null(statement, 6);
+        sqlite3_bind_null(statement, 7);
+        sqlite3_bind_null(statement, 8);
 
     }
 
-    sqlite3_bind_int64(statement, 13, (sqlite3_int64)time(NULL));
+    sqlite3_bind_int64(statement, 9, (sqlite3_int64)time(NULL));
     success = sqlite3_step(statement) == SQLITE_DONE;
 
 cleanup:
     sqlite3_finalize(statement);
-    auth_secure_zero(compatibility_salt, sizeof(compatibility_salt));
-    auth_secure_zero(compatibility_hash, sizeof(compatibility_hash));
     auth_secure_zero(password_encoded, sizeof(password_encoded));
     auth_secure_zero(totp_salt, sizeof(totp_salt));
     auth_secure_zero(totp_nonce, sizeof(totp_nonce));
@@ -3225,8 +2905,7 @@ static uint32_t auth_totp_at_counter(const unsigned char *secret, int secret_siz
     uint32_t binary_code;
     int offset;
 
-    if (!secret || secret_size < AUTH_TOTP_LEGACY_SECRET_BYTES || secret_size > AUTH_TOTP_SECRET_BYTES ||
-        !digest_algorithm) {
+    if (!secret || secret_size != AUTH_TOTP_SECRET_BYTES || !digest_algorithm) {
 
         return UINT32_MAX;
 
@@ -3271,8 +2950,8 @@ static int auth_verify_totp_counter_with_algorithm(const unsigned char *secret, 
     unsigned long entered_code;
     char *end = NULL;
 
-    if (!secret || secret_size < AUTH_TOTP_LEGACY_SECRET_BYTES || secret_size > AUTH_TOTP_SECRET_BYTES || !code ||
-        strlen(code) != AUTH_TOTP_DIGITS || !auth_digest_from_name(algorithm)) {
+    if (!secret || secret_size != AUTH_TOTP_SECRET_BYTES || !code || strlen(code) != AUTH_TOTP_DIGITS ||
+        !auth_digest_from_name(algorithm)) {
 
         return 0;
 
@@ -3441,7 +3120,7 @@ static int auth_submit_login(sqlite3 *database, Type_Auth_State *state) {
 
     }
 
-    if (load_result <= 0 || !auth_verify_password(database, state->username, state->password, &record)) {
+    if (load_result <= 0 || !auth_verify_password(state->password, &record)) {
 
         auth_rate_limit_note_failure(database, state, "LOGIN", "Invalid username or password.");
         auth_secure_zero(state->password, sizeof(state->password));
@@ -3462,7 +3141,7 @@ static int auth_submit_login(sqlite3 *database, Type_Auth_State *state) {
 
     }
 
-    if (!auth_decrypt_totp_secret(state->username, state->password, &record, state->active_totp_secret)) {
+    if (!auth_decrypt_totp_secret(state->username, &record, state->active_totp_secret)) {
 
         auth_set_status(state, AUTH_ERROR, "Unable to unlock this account's 2FA secret.");
         auth_secure_zero(state->password, sizeof(state->password));
@@ -3474,7 +3153,6 @@ static int auth_submit_login(sqlite3 *database, Type_Auth_State *state) {
     state->active_totp_secret_valid = 1;
     state->active_totp_secret_bytes = record.totp_secret_bytes;
     auth_copy_text(state->active_totp_algorithm, sizeof(state->active_totp_algorithm), record.totp_algorithm);
-    auth_migrate_totp_to_server_key(database, state->username, &record, state->active_totp_secret);
     auth_secure_zero(state->password, sizeof(state->password));
     auth_secure_zero(state->code, sizeof(state->code));
     auth_secure_zero(&record, sizeof(record));
@@ -3555,8 +3233,8 @@ static void auth_submit_authorize_create(sqlite3 *database, Type_Auth_State *sta
 
     }
 
-    if (load_result <= 0 || !auth_verify_password(database, state->username, state->password, &record) ||
-        !record.is_admin) {
+    if (load_result <= 0 || !auth_verify_password(state->password, &record) ||
+        (record.role != AUTH_ROLE_CO_ADMIN && record.role != AUTH_ROLE_ADMIN)) {
 
         auth_rate_limit_note_failure(database, state, "ADMIN", "Administrator authorization failed.");
         auth_secure_zero(state->password, sizeof(state->password));
@@ -3578,7 +3256,7 @@ static void auth_submit_authorize_create(sqlite3 *database, Type_Auth_State *sta
 
     }
 
-    if (!auth_decrypt_totp_secret(state->username, state->password, &record, state->active_totp_secret)) {
+    if (!auth_decrypt_totp_secret(state->username, &record, state->active_totp_secret)) {
 
         auth_set_status(state, AUTH_ERROR, "Unable to unlock the administrator 2FA secret.");
         auth_secure_zero(state->password, sizeof(state->password));
@@ -3590,7 +3268,6 @@ static void auth_submit_authorize_create(sqlite3 *database, Type_Auth_State *sta
     state->active_totp_secret_valid = 1;
     state->active_totp_secret_bytes = record.totp_secret_bytes;
     auth_copy_text(state->active_totp_algorithm, sizeof(state->active_totp_algorithm), record.totp_algorithm);
-    auth_migrate_totp_to_server_key(database, state->username, &record, state->active_totp_secret);
     auth_secure_zero(state->password, sizeof(state->password));
     auth_secure_zero(state->code, sizeof(state->code));
     auth_secure_zero(&record, sizeof(record));
@@ -3983,8 +3660,13 @@ static int auth_run_transition(SDL_Window *window, SDL_Renderer *renderer, TTF_F
 
             message_rect = (SDL_Rect){central_line.x, central_line.y + 16, central_line.w, 36};
             auth_draw_centered_text(renderer, font_medium, "ACCESS GRANTED", message_rect, AUTH_TEXT);
-            snprintf(session_text, sizeof(session_text), "SESSION ESTABLISHED: %s @ %.72s",
-                     username ? username : "USER", Global_Auth_Server_Name);
+
+            if (!sec_sprintf(session_text, sizeof(session_text), "SESSION ESTABLISHED: %s @ %.72s", username ? username : "USER", Global_Auth_Server_Name)) {
+
+                session_text[0] = '\0';
+
+            }
+
             auth_draw_centered_text(renderer, font_small, session_text,
                                     (SDL_Rect){central_line.x, central_line.y + 62, central_line.w, 26}, AUTH_MUTED);
 
@@ -5001,9 +4683,8 @@ int AUTH_SERVER_authenticate(const char *username, const char *password, const c
     }
 
     if (!username || !password || !remote_ip ||
-        snprintf(ip_scope, sizeof(ip_scope), "NET_IP:%s", remote_ip) >= (int)sizeof(ip_scope) ||
-        snprintf(account_scope, sizeof(account_scope), "NET_LOGIN:%s:%s", username, remote_ip) >=
-            (int)sizeof(account_scope)) {
+        !sec_sprintf(ip_scope, sizeof(ip_scope), "NET_IP:%s", remote_ip) ||
+        !sec_sprintf(account_scope, sizeof(account_scope), "NET_LOGIN:%s:%s", username, remote_ip)) {
 
         auth_public_error(error, error_size, "Invalid encrypted authentication request.");
         return result;
@@ -5040,7 +4721,7 @@ int AUTH_SERVER_authenticate(const char *username, const char *password, const c
 
     }
 
-    if (load_result <= 0 || !auth_verify_password(database, username, password, &record)) {
+    if (load_result <= 0 || !auth_verify_password(password, &record)) {
 
         (void)auth_rate_limit_failure(database, ip_scope);
         (void)auth_rate_limit_failure(database, account_scope);
@@ -5058,7 +4739,7 @@ int AUTH_SERVER_authenticate(const char *username, const char *password, const c
 
         }
 
-        if (!auth_decrypt_totp_secret(username, password, &record, secret) ||
+        if (!auth_decrypt_totp_secret(username, &record, secret) ||
             !auth_verify_totp_counter_with_algorithm(secret, record.totp_secret_bytes, totp, record.totp_algorithm,
                                                      &matched_counter)) {
 
@@ -5154,10 +4835,8 @@ int AUTH_SERVER_verify_password(const char *username, const char *password, cons
     }
 
     if (!username || username[0] == '\0' || !password || password[0] == '\0' || !remote_ip ||
-        snprintf(ip_scope, sizeof(ip_scope), "NET_REAUTH_IP:%s", remote_ip) >= (int)sizeof(ip_scope) ||
-        snprintf(account_scope, sizeof(account_scope), "NET_REAUTH:%s:%s", username, remote_ip) >=
-            (int)sizeof(account_scope)) {
-
+        !sec_sprintf(ip_scope, sizeof(ip_scope), "NET_REAUTH_IP:%s", remote_ip) ||
+        !sec_sprintf(account_scope, sizeof(account_scope), "NET_REAUTH:%s:%s", username, remote_ip)) {
         auth_public_error(error, error_size, "Invalid password verification request.");
         return 0;
 
@@ -5185,7 +4864,7 @@ int AUTH_SERVER_verify_password(const char *username, const char *password, cons
 
     }
 
-    if (load_result <= 0 || !auth_verify_password(database, username, password, &record)) {
+    if (load_result <= 0 || !auth_verify_password(password, &record)) {
 
         (void)auth_rate_limit_failure(database, ip_scope);
         (void)auth_rate_limit_failure(database, account_scope);
@@ -5424,7 +5103,6 @@ int AUTH_DB_reset_password(const char *username, const char *new_password, const
     sqlite3_stmt *statement = NULL;
     char path[PATH_MAX];
     char encoded[AUTH_ARGON2_ENCODED_MAX];
-    int preserve_totp = 0;
     int success = 0;
 
     memset(encoded, 0, sizeof(encoded));
@@ -5463,59 +5141,13 @@ int AUTH_DB_reset_password(const char *username, const char *new_password, const
 
     }
 
-    if (sqlite3_prepare_v2(database, "SELECT totp_enabled, totp_kdf_algorithm FROM users WHERE username = ?1;", -1,
-                           &statement, NULL) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(database,
+                           "UPDATE users SET password_encoded = ?1, password_algorithm = 'argon2id' "
+                           "WHERE username = ?2;",
+                           -1, &statement, NULL) != SQLITE_OK) {
 
         auth_public_error(error, error_size, sqlite3_errmsg(database));
         goto cleanup;
-
-    }
-    sqlite3_bind_text(statement, 1, username, -1, SQLITE_TRANSIENT);
-
-    if (sqlite3_step(statement) != SQLITE_ROW) {
-
-        auth_public_error(error, error_size, "The selected user account no longer exists.");
-        goto cleanup;
-
-    }
-    preserve_totp = sqlite3_column_int(statement, 0) == 0;
-
-    if (!preserve_totp) {
-
-        const unsigned char *kdf = sqlite3_column_text(statement, 1);
-        preserve_totp = kdf && strcmp((const char *)kdf, AUTH_TOTP_KDF_DEFAULT) == 0;
-
-    }
-    sqlite3_finalize(statement);
-    statement = NULL;
-
-    if (preserve_totp) {
-
-        if (sqlite3_prepare_v2(database,
-                               "UPDATE users SET password_encoded = ?1, password_algorithm = 'argon2id' "
-                               "WHERE username = ?2;",
-                               -1, &statement, NULL) != SQLITE_OK) {
-
-            auth_public_error(error, error_size, sqlite3_errmsg(database));
-            goto cleanup;
-
-        }
-
-    }
-
-    else {
-
-        if (sqlite3_prepare_v2(database,
-                               "UPDATE users SET password_encoded = ?1, password_algorithm = 'argon2id', "
-                               "totp_enabled = 0, totp_algorithm = 'sha512', totp_secret_bytes = 32, "
-                               "totp_kdf_algorithm = 'server-sha512', totp_salt = NULL, totp_nonce = NULL, "
-                               "totp_tag = NULL, totp_ciphertext = NULL WHERE username = ?2;",
-                               -1, &statement, NULL) != SQLITE_OK) {
-
-            auth_public_error(error, error_size, sqlite3_errmsg(database));
-            goto cleanup;
-
-        }
 
     }
 
@@ -5721,16 +5353,15 @@ int AUTH_DB_set_role(const char *username, int role, const char *acting_admin, c
 
     }
 
-    if (sqlite3_prepare_v2(database, "UPDATE users SET role = ?1, is_admin = ?2 WHERE username = ?3;", -1, &statement,
-                           NULL) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(database, "UPDATE users SET role = ?1 WHERE username = ?2;", -1, &statement, NULL) !=
+        SQLITE_OK) {
 
         auth_public_error(error, error_size, sqlite3_errmsg(database));
         goto cleanup;
 
     }
     sqlite3_bind_int(statement, 1, role);
-    sqlite3_bind_int(statement, 2, role == AUTH_ROLE_CO_ADMIN ? 1 : 0);
-    sqlite3_bind_text(statement, 3, username, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 2, username, -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(statement) != SQLITE_DONE || sqlite3_changes(database) != 1) {
 
