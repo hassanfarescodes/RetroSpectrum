@@ -100,7 +100,7 @@ typedef struct Type_Dashboard_Case_Point {
 #define DASHBOARD_CASE_COLOR_KIND "case_color"
 #define DASHBOARD_CASE_COLOR_PREFIX "__case_color_"
 #define DASHBOARD_CASE_COLOR_FIELD_COUNT 3
-#define DASHBOARD_VISIBLE_SIGNAL_ROWS 3
+#define DASHBOARD_VISIBLE_SIGNAL_ROWS 6
 
 #ifndef DASHBOARD_EVENT_SDR_CHANGED
 #define DASHBOARD_EVENT_SDR_CHANGED 1001
@@ -154,6 +154,9 @@ static SDL_Rect Global_Dashboard_Signal_Row_Rect[DASHBOARD_VISIBLE_SIGNAL_ROWS];
 static int Global_Dashboard_Signal_Row_Point_Index[DASHBOARD_VISIBLE_SIGNAL_ROWS] = {-1, -1, -1};
 static int Global_Dashboard_Signal_Row_Count = 0;
 static int Global_Dashboard_Selected_Signal = -1;
+static int Global_Dashboard_Signal_Scroll = 0;
+static int Global_Dashboard_Signal_Max_Scroll = 0;
+static SDL_Rect Global_Dashboard_Signal_List_Rect = {0, 0, 0, 0};
 static int Global_Dashboard_Case_Description_Scroll = 0;
 static int Global_Dashboard_Case_Description_Max_Scroll = 0;
 static int Global_Dashboard_Case_Description_Selected_Case = -1;
@@ -1913,6 +1916,8 @@ static int dashboard_select_case_at(Type_Dashboard_State *dashboard, SDL_Rect ma
             Global_Dashboard_Case_Image_Path_Cursor = 0;
             Global_Dashboard_Case_Color_Active = -1;
             Global_Dashboard_Selected_Signal = -1;
+            Global_Dashboard_Signal_Scroll = 0;
+            Global_Dashboard_Signal_Max_Scroll = 0;
 
             if (pt->case_index >= 0 && pt->case_index < Global_Dashboard_Case_Count) {
 
@@ -3632,12 +3637,73 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
     }
 
+    int total_signals = 0;
+
+    for (int i = 0; i < Global_Dashboard_Case_Point_Count; i++) {
+
+        if (Global_Dashboard_Case_Points[i].case_index == dashboard->selected_case) {
+
+            total_signals++;
+
+        }
+    }
+
+    int available_height = sidebar.y + sidebar.h - y;
+    int visible_rows = available_height / 24;
+
+    if (visible_rows > DASHBOARD_VISIBLE_SIGNAL_ROWS) {
+
+        visible_rows = DASHBOARD_VISIBLE_SIGNAL_ROWS;
+
+    }
+
+    if (visible_rows < 0) {
+
+        visible_rows = 0;
+
+    }
+
+    Global_Dashboard_Signal_Max_Scroll = total_signals - visible_rows;
+
+    if (Global_Dashboard_Signal_Max_Scroll < 0) {
+
+        Global_Dashboard_Signal_Max_Scroll = 0;
+
+    }
+
+    if (Global_Dashboard_Signal_Scroll < 0) {
+
+        Global_Dashboard_Signal_Scroll = 0;
+
+    }
+
+    if (Global_Dashboard_Signal_Scroll > Global_Dashboard_Signal_Max_Scroll) {
+
+        Global_Dashboard_Signal_Scroll = Global_Dashboard_Signal_Max_Scroll;
+
+    }
+
+    Global_Dashboard_Signal_List_Rect =
+        (SDL_Rect){sidebar.x + 12, y - 3, sidebar.w - 24, visible_rows * 24};
+
+    int skipped_count = 0;
     int shown_count = 0;
-    for (int i = 0; i < Global_Dashboard_Case_Point_Count && y + 22 < sidebar.y + sidebar.h; i++) {
+
+    for (int i = 0;
+         i < Global_Dashboard_Case_Point_Count && shown_count < visible_rows;
+         i++) {
+
         Type_Dashboard_Case_Point *pt = &Global_Dashboard_Case_Points[i];
 
         if (pt->case_index != dashboard->selected_case) {
 
+            continue;
+
+        }
+
+        if (skipped_count < Global_Dashboard_Signal_Scroll) {
+
+            skipped_count++;
             continue;
 
         }
@@ -3671,6 +3737,7 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
                      pt->signal_name[0] ? pt->signal_name : "Unnamed signal");
 
         }
+
         draw_text(renderer, font, line, sidebar.x + 16, y,
                   hovered || selected ? Dashboard_Text : Dashboard_Muted);
 
@@ -3681,11 +3748,6 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
         y += 24;
         shown_count++;
 
-        if (shown_count >= DASHBOARD_VISIBLE_SIGNAL_ROWS) {
-
-            break;
-
-        }
     }
 }
 
@@ -4480,6 +4542,29 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
             return 1;
 
         }
+
+        if (dashboard->current_tab == DASHBOARD_EVENT_MAP &&
+            dashboard_point_in_rect(mouse_x, mouse_y, Global_Dashboard_Signal_List_Rect)) {
+
+            Global_Dashboard_Signal_Scroll -= event->wheel.y;
+
+            if (Global_Dashboard_Signal_Scroll < 0) {
+
+                Global_Dashboard_Signal_Scroll = 0;
+
+            }
+
+            if (Global_Dashboard_Signal_Scroll >
+                Global_Dashboard_Signal_Max_Scroll) {
+
+                Global_Dashboard_Signal_Scroll =
+                    Global_Dashboard_Signal_Max_Scroll;
+
+            }
+
+            return 1;
+
+        }
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
@@ -5075,6 +5160,8 @@ int dashboard_handle_event(Type_Dashboard_State *dashboard, const SDL_Event *eve
             Global_Dashboard_Case_Image_Path_Cursor = 0;
             Global_Dashboard_Case_Color_Active = -1;
             Global_Dashboard_Selected_Signal = -1;
+            Global_Dashboard_Signal_Scroll = 0;
+            Global_Dashboard_Signal_Max_Scroll = 0;
             return DASHBOARD_EVENT_NONE;
 
         }
