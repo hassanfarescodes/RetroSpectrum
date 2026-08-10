@@ -1,17 +1,18 @@
 #define _GNU_SOURCE
+
 /*
  * ============================================================================
  * File:            CaseManagementWorkstation.c
  * Author:          Hassan Fares
  *
- * Description:     Case management block-graph workstation for RetroSpectrum.
- *                  Cases are represented as GNU Radio-style blocks that can be
- *                  created, moved, edited, linked together, and scheduled.
+ * Description:     Case management graph workstation logic for RetroSpectrum
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 
@@ -23,6 +24,7 @@
 #include <SDL2/SDL_image.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -30,7 +32,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <errno.h>
 
 /* Kept here so this source also builds when older DataStore headers omit the deletion API. */
 int DATASTORE_delete_content(const char *document_kind, const char *document_name, int *deleted, char *error,
@@ -208,6 +209,7 @@ static int Global_Case_User_Dropdown_Open = 0;
 static int Global_Case_User_Keyboard_Pos = -1;
 static char Global_Case_Record_Dir[512] = "Recordings";
 static char Global_Case_File_Name[CASE_MGMT_FILE_SEARCH_TEXT_MAX] = "case_graph.case.csv";
+static char Global_Case_Loaded_Database_Record[CASE_MGMT_FILE_SEARCH_TEXT_MAX] = "";
 static int Global_Case_File_Name_Cursor = 19;
 static int Global_Case_File_Name_Active = 0;
 static int Global_Case_File_Search_Open = 0;
@@ -264,6 +266,9 @@ static int Global_Case_Metadata_Creating = 0;
 static int Global_Case_Metadata_Renaming = 0;
 static int Global_Case_Metadata_Delete_Confirm_Open = 0;
 static char Global_Case_Metadata_Delete_Case[128] = "";
+static int Global_Case_Database_Delete_Confirm_Open = 0;
+static SDL_Rect Global_Case_Database_Confirm_Delete_Rect = {0, 0, 0, 0};
+static SDL_Rect Global_Case_Database_Confirm_Cancel_Rect = {0, 0, 0, 0};
 static Uint64 Global_Case_Metadata_Last_Refresh = 0;
 static SDL_Rect Global_Case_Metadata_Search_Rect = {0, 0, 0, 0};
 static SDL_Rect Global_Case_Metadata_List_Rect = {0, 0, 0, 0};
@@ -319,6 +324,9 @@ static void case_trim_text(char *text);
 static int case_should_show_field(int field);
 static int case_rect_is_valid(SDL_Rect r);
 static int case_load_current_file(void);
+static void case_delete_loaded_database_record(void);
+static int case_handle_database_delete_confirmation(const SDL_Event *event);
+static void case_draw_database_delete_confirmation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 static void case_description_clear_selection(void);
 static void case_clear_block_selection(void);
 static void case_select_only_block(int index);
@@ -2143,6 +2151,8 @@ static void case_save(void) {
     }
 
     DATASTORE_free_content(content, content_size);
+    case_copy_text(Global_Case_Loaded_Database_Record, sizeof(Global_Case_Loaded_Database_Record),
+                   Global_Case_File_Name);
     case_scan_case_graph_files();
     case_set_status("Case saved to database", Case_Text);
 }
@@ -2971,8 +2981,164 @@ static int case_load_current_file(void) {
 
     }
 
+    case_copy_text(Global_Case_Loaded_Database_Record, sizeof(Global_Case_Loaded_Database_Record),
+                   Global_Case_File_Name);
     case_set_status("Case loaded from database", Case_Text);
     return 1;
+}
+
+static void case_delete_loaded_database_record(void) {
+    /*
+        Purpose: Deletes the currently loaded database record
+        Returns: No value
+    */
+
+    char database_error[256] = "";
+    int deleted = 0;
+
+    if (Global_Case_Loaded_Database_Record[0] == '\0') {
+
+        case_set_status("No database record is currently loaded", Case_Warn);
+        return;
+
+    }
+
+    if (!DATASTORE_delete_content(DATASTORE_KIND_CASE_MANAGEMENT, Global_Case_Loaded_Database_Record, &deleted,
+                                  database_error, sizeof(database_error))) {
+
+        char message[384];
+        snprintf(message, sizeof(message), "Database record deletion failed: %.280s", database_error);
+        case_set_status(message, Case_Red);
+        return;
+
+    }
+
+    if (!deleted) {
+
+        Global_Case_Loaded_Database_Record[0] = '\0';
+        case_scan_case_graph_files();
+        case_set_status("Loaded database record no longer exists", Case_Warn);
+        return;
+
+    }
+
+    Global_Case_Loaded_Database_Record[0] = '\0';
+    case_scan_case_graph_files();
+    case_set_status("Database record deleted", Case_Text);
+}
+
+static int case_handle_database_delete_confirmation(const SDL_Event *event) {
+    /*
+        Purpose: Handles the database record deletion confirmation
+        Returns: Handling status
+    */
+
+    if (!Global_Case_Database_Delete_Confirm_Open || !event) {
+
+        return 0;
+
+    }
+
+    if (event->type == SDL_KEYDOWN) {
+
+        if (event->key.keysym.sym == SDLK_ESCAPE) {
+
+            Global_Case_Database_Delete_Confirm_Open = 0;
+            return 1;
+
+        }
+
+        if (event->key.keysym.sym == SDLK_RETURN || event->key.keysym.sym == SDLK_KP_ENTER) {
+
+            Global_Case_Database_Delete_Confirm_Open = 0;
+            case_delete_loaded_database_record();
+            return 1;
+
+        }
+        return 1;
+
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
+        if (case_point_in_rect(event->button.x, event->button.y, Global_Case_Database_Confirm_Cancel_Rect)) {
+
+            Global_Case_Database_Delete_Confirm_Open = 0;
+            return 1;
+
+        }
+
+        if (case_point_in_rect(event->button.x, event->button.y, Global_Case_Database_Confirm_Delete_Rect)) {
+
+            Global_Case_Database_Delete_Confirm_Open = 0;
+            case_delete_loaded_database_record();
+            return 1;
+
+        }
+        return 1;
+
+    }
+
+    return 1;
+}
+
+static void case_draw_database_delete_confirmation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the database record deletion confirmation dialog
+        Returns: No value
+    */
+
+    SDL_Rect panel;
+    SDL_Rect message;
+    int mx = 0;
+    int my = 0;
+    int delete_hover;
+    int cancel_hover;
+    char title[384];
+
+    if (!Global_Case_Database_Delete_Confirm_Open || !renderer || !font) {
+
+        return;
+
+    }
+
+    case_get_adjusted_mouse_state(&mx, &my);
+    panel = (SDL_Rect){(win_w - 540) / 2, (win_h - 238) / 2, 540, 238};
+
+    if (panel.x < 12) {
+
+        panel.x = 12;
+        panel.w = win_w - 24;
+
+    }
+
+    if (panel.y < 12) {
+
+        panel.y = 12;
+
+    }
+
+    Global_Case_Database_Confirm_Cancel_Rect = (SDL_Rect){panel.x + panel.w - 242, panel.y + panel.h - 58, 106, 36};
+    Global_Case_Database_Confirm_Delete_Rect = (SDL_Rect){panel.x + panel.w - 124, panel.y + panel.h - 58, 106, 36};
+    delete_hover = case_point_in_rect(mx, my, Global_Case_Database_Confirm_Delete_Rect);
+    cancel_hover = case_point_in_rect(mx, my, Global_Case_Database_Confirm_Cancel_Rect);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, (SDL_Rect){0, 0, win_w, win_h}, (SDL_Color){0, 0, 0, 205});
+    draw_filled_rect(renderer, panel, (SDL_Color){20, 0, 0, 252});
+    draw_outline_rect(renderer, panel, (SDL_Color){255, 35, 35, 255});
+
+    snprintf(title, sizeof(title), "Delete database record %s?", Global_Case_Loaded_Database_Record);
+    draw_text(renderer, font, title, panel.x + 22, panel.y + 22, (SDL_Color){255, 90, 90, 255});
+
+    message = (SDL_Rect){panel.x + 22, panel.y + 62, panel.w - 44, 92};
+    draw_text(renderer, font, "This permanently deletes the currently loaded Case Management graph", message.x,
+              message.y, (SDL_Color){235, 205, 205, 255});
+    draw_text(renderer, font, "record from the database.", message.x, message.y + 24, (SDL_Color){235, 205, 205, 255});
+
+    case_draw_button(renderer, font, Global_Case_Database_Confirm_Cancel_Rect, "Cancel", 0, cancel_hover, 0);
+    case_draw_button(renderer, font, Global_Case_Database_Confirm_Delete_Rect, "Delete", 0, delete_hover, 1);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
 static void case_load(void) {
@@ -4366,11 +4532,7 @@ static int case_parse_mmddyyyy(const char *text, int *month, int *day, int *year
     errno = 0;
     parsed_month = strtol(cursor, &end, 10);
 
-    if (errno == ERANGE ||
-        end == cursor ||
-        *end != '/' ||
-        parsed_month < 1 ||
-        parsed_month > 12) {
+    if (errno == ERANGE || end == cursor || *end != '/' || parsed_month < 1 || parsed_month > 12) {
 
         return 0;
 
@@ -4381,11 +4543,7 @@ static int case_parse_mmddyyyy(const char *text, int *month, int *day, int *year
     errno = 0;
     parsed_day = strtol(cursor, &end, 10);
 
-    if (errno == ERANGE ||
-        end == cursor ||
-        *end != '/' ||
-        parsed_day < 1 ||
-        parsed_day > 31) {
+    if (errno == ERANGE || end == cursor || *end != '/' || parsed_day < 1 || parsed_day > 31) {
 
         return 0;
 
@@ -4396,11 +4554,7 @@ static int case_parse_mmddyyyy(const char *text, int *month, int *day, int *year
     errno = 0;
     parsed_year = strtol(cursor, &end, 10);
 
-    if (errno == ERANGE ||
-        end == cursor ||
-        *end != '\0' ||
-        parsed_year < 0 ||
-        parsed_year > 9999) {
+    if (errno == ERANGE || end == cursor || *end != '\0' || parsed_year < 0 || parsed_year > 9999) {
 
         return 0;
 
@@ -4611,6 +4765,7 @@ void CASE_MANAGEMENT_exit_mode(void) {
     Global_Case_Metadata_Name_Active = 0;
     Global_Case_Metadata_Description_Active = 0;
     Global_Case_Metadata_Delete_Confirm_Open = 0;
+    Global_Case_Database_Delete_Confirm_Open = 0;
 }
 
 int CASE_MANAGEMENT_is_text_entry_active(void) {
@@ -4699,6 +4854,15 @@ static void case_toolbar_rects(int win_w, SDL_Rect *task_btn, SDL_Rect *case_btn
         *file_rect = (SDL_Rect){x, y, remaining, h};
 
     }
+}
+
+static SDL_Rect case_delete_database_record_rect(int win_w) {
+    /*
+        Purpose: Computes the delete database record button rectangle
+        Returns: Button rectangle
+    */
+
+    return (SDL_Rect){win_w - CASE_MGMT_MARGIN - 200, CASE_MGMT_MARGIN, 200, 34};
 }
 
 static void case_editor_field_rects(SDL_Rect editor, SDL_Rect fields[CASE_MGMT_FIELD_COUNT], SDL_Rect *duplicate_btn,
@@ -5944,9 +6108,8 @@ static void case_source_short_text(TTF_Font *font, const char *src, char *dst, s
     snprintf(dst, dst_size, "...");
 }
 
-static void case_wrap_block_text_two_lines(TTF_Font *font, const char *src, char *line_one,
-                                           size_t line_one_size, char *line_two, size_t line_two_size,
-                                           int max_px) {
+static void case_wrap_block_text_two_lines(TTF_Font *font, const char *src, char *line_one, size_t line_one_size,
+                                           char *line_two, size_t line_two_size, int max_px) {
     /*
         Purpose: Wraps block text across at most two rendered-width-limited lines
         Returns: No value
@@ -6032,9 +6195,7 @@ static void case_wrap_block_text_two_lines(TTF_Font *font, const char *src, char
     split = last_space > 0 ? last_space : fit;
 
     while (split > 0 && (probe[split - 1] == ' ' || probe[split - 1] == '\t')) {
-
         split--;
-
     }
 
     if (split >= line_one_size) {
@@ -6049,9 +6210,7 @@ static void case_wrap_block_text_two_lines(TTF_Font *font, const char *src, char
     second_start = last_space > 0 ? last_space + 1 : fit;
 
     while (second_start < src_len && (probe[second_start] == ' ' || probe[second_start] == '\t')) {
-
         second_start++;
-
     }
 
     if (second_start < src_len) {
@@ -7258,8 +7417,8 @@ static void case_metadata_classification_name(const char *case_number, char *out
     snprintf(out, out_size, "CASE_%s.csv", safe);
 }
 
-static void case_metadata_asset_document_name(const char *prefix, const char *case_number,
-                                              char *document_name, size_t document_name_size) {
+static void case_metadata_asset_document_name(const char *prefix, const char *case_number, char *document_name,
+                                              size_t document_name_size) {
     /*
         Purpose: Builds a deterministic case asset document name
         Returns: No value
@@ -7275,8 +7434,8 @@ static void case_metadata_asset_document_name(const char *prefix, const char *ca
              case_number && case_number[0] ? case_number : "UNCASED");
 }
 
-static int case_metadata_rename_asset(const char *document_kind, const char *document_prefix,
-                                      const char *old_case, const char *new_case) {
+static int case_metadata_rename_asset(const char *document_kind, const char *document_prefix, const char *old_case,
+                                      const char *new_case) {
     /*
         Purpose: Moves a name-keyed encrypted case asset during a case rename
         Returns: Success status
@@ -7293,8 +7452,8 @@ static int case_metadata_rename_asset(const char *document_kind, const char *doc
     case_metadata_asset_document_name(document_prefix, old_case, old_document, sizeof(old_document));
     case_metadata_asset_document_name(document_prefix, new_case, new_document, sizeof(new_document));
 
-    if (!DATASTORE_load_content(document_kind, old_document, &content, &content_size, &found,
-                                database_error, sizeof(database_error))) {
+    if (!DATASTORE_load_content(document_kind, old_document, &content, &content_size, &found, database_error,
+                                sizeof(database_error))) {
 
         DATASTORE_free_content(content, content_size);
         return 0;
@@ -7308,8 +7467,8 @@ static int case_metadata_rename_asset(const char *document_kind, const char *doc
 
     }
 
-    if (!DATASTORE_save_content(document_kind, new_document, new_case, content, content_size,
-                                database_error, sizeof(database_error))) {
+    if (!DATASTORE_save_content(document_kind, new_document, new_case, content, content_size, database_error,
+                                sizeof(database_error))) {
 
         DATASTORE_free_content(content, content_size);
         return 0;
@@ -7319,8 +7478,7 @@ static int case_metadata_rename_asset(const char *document_kind, const char *doc
     DATASTORE_free_content(content, content_size);
 
     if (strcmp(old_document, new_document) != 0 &&
-        !DATASTORE_delete_content(document_kind, old_document, &deleted,
-                                  database_error, sizeof(database_error))) {
+        !DATASTORE_delete_content(document_kind, old_document, &deleted, database_error, sizeof(database_error))) {
 
         return 0;
 
@@ -7627,8 +7785,7 @@ static int case_metadata_rename_selected(void) {
 
     if (!case_metadata_save_document(new_case, Global_Case_Metadata_Edit_Description, new_document,
                                      sizeof(new_document)) ||
-        !case_metadata_rename_classifications(old_case, new_case) ||
-        !case_metadata_rename_graphs(old_case, new_case) ||
+        !case_metadata_rename_classifications(old_case, new_case) || !case_metadata_rename_graphs(old_case, new_case) ||
         !case_metadata_rename_asset(CASE_MGMT_IMAGE_KIND, CASE_MGMT_IMAGE_PREFIX, old_case, new_case) ||
         !case_metadata_rename_asset(CASE_MGMT_COLOR_KIND, CASE_MGMT_COLOR_PREFIX, old_case, new_case)) {
 
@@ -7777,11 +7934,10 @@ static int case_metadata_delete_case(const char *case_number) {
         char image_document[256];
         int deleted = 0;
 
-        case_metadata_asset_document_name(CASE_MGMT_IMAGE_PREFIX, case_number,
-                                          image_document, sizeof(image_document));
+        case_metadata_asset_document_name(CASE_MGMT_IMAGE_PREFIX, case_number, image_document, sizeof(image_document));
 
-        if (!DATASTORE_delete_content(CASE_MGMT_IMAGE_KIND, image_document, &deleted,
-                                      database_error, sizeof(database_error))) {
+        if (!DATASTORE_delete_content(CASE_MGMT_IMAGE_KIND, image_document, &deleted, database_error,
+                                      sizeof(database_error))) {
 
             char message[384];
             snprintf(message, sizeof(message), "Unable to delete the case image: %.280s", database_error);
@@ -8053,9 +8209,7 @@ static void case_metadata_draw_description(SDL_Renderer *renderer, TTF_Font *fon
         int paragraph_end = position;
 
         while (paragraph_end < length && text[paragraph_end] != '\n') {
-
             paragraph_end++;
-
         }
 
         if (position == paragraph_end) {
@@ -8118,11 +8272,8 @@ static void case_metadata_draw_description(SDL_Renderer *renderer, TTF_Font *fon
             line_count++;
             next_position = fit;
 
-            while (next_position < paragraph_end &&
-                   (text[next_position] == ' ' || text[next_position] == '\t')) {
-
+            while (next_position < paragraph_end && (text[next_position] == ' ' || text[next_position] == '\t')) {
                 next_position++;
-
             }
 
             if (next_position <= position) {
@@ -8146,7 +8297,6 @@ static void case_metadata_draw_description(SDL_Renderer *renderer, TTF_Font *fon
             }
 
         }
-
     }
 
     if (line_count == 0) {
@@ -8263,8 +8413,7 @@ static void case_metadata_draw_description(SDL_Renderer *renderer, TTF_Font *fon
 
         }
 
-        cursor_x = rect.x + 9 + case_description_range_width(font, text, (size_t)line_start,
-                                                              (size_t)cursor_on_line);
+        cursor_x = rect.x + 9 + case_description_range_width(font, text, (size_t)line_start, (size_t)cursor_on_line);
         cursor_y = rect.y + 7 + ((cursor_line - first_line) * 20);
         SDL_SetRenderDrawColor(renderer, Case_Blue.r, Case_Blue.g, Case_Blue.b, Case_Blue.a);
         SDL_RenderDrawLine(renderer, cursor_x, cursor_y, cursor_x, cursor_y + 17);
@@ -8859,6 +9008,7 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h) {
     SDL_Rect load_btn;
     SDL_Rect undo_btn;
     SDL_Rect file_rect;
+    SDL_Rect delete_database_btn;
     SDL_Rect fields[CASE_MGMT_FIELD_COUNT];
     SDL_Rect duplicate_btn;
     SDL_Rect delete_btn;
@@ -8873,7 +9023,26 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h) {
     editor = case_editor_rect(win_w, win_h);
     case_ensure_view(canvas);
     case_toolbar_rects(win_w, &new_btn, &case_btn, &link_btn, &save_btn, &load_btn, &undo_btn, &file_rect);
+    delete_database_btn = case_delete_database_record_rect(win_w);
+
+    if (file_rect.x + file_rect.w > delete_database_btn.x - 10) {
+
+        file_rect.w = delete_database_btn.x - 10 - file_rect.x;
+
+        if (file_rect.w < 80) {
+
+            file_rect.w = 80;
+
+        }
+
+    }
     case_editor_field_rects(editor, fields, &duplicate_btn, &delete_btn);
+
+    if (case_handle_database_delete_confirmation(event)) {
+
+        return 1;
+
+    }
 
     if (Global_Case_File_Search_Open) {
 
@@ -10100,6 +10269,25 @@ int CASE_MANAGEMENT_handle_event(const SDL_Event *event, int win_w, int win_h) {
 
         }
 
+        if (case_point_in_rect(mx, my, delete_database_btn)) {
+
+            if (Global_Case_Loaded_Database_Record[0] == '\0') {
+
+                case_set_status("No database record is currently loaded", Case_Warn);
+
+            }
+
+            else {
+
+                Global_Case_Database_Delete_Confirm_Open = 1;
+                Global_Case_File_Name_Active = 0;
+                Global_Case_Active_Field = CASE_MGMT_FIELD_NONE;
+
+            }
+            return 1;
+
+        }
+
         if (Global_Case_Selected >= 0 && Global_Case_Selected < Global_Case_Block_Count) {
 
             if (case_point_in_rect(mx, my, duplicate_btn)) {
@@ -10943,12 +11131,13 @@ static void case_draw_block(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect can
         draw_text(renderer, font, id_label, r.x + 10, r.y + 7, Case_Text);
 
         if (compact) {
+
             int text_max_px = r.w - 20;
 
             case_source_short_text(font, b->case_number[0] ? b->case_number : "Case #", case_line_one,
                                    sizeof(case_line_one), text_max_px);
-            case_source_short_text(font, b->country[0] ? b->country : "Country", country_text,
-                                   sizeof(country_text), text_max_px);
+            case_source_short_text(font, b->country[0] ? b->country : "Country", country_text, sizeof(country_text),
+                                   text_max_px);
             draw_text(renderer, font, case_line_one, r.x + 10, r.y + 34, Case_Text);
 
             if (r.h > 62) {
@@ -10960,17 +11149,18 @@ static void case_draw_block(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect can
         }
 
         else {
+
             const int case_value_x = r.x + 146;
             const int country_value_x = r.x + 158;
             const int case_value_max_px = r.x + r.w - 10 - case_value_x;
             const int country_value_max_px = r.x + r.w - 10 - country_value_x;
             SDL_Rect flag_rect = {r.x + 12, r.y + 42, 54, 36};
 
-            case_wrap_block_text_two_lines(font, b->case_number[0] ? b->case_number : "Case #",
-                                           case_line_one, sizeof(case_line_one), case_line_two,
-                                           sizeof(case_line_two), case_value_max_px);
-            case_source_short_text(font, b->country[0] ? b->country : "Country", country_text,
-                                   sizeof(country_text), country_value_max_px);
+            case_wrap_block_text_two_lines(font, b->case_number[0] ? b->case_number : "Case #", case_line_one,
+                                           sizeof(case_line_one), case_line_two, sizeof(case_line_two),
+                                           case_value_max_px);
+            case_source_short_text(font, b->country[0] ? b->country : "Country", country_text, sizeof(country_text),
+                                   country_value_max_px);
 
             draw_filled_rect(renderer, flag_rect, (SDL_Color){0, 4, 8, 255});
             draw_outline_rect(renderer, flag_rect, country_index >= 0 ? Case_Blue : Case_Border);
@@ -12532,6 +12722,7 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, in
     SDL_Rect load_btn;
     SDL_Rect undo_btn;
     SDL_Rect file_rect;
+    SDL_Rect delete_database_btn;
     Uint64 now = SDL_GetTicks64();
     int mx = 0;
     int my = 0;
@@ -12546,6 +12737,19 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, in
     editor = case_editor_rect(win_w, win_h);
     case_ensure_view(canvas);
     case_toolbar_rects(win_w, &new_btn, &case_btn, &link_btn, &save_btn, &load_btn, &undo_btn, &file_rect);
+    delete_database_btn = case_delete_database_record_rect(win_w);
+
+    if (file_rect.x + file_rect.w > delete_database_btn.x - 10) {
+
+        file_rect.w = delete_database_btn.x - 10 - file_rect.x;
+
+        if (file_rect.w < 80) {
+
+            file_rect.w = 80;
+
+        }
+
+    }
     case_get_adjusted_mouse_state(&mx, &my);
 
     if ((Global_Case_Selected < 0 || Global_Case_Selected >= Global_Case_Block_Count) &&
@@ -12576,6 +12780,8 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, in
     case_draw_button(renderer, font, load_btn, "Load", 0, case_point_in_rect(mx, my, load_btn), 0);
     case_draw_button(renderer, font, undo_btn, "Undo", Global_Case_Undo_Count > 0, case_point_in_rect(mx, my, undo_btn),
                      0);
+    case_draw_button(renderer, font, delete_database_btn, "Delete Database Record", 0,
+                     case_point_in_rect(mx, my, delete_database_btn), 1);
 
     case_draw_input(renderer, font, file_rect, "Database Record", Global_Case_File_Name, Global_Case_File_Name_Active,
                     Global_Case_File_Name_Cursor, 0);
@@ -12629,6 +12835,7 @@ void CASE_MANAGEMENT_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, in
     case_draw_description_popup(renderer, font, win_w, win_h);
     case_draw_file_search_popup(renderer, font, win_w, win_h);
     case_metadata_draw_delete_confirmation(renderer, font, win_w, win_h);
+    case_draw_database_delete_confirmation(renderer, font, win_w, win_h);
 
     if (Global_Case_Link_Mode) {
 

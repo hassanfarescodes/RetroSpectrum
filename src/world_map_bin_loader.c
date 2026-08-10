@@ -1,31 +1,17 @@
 /*
- * World Map Hover + Flags, binary-data version.
+ * ============================================================================
+ * File:            world_map_bin_loader.c
+ * Author:          Hassan Fares
  *
- * Compile standalone:
- *   gcc -Wall -Wextra -O2 world_map_bin_loader.c -o world_map_bin_loader \
- *       -lSDL2 -lSDL2_image -lSDL2_ttf -lm
+ * Description:     Binary world map loading and rendering for RetroSpectrum
  *
- * Runtime files:
- *   world_map.bin
- *   flags/<iso-alpha-2>.png
+ * Language:        C
+ * Compiler:        GCC
+ * Standard:        C11
+ * Target:          Linux
  *
- * Use inside your app:
- *   #define WORLD_MAP_NO_DEMO
- *   #include "world_map_bin_loader.c"
- *   WORLD_MAP_load("world_map.bin");
- *   WORLD_MAP_handle_event(&event, map_rect);
- *   WORLD_MAP_draw(renderer, font, map_rect, sidebar_rect, mouse_x, mouse_y,
- * "flags");
- *
- * Left-click a country to zoom the map view to that country.
- * Drag with the left mouse button to pan across the map.
- * Mouse wheel zooms in/out around the cursor. Escape resets the view.
- * Dateline-spanning countries use the clicked land segment for zoom bounds.
- * High-resolution coastline/island/border linework is loaded from
- * world_map.bin. Dateline line jumps are skipped to prevent horizontal wrap
- * artifacts. Country polygons are now high-resolution and are used for fill,
- * hit-testing, visible borders, and hover selection, so the hover outline
- * matches the border geometry exactly.
+ *                                                               05/04/2026
+ * ============================================================================
  */
 
 #include <SDL2/SDL.h>

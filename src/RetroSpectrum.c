@@ -1,21 +1,19 @@
+#define _POSIX_C_SOURCE 200809L
+
 /*
  * ============================================================================
  * File:            RetroSpectrum.c
  * Author:          Hassan Fares
- *
- * Confidential:    No
  *
  * Description:     Main logic for the RetroSpectrum application
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
- *                                                                   05/04/2026
+ * Target:          Linux
+ *                                                               05/04/2026
  * ============================================================================
  */
-
-#define _POSIX_C_SOURCE 200809L
 
 // =========
 // Libraries
@@ -84,13 +82,11 @@
 // Responsible for the CorrelationWorkstation
 #include "CorrelationWorkstation.h"
 
-/* Stops a background Compare All job only during logout or process shutdown. */
-void CORRELATION_shutdown(void);
-
 // Responsible for the Map Dashboard
 #include "MapDashboard.h"
 
-// GUI functions implemented in GUIs.c and called from this main logic file
+/* Stops a background Compare All job only during logout or process shutdown. */
+void CORRELATION_shutdown(void);
 
 /* Runtime mode setters implemented by the authentication and identity modules. */
 void AUTH_set_client_only_mode(int client_only);
@@ -2636,7 +2632,7 @@ double recommended_antenna_length_inches(uint64_t freq_hz) {
      * wavelength = c / f
      * quarter-wave = wavelength / 4
      *
-     * c ≈ 299,792,458 m/s
+     * c ~= 299,792,458 m/s
      *
      * Return value is in inches
      */
@@ -3941,6 +3937,11 @@ static int apply_from_inputs(SoapySDRDevice *dev, Type_Input_Box *freq_box, Type
 // ==========================
 
 static int main_field_index(Type_Active_Fields field) {
+    /*
+        Purpose: Maps a main input field identifier to its cursor-array index
+        Returns: Field index or -1 when unsupported
+    */
+
     switch (field) {
     case FIELD_FREQ:
         return 0;
@@ -5806,19 +5807,27 @@ int main(int argc, char **argv) {
         fprintf(stderr, "allocation failed\n");
 
         if (time_domain) {
+
             fftw_free(time_domain);
+
         }
 
         if (freq_domain) {
+
             fftw_free(freq_domain);
+
         }
 
         if (hann_window) {
+
             free(hann_window);
+
         }
 
         if (db) {
+
             free(db);
+
         }
 
         if (dev) {

@@ -1,9 +1,25 @@
 #define _POSIX_C_SOURCE 200809L
 
+/*
+ * ============================================================================
+ * File:            DataStore.c
+ * Author:          Hassan Fares
+ *
+ * Description:     Persistent application data storage logic for RetroSpectrum
+ *
+ * Language:        C
+ * Compiler:        GCC
+ * Standard:        C11
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
+ * ============================================================================
+ */
+
 #include "DataStore.h"
 #include "DatabaseCrypto.h"
-#include "SecureNetwork.h"
 #include "SecureFunctions.h"
+#include "SecureNetwork.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -36,10 +52,9 @@ int DATASTORE_delete_content(const char *document_kind, const char *document_nam
 #define DATASTORE_CLASSIFICATION_FIELD_COUNT 13
 #define DATASTORE_CLASSIFICATION_FIELD_BYTES 4096
 
-static const char DATASTORE_CLASSIFICATION_HEADER[] =
-    "case_number,signal_name,frequency_mhz,bandwidth,start_time,"
-    "end_time,calculated_modulation,signal_class,country,latitude,"
-    "longitude,notes,file_name\n";
+static const char DATASTORE_CLASSIFICATION_HEADER[] = "case_number,signal_name,frequency_mhz,bandwidth,start_time,"
+                                                      "end_time,calculated_modulation,signal_class,country,latitude,"
+                                                      "longitude,notes,file_name\n";
 
 static void datastore_set_error(char *error, size_t error_size, const char *message) {
     /*
@@ -76,8 +91,7 @@ static int datastore_is_valid_kind(const char *kind) {
             strcmp(kind, DATASTORE_CASE_IMAGE_KIND) == 0 || strcmp(kind, DATASTORE_CASE_COLOR_KIND) == 0);
 }
 
-static int datastore_validate_document_fields(const char *document_name,
-                                              const char *case_number) {
+static int datastore_validate_document_fields(const char *document_name, const char *case_number) {
     /*
         Purpose: Validates bounded user-controlled document identifiers
         Returns: Boolean status
@@ -86,16 +100,13 @@ static int datastore_validate_document_fields(const char *document_name,
     char checked_name[DATASTORE_DOCUMENT_NAME_MAX];
     char checked_case[DATASTORE_CASE_NUMBER_MAX];
 
-    if (!document_name ||
-        !document_name[0] ||
-        !sec_strcpy(checked_name, sizeof(checked_name), document_name)) {
+    if (!document_name || !document_name[0] || !sec_strcpy(checked_name, sizeof(checked_name), document_name)) {
 
         return 0;
 
     }
 
-    if (case_number &&
-        !sec_strcpy(checked_case, sizeof(checked_case), case_number)) {
+    if (case_number && !sec_strcpy(checked_case, sizeof(checked_case), case_number)) {
 
         return 0;
 
@@ -114,10 +125,7 @@ static int datastore_is_supported_case_image(const unsigned char *content, size_
     SDL_Surface *surface;
     int valid = 0;
 
-    if (!content ||
-        content_size == 0 ||
-        content_size > DATASTORE_MAX_CASE_IMAGE_BYTES ||
-        content_size > INT_MAX) {
+    if (!content || content_size == 0 || content_size > DATASTORE_MAX_CASE_IMAGE_BYTES || content_size > INT_MAX) {
 
         return 0;
 
@@ -139,10 +147,7 @@ static int datastore_is_supported_case_image(const unsigned char *content, size_
 
     }
 
-    if (surface->w <= 0 ||
-        surface->h <= 0 ||
-        surface->w > 16384 ||
-        surface->h > 16384) {
+    if (surface->w <= 0 || surface->h <= 0 || surface->w > 16384 || surface->h > 16384) {
 
         SDL_FreeSurface(surface);
         return 0;
@@ -198,8 +203,8 @@ static int datastore_config_directory(char *path, size_t path_size) {
 
     else {
 
-        if (!home || !home[0] || home[0] != '/' || 
-            !sec_sprintf(base, sizeof(base), "%s/.config", home) || !datastore_make_directory(base, 0700)) {
+        if (!home || !home[0] || home[0] != '/' || !sec_sprintf(base, sizeof(base), "%s/.config", home) ||
+            !datastore_make_directory(base, 0700)) {
 
             return 0;
 
@@ -208,11 +213,12 @@ static int datastore_config_directory(char *path, size_t path_size) {
     }
 
     if (!sec_sprintf(path, path_size, "%s/retrospectrum", base)) {
+
         return 0;
+
     }
 
     return datastore_make_directory(path, 0700);
-
 }
 
 int DATASTORE_get_path(char *path, size_t path_size) {
@@ -223,8 +229,7 @@ int DATASTORE_get_path(char *path, size_t path_size) {
 
     char directory[PATH_MAX];
 
-    if (!path || path_size == 0 ||
-        !datastore_config_directory(directory, sizeof(directory))) {
+    if (!path || path_size == 0 || !datastore_config_directory(directory, sizeof(directory))) {
 
         return 0;
 
@@ -362,10 +367,9 @@ static int datastore_sha512(const unsigned char *content, size_t content_size,
            digest_size == DATASTORE_SHA512_BYTES;
 }
 
-static int datastore_classification_parse_line(const unsigned char *line, size_t line_size,
-                                               char fields[DATASTORE_CLASSIFICATION_FIELD_COUNT]
-                                                          [DATASTORE_CLASSIFICATION_FIELD_BYTES],
-                                               int *field_count) {
+static int datastore_classification_parse_line(
+    const unsigned char *line, size_t line_size,
+    char fields[DATASTORE_CLASSIFICATION_FIELD_COUNT][DATASTORE_CLASSIFICATION_FIELD_BYTES], int *field_count) {
     /*
         Purpose: Parses one compatibility classification row
         Returns: Success status
@@ -532,8 +536,7 @@ static void datastore_classification_write_field(FILE *stream, const char *text)
 static int datastore_classification_replace_in_transaction(sqlite3 *database, const char *document_name,
                                                            const char *case_number, const unsigned char *content,
                                                            size_t content_size, sqlite3_int64 created_at,
-                                                           sqlite3_int64 updated_at, char *error,
-                                                           size_t error_size) {
+                                                           sqlite3_int64 updated_at, char *error, size_t error_size) {
     /*
         Purpose: Replaces one logical case classification with structured SQL rows
         Returns: Success status
@@ -556,12 +559,9 @@ static int datastore_classification_replace_in_transaction(sqlite3 *database, co
 
     }
 
-    if (!datastore_copy_text(resolved_case,
-                             sizeof(resolved_case),
-                             case_number ? case_number : "")) {
+    if (!datastore_copy_text(resolved_case, sizeof(resolved_case), case_number ? case_number : "")) {
 
-        datastore_set_error(error, error_size,
-                            "Classification case number exceeds the supported size.");
+        datastore_set_error(error, error_size, "Classification case number exceeds the supported size.");
         return 0;
 
     }
@@ -690,13 +690,9 @@ static int datastore_classification_replace_in_transaction(sqlite3 *database, co
 
         if (!resolved_case[0] && fields[0][0]) {
 
-            if (!datastore_copy_text(resolved_case,
-                                     sizeof(resolved_case),
-                                     fields[0])) {
+            if (!datastore_copy_text(resolved_case, sizeof(resolved_case), fields[0])) {
 
-                datastore_set_error(
-                    error, error_size,
-                    "Classification case number exceeds the supported size.");
+                datastore_set_error(error, error_size, "Classification case number exceeds the supported size.");
 
                 goto cleanup;
 
@@ -710,9 +706,7 @@ static int datastore_classification_replace_in_transaction(sqlite3 *database, co
         sqlite3_bind_int(insert_statement, 2, row_order);
 
         for (int field = 0; field < DATASTORE_CLASSIFICATION_FIELD_COUNT; field++) {
-
             sqlite3_bind_text(insert_statement, field + 3, fields[field], -1, SQLITE_TRANSIENT);
-
         }
         sqlite3_bind_int64(insert_statement, 16, created_at);
         sqlite3_bind_int64(insert_statement, 17, updated_at);
@@ -728,11 +722,11 @@ static int datastore_classification_replace_in_transaction(sqlite3 *database, co
     }
 
     if (resolved_case[0] && (!case_number || !case_number[0])) {
+
         sqlite3_stmt *update_statement = NULL;
 
-        if (sqlite3_prepare_v2(database,
-                               "UPDATE classification_sets SET case_number=?1 WHERE document_name=?2;",
-                               -1, &update_statement, NULL) != SQLITE_OK) {
+        if (sqlite3_prepare_v2(database, "UPDATE classification_sets SET case_number=?1 WHERE document_name=?2;", -1,
+                               &update_statement, NULL) != SQLITE_OK) {
 
             datastore_set_error(error, error_size, sqlite3_errmsg(database));
             goto cleanup;
@@ -750,6 +744,7 @@ static int datastore_classification_replace_in_transaction(sqlite3 *database, co
 
         }
         sqlite3_finalize(update_statement);
+
     }
 
     success = 1;
@@ -777,9 +772,8 @@ cleanup:
     return success;
 }
 
-static int datastore_classification_load(sqlite3 *database, const char *document_name,
-                                         unsigned char **content, size_t *content_size, int *found,
-                                         char *error, size_t error_size) {
+static int datastore_classification_load(sqlite3 *database, const char *document_name, unsigned char **content,
+                                         size_t *content_size, int *found, char *error, size_t error_size) {
     /*
         Purpose: Rebuilds the existing in-memory view from structured SQL rows
         Returns: Success status
@@ -797,9 +791,8 @@ static int datastore_classification_load(sqlite3 *database, const char *document
 
     }
 
-    if (sqlite3_prepare_v2(database,
-                           "SELECT 1 FROM classification_sets WHERE document_name=?1;",
-                           -1, &statement, NULL) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(database, "SELECT 1 FROM classification_sets WHERE document_name=?1;", -1, &statement,
+                           NULL) != SQLITE_OK) {
 
         datastore_set_error(error, error_size, sqlite3_errmsg(database));
         goto cleanup;
@@ -989,9 +982,8 @@ int DATASTORE_server_save_content(const char *document_kind, const char *documen
 
         }
 
-        if (!datastore_classification_replace_in_transaction(
-                database, document_name, case_number ? case_number : "", bytes, content_size,
-                0, 0, error, error_size) ||
+        if (!datastore_classification_replace_in_transaction(database, document_name, case_number ? case_number : "",
+                                                             bytes, content_size, 0, 0, error, error_size) ||
             !datastore_execute(database, "COMMIT;", error, error_size)) {
 
             datastore_execute(database, "ROLLBACK;", NULL, 0);
@@ -1133,8 +1125,8 @@ int DATASTORE_server_load_content(const char *document_kind, const char *documen
 
     if (strcmp(document_kind, DATASTORE_KIND_CLASSIFICATION) == 0) {
 
-        success = datastore_classification_load(database, document_name, content, content_size, found,
-                                                error, error_size);
+        success =
+            datastore_classification_load(database, document_name, content, content_size, found, error, error_size);
         goto cleanup;
 
     }
@@ -1342,14 +1334,16 @@ int DATASTORE_server_list_documents(const char *document_kind, Type_DataStore_Do
             const unsigned char *case_number = sqlite3_column_text(statement, 1);
 
             if (!datastore_copy_text(documents[used].document_name, sizeof(documents[used].document_name),
-                name ? (const char *)name : "") || !datastore_copy_text(documents[used].case_number,
-                sizeof(documents[used].case_number), case_number ? (const char *)case_number : "")) {
+                                     name ? (const char *)name : "") ||
+                !datastore_copy_text(documents[used].case_number, sizeof(documents[used].case_number),
+                                     case_number ? (const char *)case_number : "")) {
 
                 datastore_set_error(error, error_size, "Stored document identifiers exceed supported sizes.");
 
                 sqlite3_finalize(statement);
                 sqlite3_close(database);
                 return 0;
+
             }
 
             documents[used].updated_at = (long long)sqlite3_column_int64(statement, 2);
@@ -1397,9 +1391,8 @@ int DATASTORE_server_delete_content(const char *document_kind, const char *docum
 
     if (strcmp(document_kind, DATASTORE_KIND_CLASSIFICATION) == 0) {
 
-        if (sqlite3_prepare_v2(database,
-                               "DELETE FROM classification_sets WHERE document_name=?1;",
-                               -1, &statement, NULL) != SQLITE_OK) {
+        if (sqlite3_prepare_v2(database, "DELETE FROM classification_sets WHERE document_name=?1;", -1, &statement,
+                               NULL) != SQLITE_OK) {
 
             datastore_set_error(error, error_size, sqlite3_errmsg(database));
             datastore_execute(database, "ROLLBACK;", NULL, 0);
@@ -1413,8 +1406,7 @@ int DATASTORE_server_delete_content(const char *document_kind, const char *docum
 
     else {
 
-        if (sqlite3_prepare_v2(database,
-                               "DELETE FROM stored_documents WHERE document_kind=?1 AND document_name=?2;",
+        if (sqlite3_prepare_v2(database, "DELETE FROM stored_documents WHERE document_kind=?1 AND document_name=?2;",
                                -1, &statement, NULL) != SQLITE_OK) {
 
             datastore_set_error(error, error_size, sqlite3_errmsg(database));

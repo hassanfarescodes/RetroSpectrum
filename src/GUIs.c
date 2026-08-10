@@ -3,14 +3,14 @@
  * File:            GUIs.c
  * Author:          Hassan Fares
  *
- * Confidential:    No
- *
- * Description:     GUI drawing and SDL UI helper functions for RetroSpectrum.
+ * Description:     Shared graphical interface helper functions for RetroSpectrum
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 

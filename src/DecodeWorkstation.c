@@ -1,17 +1,18 @@
 #define _POSIX_C_SOURCE 200809L
+
 /*
  * ============================================================================
  * File:            DecodeWorkstation.c
  * Author:          Hassan Fares
  *
- * Description:     Decode workstation for RetroSpectrum. Reads .complex16 IQ
- *                  files, launches a GNU Radio helper flowgraph for symbol
- *                  demodulation, and displays the resulting bitstream.
+ * Description:     Signal decoding and bitstream analysis for RetroSpectrum
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 
@@ -455,6 +456,11 @@ static void decode_copy_text(char *dst, size_t dst_size, const char *src) {
 }
 
 static void decode_classifier_add_label_internal(const char *name, SDL_Color color, int builtin) {
+    /*
+        Purpose: Adds a label to the bit-stream classifier label list
+        Returns: No value
+    */
+
     Type_Decode_Classifier_Label *label;
 
     if (!name || !name[0] || Global_Decode_Classifier_Label_Count >= DECODE_CLASSIFIER_MAX_LABELS) {
@@ -472,12 +478,22 @@ static void decode_classifier_add_label_internal(const char *name, SDL_Color col
 }
 
 static void decode_classifier_document_clear_selection(void) {
+    /*
+        Purpose: Clears the classification document-name text selection state
+        Returns: No value
+    */
+
     Global_Decode_Classifier_Document_Selecting = 0;
     Global_Decode_Classifier_Document_Selection_Start = -1;
     Global_Decode_Classifier_Document_Selection_End = -1;
 }
 
 static int decode_classifier_document_get_selection(int *start, int *end) {
+    /*
+        Purpose: Gets the normalized bounds of the current classification document-name selection
+        Returns: Boolean status
+    */
+
     int a = Global_Decode_Classifier_Document_Selection_Start;
     int b = Global_Decode_Classifier_Document_Selection_End;
     int len = (int)strlen(Global_Decode_Classifier_Document_Name);
@@ -529,6 +545,11 @@ static int decode_classifier_document_get_selection(int *start, int *end) {
 }
 
 static int decode_classifier_document_delete_selection(void) {
+    /*
+        Purpose: Deletes the selected text from the classification document name
+        Returns: Boolean status
+    */
+
     int start;
     int end;
     size_t len;
@@ -548,6 +569,11 @@ static int decode_classifier_document_delete_selection(void) {
 }
 
 static void decode_classifier_document_update_metrics(TTF_Font *font, SDL_Rect rect) {
+    /*
+        Purpose: Updates character positions used for classification document-name cursor and selection handling
+        Returns: No value
+    */
+
     char prefix[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX];
     int len = (int)strlen(Global_Decode_Classifier_Document_Name);
 
@@ -577,6 +603,11 @@ static void decode_classifier_document_update_metrics(TTF_Font *font, SDL_Rect r
 }
 
 static int decode_classifier_document_index_from_x(int x) {
+    /*
+        Purpose: Maps a horizontal mouse position to a classification document-name character index
+        Returns: Character index
+    */
+
     int count = Global_Decode_Classifier_Document_Char_Count;
     int right_edge = Global_Decode_Classifier_Document_Last_Rect.x + Global_Decode_Classifier_Document_Last_Rect.w - 7;
 
@@ -614,6 +645,11 @@ static int decode_classifier_document_index_from_x(int x) {
 
 static int decode_classifier_get_active_text_target(char **target, size_t *target_size, int **cursor,
                                                     int *digits_only) {
+    /*
+        Purpose: Resolves the active classifier text field, buffer size, cursor, and digit-only state
+        Returns: Boolean status
+    */
+
     int rgb_index;
 
     if (target) {
@@ -721,6 +757,11 @@ static int decode_classifier_get_active_text_target(char **target, size_t *targe
 }
 
 static void decode_classifier_sync_rgb_from_selected(void) {
+    /*
+        Purpose: Copies the selected classifier label color into the RGB text fields
+        Returns: No value
+    */
+
     SDL_Color color;
 
     if (Global_Decode_Classifier_Selected_Label < 0 ||
@@ -744,6 +785,11 @@ static void decode_classifier_sync_rgb_from_selected(void) {
 }
 
 static int decode_classifier_parse_rgb_component(const char *text, int *value) {
+    /*
+        Purpose: Parses and validates one RGB component value
+        Returns: Boolean status
+    */
+
     char *end = NULL;
     long parsed;
 
@@ -766,6 +812,11 @@ static int decode_classifier_parse_rgb_component(const char *text, int *value) {
 }
 
 static void decode_classifier_apply_custom_rgb(void) {
+    /*
+        Purpose: Applies the custom RGB field values to the selected classifier label
+        Returns: No value
+    */
+
     int rgb[3];
 
     if (Global_Decode_Classifier_Selected_Label < 0 ||
@@ -792,6 +843,10 @@ static void decode_classifier_apply_custom_rgb(void) {
 }
 
 static void decode_classifier_initialize(void) {
+    /*
+        Purpose: Initializes the bit-stream classifier labels and default classifier state
+        Returns: No value
+    */
 
     if (Global_Decode_Classifier_Initialized) {
 
@@ -818,6 +873,11 @@ static void decode_classifier_initialize(void) {
 }
 
 static int decode_classifier_has_assignments(void) {
+    /*
+        Purpose: Checks whether any decoded bits currently have classifier labels assigned
+        Returns: Boolean status
+    */
+
     int limit = Global_Decode_Bitstream_Len;
 
     if (limit < 0) {
@@ -844,11 +904,20 @@ static int decode_classifier_has_assignments(void) {
 }
 
 static void decode_classifier_clear_assignments(void) {
+    /*
+        Purpose: Clears all classifier label assignments from the current bit stream
+        Returns: No value
+    */
+
     decode_classifier_initialize();
     memset(Global_Decode_Classifier_Bit_Label, 0xff, sizeof(Global_Decode_Classifier_Bit_Label));
 }
 
 static void decode_classifier_invalidate_assignments(void) {
+    /*
+        Purpose: Clears existing classifier assignments when they are no longer valid
+        Returns: No value
+    */
 
     if (decode_classifier_has_assignments()) {
 
@@ -858,6 +927,11 @@ static void decode_classifier_invalidate_assignments(void) {
 }
 
 static void decode_classifier_trim_text(const char *src, char *dst, size_t dst_size) {
+    /*
+        Purpose: Copies text while removing leading and trailing whitespace
+        Returns: No value
+    */
+
     const char *start;
     size_t len;
 
@@ -897,6 +971,11 @@ static void decode_classifier_trim_text(const char *src, char *dst, size_t dst_s
 }
 
 static void decode_classifier_derive_document_name(void) {
+    /*
+        Purpose: Derives a default bit-stream classification document name from the selected recording
+        Returns: No value
+    */
+
     char base[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX];
     char *dot;
     const char *selected = NULL;
@@ -938,6 +1017,11 @@ static void decode_classifier_derive_document_name(void) {
 }
 
 static int decode_classifier_segment_count(void) {
+    /*
+        Purpose: Counts contiguous labeled segments in the current classified bit stream
+        Returns: Segment count
+    */
+
     int count = 0;
     int previous = -1;
 
@@ -955,6 +1039,11 @@ static int decode_classifier_segment_count(void) {
 }
 
 static int decode_classifier_label_bit_count(int label_index) {
+    /*
+        Purpose: Counts bits assigned to the specified classifier label
+        Returns: Assigned bit count
+    */
+
     int count = 0;
 
     if (label_index < 0 || label_index >= Global_Decode_Classifier_Label_Count) {
@@ -975,6 +1064,11 @@ static int decode_classifier_label_bit_count(int label_index) {
 }
 
 static void decode_classifier_apply_selected_label(void) {
+    /*
+        Purpose: Applies the selected classifier label to the currently selected bit range
+        Returns: No value
+    */
+
     int start;
     int end;
     char message[192];
@@ -1012,6 +1106,11 @@ static void decode_classifier_apply_selected_label(void) {
 }
 
 static void decode_classifier_remove_selected_tag(void) {
+    /*
+        Purpose: Removes classifier labels from the currently selected bit range
+        Returns: No value
+    */
+
     int start;
     int end;
 
@@ -1035,6 +1134,11 @@ static void decode_classifier_remove_selected_tag(void) {
 }
 
 static void decode_classifier_add_custom_label(void) {
+    /*
+        Purpose: Adds a new custom label to the bit-stream classifier
+        Returns: No value
+    */
+
     char name[DECODE_CLASSIFIER_LABEL_NAME_MAX];
     SDL_Color color;
 
@@ -1077,6 +1181,11 @@ static void decode_classifier_add_custom_label(void) {
 }
 
 static void decode_classifier_store_u32(unsigned char *dst, uint32_t value) {
+    /*
+        Purpose: Stores a 32-bit unsigned value in little-endian byte order
+        Returns: No value
+    */
+
     dst[0] = (unsigned char)(value & 0xffU);
     dst[1] = (unsigned char)((value >> 8) & 0xffU);
     dst[2] = (unsigned char)((value >> 16) & 0xffU);
@@ -1084,6 +1193,11 @@ static void decode_classifier_store_u32(unsigned char *dst, uint32_t value) {
 }
 
 static int decode_classifier_read_u32(const unsigned char **cursor, const unsigned char *end, uint32_t *value) {
+    /*
+        Purpose: Reads a little-endian 32-bit unsigned value and advances the input cursor
+        Returns: Success status
+    */
+
     const unsigned char *p;
 
     if (!cursor || !*cursor || !value || !end || (size_t)(end - *cursor) < 4U) {
@@ -1099,6 +1213,11 @@ static int decode_classifier_read_u32(const unsigned char **cursor, const unsign
 }
 
 static void decode_classifier_save(void) {
+    /*
+        Purpose: Serializes and saves the current bit-stream classification to the encrypted datastore
+        Returns: No value
+    */
+
     static const unsigned char magic[8] = {'R', 'S', 'B', 'S', 'C', '0', '1', '\0'};
     char document_name[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX];
     const char *selected_file = "";
@@ -1229,6 +1348,11 @@ static void decode_classifier_save(void) {
 }
 
 static void decode_classifier_load(void) {
+    /*
+        Purpose: Loads and restores the named bit-stream classification from the encrypted datastore
+        Returns: No value
+    */
+
     static const unsigned char magic[8] = {'R', 'S', 'B', 'S', 'C', '0', '1', '\0'};
     char document_name[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX];
     unsigned char *content = NULL;
@@ -1424,6 +1548,11 @@ cleanup:
 }
 
 static void decode_classifier_split_bits_rect(SDL_Rect full_rect, SDL_Rect *bits_rect, SDL_Rect *classifier_rect) {
+    /*
+        Purpose: Splits the bit-stream area into bit display and classifier panel rectangles
+        Returns: No value
+    */
+
     int gap = 10;
     int left_w = ((full_rect.w - gap) * 65) / 100;
 
@@ -1448,6 +1577,11 @@ static void decode_classifier_split_bits_rect(SDL_Rect full_rect, SDL_Rect *bits
 }
 
 static void decode_classifier_get_layout(SDL_Rect panel, Type_Decode_Classifier_Layout *layout) {
+    /*
+        Purpose: Calculates the control rectangles for the bit-stream classifier panel
+        Returns: No value
+    */
+
     int x;
     int w;
     int palette_y;
@@ -1546,6 +1680,11 @@ static void decode_classifier_get_layout(SDL_Rect panel, Type_Decode_Classifier_
 }
 
 static void decode_classifier_clamp_label_scroll(SDL_Rect list) {
+    /*
+        Purpose: Clamps the classifier label-list scroll offset to its valid range
+        Returns: No value
+    */
+
     int visible = list.h / DECODE_CLASSIFIER_LABEL_ROW_H;
     int max_scroll;
 
@@ -2502,17 +2641,9 @@ static void decode_shell_quote(char *out, size_t out_size, const char *src) {
     out[pos] = '\0';
 }
 
-static FILE *decode_spawn_helper(const char *helper,
-                                 const char *input,
-                                 const char *mod,
-                                 int samples_per_symbol,
-                                 int start_sample,
-                                 int max_symbols,
-                                 int bits_per_symbol,
-                                 int normalize,
-                                 int invert,
-                                 int tight,
-                                 pid_t *child_pid) {
+static FILE *decode_spawn_helper(const char *helper, const char *input, const char *mod, int samples_per_symbol,
+                                 int start_sample, int max_symbols, int bits_per_symbol, int normalize, int invert,
+                                 int tight, pid_t *child_pid) {
     /*
         Purpose: Launches the GNU Radio helper without invoking a shell
         Returns: Readable helper stdout stream or NULL
@@ -2531,10 +2662,7 @@ static FILE *decode_spawn_helper(const char *helper,
     FILE *stream;
     int spawn_result;
 
-    if (!helper || helper[0] == '\0' ||
-        !input || input[0] == '\0' ||
-        !mod || mod[0] == '\0' ||
-        !child_pid) {
+    if (!helper || helper[0] == '\0' || !input || input[0] == '\0' || !mod || mod[0] == '\0' || !child_pid) {
 
         return NULL;
 
@@ -2544,40 +2672,18 @@ static FILE *decode_spawn_helper(const char *helper,
         snprintf(start_text, sizeof(start_text), "%d", start_sample) >= (int)sizeof(start_text) ||
         snprintf(max_text, sizeof(max_text), "%d", max_symbols) >= (int)sizeof(max_text) ||
         snprintf(bps_text, sizeof(bps_text), "%d", bits_per_symbol) >= (int)sizeof(bps_text) ||
-        snprintf(normalize_text, sizeof(normalize_text), "%d", normalize ? 1 : 0) >=
-            (int)sizeof(normalize_text) ||
-        snprintf(invert_text, sizeof(invert_text), "%d", invert ? 1 : 0) >=
-            (int)sizeof(invert_text) ||
-        snprintf(tight_text, sizeof(tight_text), "%d", tight ? 1 : 0) >=
-            (int)sizeof(tight_text)) {
+        snprintf(normalize_text, sizeof(normalize_text), "%d", normalize ? 1 : 0) >= (int)sizeof(normalize_text) ||
+        snprintf(invert_text, sizeof(invert_text), "%d", invert ? 1 : 0) >= (int)sizeof(invert_text) ||
+        snprintf(tight_text, sizeof(tight_text), "%d", tight ? 1 : 0) >= (int)sizeof(tight_text)) {
 
         return NULL;
 
     }
 
     char *argv[] = {
-        "python3",
-        (char *)helper,
-        "--input",
-        (char *)input,
-        "--mod",
-        (char *)mod,
-        "--sps",
-        sps_text,
-        "--start-sample",
-        start_text,
-        "--max-symbols",
-        max_text,
-        "--bits-per-symbol",
-        bps_text,
-        "--normalize",
-        normalize_text,
-        "--invert",
-        invert_text,
-        "--tight",
-        tight_text,
-        NULL
-    };
+        "python3",     (char *)helper,   "--input",  (char *)input,   "--mod",   (char *)mod,         "--sps",
+        sps_text,      "--start-sample", start_text, "--max-symbols", max_text,  "--bits-per-symbol", bps_text,
+        "--normalize", normalize_text,   "--invert", invert_text,     "--tight", tight_text,          NULL};
 
     if (pipe(pipe_fd) != 0) {
 
@@ -2604,13 +2710,7 @@ static FILE *decode_spawn_helper(const char *helper,
 
     }
 
-    spawn_result = posix_spawnp(
-        &pid,
-        "python3",
-        &actions,
-        NULL,
-        argv,
-        environ);
+    spawn_result = posix_spawnp(&pid, "python3", &actions, NULL, argv, environ);
 
     posix_spawn_file_actions_destroy(&actions);
     close(pipe_fd[1]);
@@ -2625,12 +2725,12 @@ static FILE *decode_spawn_helper(const char *helper,
     stream = fdopen(pipe_fd[0], "r");
 
     if (!stream) {
+
         int status;
 
         close(pipe_fd[0]);
 
         while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
-
         }
 
         return NULL;
@@ -2660,16 +2760,13 @@ static int decode_close_helper(FILE *pipe_stream, pid_t child_pid) {
     if (child_pid > 0) {
 
         do {
-
             waited = waitpid(child_pid, &status, 0);
 
         } while (waited < 0 && errno == EINTR);
 
     }
 
-    if (close_result != 0 ||
-        waited != child_pid ||
-        !WIFEXITED(status)) {
+    if (close_result != 0 || waited != child_pid || !WIFEXITED(status)) {
 
         return -1;
 
@@ -2954,18 +3051,8 @@ static int decode_run_helper_capture_bits(int samples_per_symbol, int max_bits, 
 
     }
 
-    pipe = decode_spawn_helper(
-        helper,
-        path,
-        decode_mod_arg(),
-        samples_per_symbol,
-        start_sample,
-        max_symbols,
-        user_bps,
-        Global_Decode_Normalize ? 1 : 0,
-        Global_Decode_Invert_Bits ? 1 : 0,
-        1,
-        &child_pid);
+    pipe = decode_spawn_helper(helper, path, decode_mod_arg(), samples_per_symbol, start_sample, max_symbols, user_bps,
+                               Global_Decode_Normalize ? 1 : 0, Global_Decode_Invert_Bits ? 1 : 0, 1, &child_pid);
 
     if (!pipe) {
 
@@ -3390,18 +3477,9 @@ static int decode_run_selected_file(void) {
     Global_Decode_Bit_Edit_Active = 0;
     decode_clear_bit_selection();
 
-    pipe = decode_spawn_helper(
-        helper,
-        path,
-        decode_mod_arg(),
-        samples_per_symbol,
-        start_sample,
-        max_symbols,
-        user_bps,
-        Global_Decode_Normalize ? 1 : 0,
-        Global_Decode_Invert_Bits ? 1 : 0,
-        Global_Decode_Skip_Whitespace ? 1 : 0,
-        &child_pid);
+    pipe = decode_spawn_helper(helper, path, decode_mod_arg(), samples_per_symbol, start_sample, max_symbols, user_bps,
+                               Global_Decode_Normalize ? 1 : 0, Global_Decode_Invert_Bits ? 1 : 0,
+                               Global_Decode_Skip_Whitespace ? 1 : 0, &child_pid);
 
     if (!pipe) {
 
@@ -4223,6 +4301,11 @@ static void decode_draw_file_search_popup(SDL_Renderer *renderer, TTF_Font *font
 }
 
 static int decode_classifier_filtered_document_count(void) {
+    /*
+        Purpose: Counts saved classification documents matching the current search text
+        Returns: Matching document count
+    */
+
     int count = 0;
 
     for (int i = 0; i < Global_Decode_Classifier_Search_Document_Count; i++) {
@@ -4238,6 +4321,11 @@ static int decode_classifier_filtered_document_count(void) {
 }
 
 static int decode_classifier_filtered_index_to_document_index(int filtered_index) {
+    /*
+        Purpose: Maps a filtered classification search index to the underlying document index
+        Returns: Document index or -1 when not found
+    */
+
     int seen = 0;
 
     if (filtered_index < 0) {
@@ -4266,6 +4354,11 @@ static int decode_classifier_filtered_index_to_document_index(int filtered_index
 }
 
 static void decode_classifier_search_clamp_scroll(void) {
+    /*
+        Purpose: Clamps the classification search-list scroll offset to its valid range
+        Returns: No value
+    */
+
     int filtered_count = decode_classifier_filtered_document_count();
     int visible = 14;
     int max_scroll = filtered_count - visible;
@@ -4290,6 +4383,11 @@ static void decode_classifier_search_clamp_scroll(void) {
 }
 
 static int decode_classifier_refresh_search_documents(void) {
+    /*
+        Purpose: Refreshes the list of saved bit-stream classification documents from the datastore
+        Returns: Success status
+    */
+
     size_t count = 0;
     char error[256] = "";
 
@@ -4318,12 +4416,22 @@ static int decode_classifier_refresh_search_documents(void) {
 }
 
 static void decode_classifier_close_search_menu(void) {
+    /*
+        Purpose: Closes the bit-stream classification search menu and clears its interaction state
+        Returns: No value
+    */
+
     Global_Decode_Classifier_Search_Open = 0;
     Global_Decode_Classifier_Search_Active = 0;
     Global_Decode_Classifier_Search_Hover = -1;
 }
 
 static void decode_classifier_open_search_menu(void) {
+    /*
+        Purpose: Opens and initializes the bit-stream classification search menu
+        Returns: No value
+    */
+
     decode_close_file_search_menu();
     Global_Decode_Classifier_Search_Open = 1;
     Global_Decode_Classifier_Search_Active = 1;
@@ -4344,6 +4452,11 @@ static void decode_classifier_open_search_menu(void) {
 }
 
 static void decode_classifier_search_select_index(int index) {
+    /*
+        Purpose: Loads the saved classification document selected from the search results
+        Returns: No value
+    */
+
     const char *name;
 
     if (index < 0 || index >= Global_Decode_Classifier_Search_Document_Count) {
@@ -4367,6 +4480,11 @@ static void decode_classifier_search_select_index(int index) {
 }
 
 static int decode_classifier_handle_search_event(const SDL_Event *event, int win_w, int win_h) {
+    /*
+        Purpose: Handles keyboard, text, mouse, and scroll events for the classification search menu
+        Returns: Event handling status
+    */
+
     SDL_Rect popup;
     SDL_Rect close_btn;
     SDL_Rect search;
@@ -4577,6 +4695,11 @@ static int decode_classifier_handle_search_event(const SDL_Event *event, int win
 }
 
 static void decode_classifier_draw_search_popup(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the saved bit-stream classification search popup
+        Returns: No value
+    */
+
     SDL_Rect popup;
     SDL_Rect close_btn;
     SDL_Rect search;
@@ -5227,6 +5350,11 @@ static int decode_draw_wrapped_bits(SDL_Renderer *renderer, TTF_Font *font, SDL_
 
 static void decode_classifier_draw_text_field(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, const char *text,
                                               int cursor, int active) {
+    /*
+        Purpose: Draws a classifier text field and its active cursor
+        Returns: No value
+    */
+
     char shown[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX];
     int is_document_name = text == Global_Decode_Classifier_Document_Name;
 
@@ -5310,6 +5438,11 @@ static void decode_classifier_draw_text_field(SDL_Renderer *renderer, TTF_Font *
 
 static void decode_classifier_draw_rgb_field(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect,
                                              const char *component, const char *text, int cursor, int active) {
+    /*
+        Purpose: Draws an RGB component text field and its active cursor
+        Returns: No value
+    */
+
     int prefix_w = 0;
     int prefix_h = 0;
     int text_w = 0;
@@ -5349,6 +5482,11 @@ static void decode_classifier_draw_rgb_field(SDL_Renderer *renderer, TTF_Font *f
 }
 
 static void decode_classifier_draw_panel(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect panel, int mx, int my) {
+    /*
+        Purpose: Draws the bit-stream classifier panel and its controls
+        Returns: No value
+    */
+
     Type_Decode_Classifier_Layout layout;
     int visible;
     int label_bit_counts[DECODE_CLASSIFIER_MAX_LABELS] = {0};
@@ -5496,6 +5634,11 @@ static void decode_classifier_draw_panel(SDL_Renderer *renderer, TTF_Font *font,
 }
 
 static int decode_classifier_handle_panel_click(int x, int y, SDL_Rect panel) {
+    /*
+        Purpose: Handles mouse clicks on controls within the bit-stream classifier panel
+        Returns: Click handling status
+    */
+
     Type_Decode_Classifier_Layout layout;
     int visible;
 

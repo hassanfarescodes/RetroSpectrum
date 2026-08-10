@@ -1,6 +1,22 @@
 #define _XOPEN_SOURCE 700
 #define _POSIX_C_SOURCE 200809L
 
+/*
+ * ============================================================================
+ * File:            DatabaseCrypto.c
+ * Author:          Hassan Fares
+ *
+ * Description:     Database encryption and key management for RetroSpectrum
+ *
+ * Language:        C
+ * Compiler:        GCC
+ * Standard:        C11
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
+ * ============================================================================
+ */
+
 #include "DatabaseCrypto.h"
 #include "SecureFunctions.h"
 
@@ -399,7 +415,6 @@ static int database_crypto_read_saved_key_path(char *path, size_t path_size) {
     }
 
     return 1;
-
 }
 
 static int database_crypto_resolve_key_path(char *path, size_t path_size, char *error, size_t error_size) {
@@ -419,8 +434,8 @@ static int database_crypto_resolve_key_path(char *path, size_t path_size, char *
 
     pthread_mutex_lock(&Global_Database_Crypto_Key_Lock);
 
-    if (Global_Database_Crypto_Key_Path[0] != '\0' && !sec_strcpy(resolved,
-        sizeof(resolved), Global_Database_Crypto_Key_Path)) {
+    if (Global_Database_Crypto_Key_Path[0] != '\0' &&
+        !sec_strcpy(resolved, sizeof(resolved), Global_Database_Crypto_Key_Path)) {
 
         pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
 
@@ -431,7 +446,6 @@ static int database_crypto_resolve_key_path(char *path, size_t path_size, char *
     }
 
     pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
-
 
     if (resolved[0] == '\0') {
 
@@ -455,8 +469,8 @@ static int database_crypto_resolve_key_path(char *path, size_t path_size, char *
 
     pthread_mutex_lock(&Global_Database_Crypto_Key_Lock);
 
-    if (Global_Database_Crypto_Key_Path[0] == '\0' && !sec_strcpy(Global_Database_Crypto_Key_Path,
-        sizeof(Global_Database_Crypto_Key_Path), resolved)) {
+    if (Global_Database_Crypto_Key_Path[0] == '\0' &&
+        !sec_strcpy(Global_Database_Crypto_Key_Path, sizeof(Global_Database_Crypto_Key_Path), resolved)) {
 
         pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
 
@@ -473,6 +487,7 @@ static int database_crypto_resolve_key_path(char *path, size_t path_size, char *
         database_crypto_error(error, error_size, "The database master-key path is too long.");
 
         return 0;
+
     }
 
     pthread_mutex_unlock(&Global_Database_Crypto_Key_Lock);
@@ -512,7 +527,7 @@ static int database_crypto_load_key_file(const char *path, unsigned char master[
 
         }
 
-    return 0;
+        return 0;
 
     }
 
@@ -744,62 +759,84 @@ static int database_crypto_parse_version(const char *version, int *major, int *m
     long value;
 
     if (!version || !major || !minor || !patch) {
+
         return 0;
+
     }
 
     cursor = version;
 
     /* Major */
+
     if (*cursor < '0' || *cursor > '9') {
+
         return 0;
+
     }
 
     errno = 0;
     value = strtol(cursor, &end, 10);
 
     if (errno == ERANGE || end == cursor || value < 0 || value > INT_MAX || *end != '.') {
+
         return 0;
+
     }
 
     *major = (int)value;
     cursor = end + 1;
 
     /* Minor */
+
     if (*cursor < '0' || *cursor > '9') {
+
         return 0;
+
     }
 
     errno = 0;
     value = strtol(cursor, &end, 10);
 
     if (errno == ERANGE || end == cursor || value < 0 || value > INT_MAX || *end != '.') {
+
         return 0;
+
     }
 
     *minor = (int)value;
     cursor = end + 1;
 
     /* Patch */
+
     if (*cursor < '0' || *cursor > '9') {
+
         return 0;
+
     }
 
     errno = 0;
     value = strtol(cursor, &end, 10);
 
     if (errno == ERANGE || end == cursor || value < 0 || value > INT_MAX) {
+
         return 0;
+
     }
 
     *patch = (int)value;
 
     /* Accept either a bare version or SQLCipher's legitimate community suffix. */
+
     if (*end == '\0') {
+
         return 1;
+
     }
 
     if (strcmp(end, " community") == 0) {
+
         return 1;
+
     }
 
     return 0;
@@ -1008,8 +1045,9 @@ static int database_crypto_key_opens_database(const char *path, const char *doma
 
     if (result == (int)sizeof(header) && memcmp(header, "SQLite format 3\000", sizeof(header)) == 0) {
 
-        database_crypto_error(error, error_size,
-                              "Plaintext SQLite databases are unsupported; only current SQLCipher databases are accepted.");
+        database_crypto_error(
+            error, error_size,
+            "Plaintext SQLite databases are unsupported; only current SQLCipher databases are accepted.");
         return 0;
 
     }
@@ -1151,8 +1189,9 @@ static int database_crypto_open(sqlite3 **database, char *path, size_t path_size
 
     if (database_crypto_file_is_plaintext(path)) {
 
-        database_crypto_error(error, error_size,
-                              "Plaintext SQLite databases are unsupported; only current SQLCipher databases are accepted.");
+        database_crypto_error(
+            error, error_size,
+            "Plaintext SQLite databases are unsupported; only current SQLCipher databases are accepted.");
         goto cleanup;
 
     }

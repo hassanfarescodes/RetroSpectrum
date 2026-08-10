@@ -2,8 +2,8 @@
 
 #include "SecureNetwork.h"
 #include "AuthService.h"
-#include "ServerIdentity.h"
 #include "SecureFunctions.h"
+#include "ServerIdentity.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -672,8 +672,8 @@ static int secure_network_send_status(SSL *ssl, uint16_t request_type, uint32_t 
 
         if (!sec_memcpy(payload + 8, payload_size - 8, message, message_size)) {
 
-        OPENSSL_clear_free(payload, payload_size);
-        return 0;
+            OPENSSL_clear_free(payload, payload_size);
+            return 0;
 
         }
 
@@ -681,13 +681,13 @@ static int secure_network_send_status(SSL *ssl, uint16_t request_type, uint32_t 
 
     if (extra_size > 0) {
 
-        if (!sec_memcpy(payload + 8 + message_size, payload_size - 8 - message_size,
-            extra, extra_size)) {
+        if (!sec_memcpy(payload + 8 + message_size, payload_size - 8 - message_size, extra, extra_size)) {
 
             OPENSSL_clear_free(payload, payload_size);
             return 0;
 
         }
+
     }
 
     result =
@@ -739,8 +739,7 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
 
     }
 
-    if (totp_size > 0 &&
-        memchr(payload + offset + username_size + password_size, '\0', totp_size) != NULL) {
+    if (totp_size > 0 && memchr(payload + offset + username_size + password_size, '\0', totp_size) != NULL) {
 
         return 0;
 
@@ -756,17 +755,15 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
 
     }
 
-    if (!sec_str_memcpy(*username, (size_t)username_size + 1U, 
-        (const char *)payload + offset, username_size)) {
+    if (!sec_str_memcpy(*username, (size_t)username_size + 1U, (const char *)payload + offset, username_size)) {
 
         return 0;
 
-    }           
+    }
 
     offset += username_size;
 
-    if (!sec_str_memcpy(*password, (size_t)password_size + 1U,
-        (const char *)payload + offset, password_size)) {
+    if (!sec_str_memcpy(*password, (size_t)password_size + 1U, (const char *)payload + offset, password_size)) {
 
         return 0;
 
@@ -776,8 +773,7 @@ static int secure_network_parse_auth(const unsigned char *payload, size_t payloa
 
     if (totp_size > 0) {
 
-        if (!sec_str_memcpy(*totp, (size_t)totp_size + 1U, (const char *)payload + offset,
-            totp_size)) {
+        if (!sec_str_memcpy(*totp, (size_t)totp_size + 1U, (const char *)payload + offset, totp_size)) {
 
             return 0;
 
@@ -861,15 +857,12 @@ static int secure_network_handle_auth(SSL *ssl, uint32_t request_id, const unsig
                 *authenticated = 0;
                 *is_admin = 0;
 
-                secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id,
-                                           SECURE_NETWORK_STATUS_ERROR, 
-                                           "Authenticated username exceeds the session buffer.",
-                                           NULL, 0);
+                secure_network_send_status(ssl, SECURE_NETWORK_TYPE_AUTH, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                           "Authenticated username exceeds the session buffer.", NULL, 0);
 
                 goto cleanup;
 
             }
-
 
         }
         secure_network_store_u32(extra, (uint32_t)admin);
@@ -950,8 +943,8 @@ static int secure_network_handle_save(SSL *ssl, uint32_t request_id, const unsig
 
     if (!sec_str_memcpy(kind, sizeof(kind), (const char *)payload + offset, kind_size)) {
 
-        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id,
-                                          SECURE_NETWORK_STATUS_ERROR, "Malformed save request.", NULL, 0);
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed save request.", NULL, 0);
 
     }
 
@@ -959,8 +952,8 @@ static int secure_network_handle_save(SSL *ssl, uint32_t request_id, const unsig
 
     if (!sec_str_memcpy(name, sizeof(name), (const char *)payload + offset, name_size)) {
 
-    return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR,
-                                      "Malformed save request.", NULL, 0);
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed save request.", NULL, 0);
 
     }
 
@@ -968,8 +961,8 @@ static int secure_network_handle_save(SSL *ssl, uint32_t request_id, const unsig
 
     if (!sec_str_memcpy(case_number, sizeof(case_number), (const char *)payload + offset, case_size)) {
 
-    return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR,
-                                      "Malformed save request.", NULL, 0);
+        return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR,
+                                          "Malformed save request.", NULL, 0);
 
     }
 
@@ -979,6 +972,7 @@ static int secure_network_handle_save(SSL *ssl, uint32_t request_id, const unsig
 
         return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_ERROR, error,
                                           NULL, 0);
+
     }
 
     return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_SAVE, request_id, SECURE_NETWORK_STATUS_OK, "Saved.",
@@ -1296,14 +1290,14 @@ static int secure_network_handle_user_admin(SSL *ssl, uint32_t request_id, const
 
     if (password_size > 0) {
 
-
         if (!sec_str_memcpy(password, sizeof(password), (const char *)payload + offset, password_size)) {
 
             OPENSSL_cleanse(password, sizeof(password));
             OPENSSL_cleanse(secret, sizeof(secret));
 
-            return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id, SECURE_NETWORK_STATUS_ERROR,
-                                          "Malformed account-management request.", NULL, 0);
+            return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id,
+                                              SECURE_NETWORK_STATUS_ERROR, "Malformed account-management request.",
+                                              NULL, 0);
 
         }
 
@@ -1318,8 +1312,9 @@ static int secure_network_handle_user_admin(SSL *ssl, uint32_t request_id, const
             OPENSSL_cleanse(password, sizeof(password));
             OPENSSL_cleanse(secret, sizeof(secret));
 
-            return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id, SECURE_NETWORK_STATUS_ERROR,
-                                          "Malformed account-management request.", NULL, 0);
+            return secure_network_send_status(ssl, SECURE_NETWORK_TYPE_USER_ADMIN, request_id,
+                                              SECURE_NETWORK_STATUS_ERROR, "Malformed account-management request.",
+                                              NULL, 0);
 
         }
 
@@ -2099,12 +2094,12 @@ int SECURE_NETWORK_authenticate(const char *username, const char *password, cons
     if (!sec_memcpy(payload + 8, payload_size - 8, username, username_size) ||
         !sec_memcpy(payload + 8 + username_size, payload_size - 8 - username_size, password, password_size) ||
         (totp_size > 0 && !sec_memcpy(payload + 8 + username_size + password_size,
-        payload_size - 8 - username_size - password_size, totp, totp_size))) {
+                                      payload_size - 8 - username_size - password_size, totp, totp_size))) {
 
-    secure_network_set_error(error, error_size, "Unable to safely construct authentication payload.");
-    goto cleanup;
+        secure_network_set_error(error, error_size, "Unable to safely construct authentication payload.");
+        goto cleanup;
 
-}
+    }
 
     request_id = Global_Secure_Request_Id++;
 
@@ -2216,7 +2211,7 @@ int SECURE_NETWORK_verify_password(const char *username, const char *password, c
         !sec_memcpy(payload + 8 + username_size, payload_size - 8 - username_size, password, password_size)) {
 
         secure_network_set_error(error, error_size, "Unable to safely construct password-verification payload.");
-    goto cleanup;
+        goto cleanup;
 
     }
 
@@ -2381,7 +2376,8 @@ int SECURE_NETWORK_save_document(const char *document_kind, const char *document
     int success = 0;
 
     if (kind_size == 0 || kind_size > 63 || name_size == 0 || name_size >= DATASTORE_DOCUMENT_NAME_MAX ||
-        case_size >= DATASTORE_CASE_NUMBER_MAX || content_size > 64U * 1024U * 1024U || (content_size > 0 && !content)) {
+        case_size >= DATASTORE_CASE_NUMBER_MAX || content_size > 64U * 1024U * 1024U ||
+        (content_size > 0 && !content)) {
 
         secure_network_set_error(error, error_size, "Invalid remote document save request.");
         return 0;
@@ -2680,8 +2676,9 @@ int SECURE_NETWORK_list_documents(const char *document_kind, Type_DataStore_Docu
         if (i < available) {
 
             if (!sec_str_memcpy(documents[i].document_name, sizeof(documents[i].document_name),
-                (const char *)extra + offset, name_size) || !sec_str_memcpy(documents[i].case_number,
-                sizeof(documents[i].case_number), (const char *)extra + offset + name_size, case_size)) {
+                                (const char *)extra + offset, name_size) ||
+                !sec_str_memcpy(documents[i].case_number, sizeof(documents[i].case_number),
+                                (const char *)extra + offset + name_size, case_size)) {
 
                 goto cleanup;
 
@@ -2769,11 +2766,11 @@ int SECURE_NETWORK_list_users(Type_Auth_User_Summary *users, size_t capacity, si
             memset(&users[i], 0, sizeof(users[i]));
 
             if (!sec_str_memcpy(users[i].username, sizeof(users[i].username), (const char *)extra + offset,
-                username_size)) {
+                                username_size)) {
 
-            goto cleanup;
+                goto cleanup;
 
-        }
+            }
 
             users[i].role = role <= AUTH_ROLE_ADMIN ? (int)role : (is_admin ? AUTH_ROLE_CO_ADMIN : AUTH_ROLE_USER);
             users[i].is_admin = users[i].role >= AUTH_ROLE_CO_ADMIN;
@@ -2801,6 +2798,11 @@ cleanup:
 static int secure_network_admin_request(uint16_t action, const char *username, const char *password,
                                         const unsigned char *secret, size_t secret_size, int role, unsigned int flags,
                                         char *error, size_t error_size) {
+    /*
+        Purpose: Builds and sends an authenticated account-management request to the secure server
+        Returns: Success status
+    */
+
     size_t username_size = username ? strlen(username) : 0;
     size_t password_size = password ? strlen(password) : 0;
     size_t payload_size;
@@ -2862,7 +2864,6 @@ static int secure_network_admin_request(uint16_t action, const char *username, c
 
     if (secret_size > 0) {
 
-
         if (!sec_memcpy(payload + offset, payload_size - offset, secret, secret_size)) {
 
             secure_network_set_error(error, error_size, "Unable to safely construct account-management request.");
@@ -2870,7 +2871,6 @@ static int secure_network_admin_request(uint16_t action, const char *username, c
             return 0;
 
         }
-
 
     }
 
@@ -2891,6 +2891,11 @@ static int secure_network_admin_request(uint16_t action, const char *username, c
 
 int SECURE_NETWORK_admin_create_user(const char *username, const char *password, int enable_totp,
                                      const unsigned char *totp_secret, char *error, size_t error_size) {
+    /*
+        Purpose: Requests creation of a user account through the secure network connection
+        Returns: Success status
+    */
+
     return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_CREATE, username, password,
                                         enable_totp ? totp_secret : NULL,
                                         enable_totp ? AUTH_PUBLIC_TOTP_SECRET_BYTES : 0, AUTH_ROLE_USER,
@@ -2899,27 +2904,52 @@ int SECURE_NETWORK_admin_create_user(const char *username, const char *password,
 
 int SECURE_NETWORK_admin_reset_password(const char *username, const char *new_password, char *error,
                                         size_t error_size) {
+    /*
+        Purpose: Requests a password reset for a user account through the secure network connection
+        Returns: Success status
+    */
+
     return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_RESET_PASSWORD, username, new_password, NULL, 0,
                                         AUTH_ROLE_USER, 0, error, error_size);
 }
 
 int SECURE_NETWORK_admin_set_totp(const char *username, const unsigned char secret[AUTH_PUBLIC_TOTP_SECRET_BYTES],
                                   char *error, size_t error_size) {
+    /*
+        Purpose: Requests enabling or replacing TOTP authentication for a user account
+        Returns: Success status
+    */
+
     return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_SET_TOTP, username, NULL, secret,
                                         AUTH_PUBLIC_TOTP_SECRET_BYTES, AUTH_ROLE_USER, 0, error, error_size);
 }
 
 int SECURE_NETWORK_admin_remove_totp(const char *username, char *error, size_t error_size) {
+    /*
+        Purpose: Requests removal of TOTP authentication from a user account
+        Returns: Success status
+    */
+
     return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_REMOVE_TOTP, username, NULL, NULL, 0, AUTH_ROLE_USER,
                                         0, error, error_size);
 }
 
 int SECURE_NETWORK_admin_set_role(const char *username, int role, char *error, size_t error_size) {
+    /*
+        Purpose: Requests a role change for a user account through the secure network connection
+        Returns: Success status
+    */
+
     return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_SET_ROLE, username, NULL, NULL, 0, role, 0, error,
                                         error_size);
 }
 
 int SECURE_NETWORK_admin_delete_user(const char *username, char *error, size_t error_size) {
+    /*
+        Purpose: Requests deletion of a user account through the secure network connection
+        Returns: Success status
+    */
+
     return secure_network_admin_request(SECURE_NETWORK_USER_ADMIN_DELETE, username, NULL, NULL, 0, AUTH_ROLE_USER, 0,
                                         error, error_size);
 }

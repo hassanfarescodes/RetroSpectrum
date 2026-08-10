@@ -5,12 +5,14 @@
  * File:            AnalysisWorkstation.c
  * Author:          Hassan Fares
  *
- * Description:     Analysis Workstation logic for RetroSpectrum
+ * Description:     Signal analysis workstation logic for RetroSpectrum
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 
@@ -1485,27 +1487,39 @@ static void ANALYSIS_get_hover_graph_layout(int win_w, int win_h, SDL_Rect *psd_
     */
 
     if (psd_rect) {
-    *psd_rect = (SDL_Rect){0, 0, 0, 0};
+
+        *psd_rect = (SDL_Rect){0, 0, 0, 0};
+
     }
 
     if (mag_rect) {
+
         *mag_rect = (SDL_Rect){0, 0, 0, 0};
+
     }
 
     if (phase_rect) {
+
         *phase_rect = (SDL_Rect){0, 0, 0, 0};
+
     }
 
     if (inst_rect) {
+
         *inst_rect = (SDL_Rect){0, 0, 0, 0};
+
     }
 
     if (const_rect) {
+
         *const_rect = (SDL_Rect){0, 0, 0, 0};
+
     }
 
     if (spec_rect) {
+
         *spec_rect = (SDL_Rect){0, 0, 0, 0};
+
     }
 
     int selector_h = (int)((double)win_h * 0.22);
@@ -4139,7 +4153,6 @@ static int ANALYSIS_draw_wrapped_text_limited(SDL_Renderer *renderer, TTF_Font *
             char candidate[1024];
             int text_w = 0;
             int text_h = 0;
-
 
             memcpy(candidate, text + pos, (size_t)n);
             candidate[n] = '\0';
@@ -10061,6 +10074,11 @@ typedef struct Type_Analysis_Constellation_Point {
 } Type_Analysis_Constellation_Point;
 
 static int ANALYSIS_constellation_double_compare(const void *left, const void *right) {
+    /*
+        Purpose: Compares constellation double values for sorting
+        Returns: Sort order
+    */
+
     double a = *(const double *)left;
     double b = *(const double *)right;
 
@@ -10080,6 +10098,11 @@ static int ANALYSIS_constellation_double_compare(const void *left, const void *r
 }
 
 static size_t ANALYSIS_constellation_next_power_of_two(size_t value) {
+    /*
+        Purpose: Rounds a constellation sample count up to the next supported power of two
+        Returns: Power-of-two sample count
+    */
+
     size_t power = 1U;
 
     while (power < value && power < ANALYSIS_CONSTELLATION_MAX_INPUT) {
@@ -10091,6 +10114,10 @@ static size_t ANALYSIS_constellation_next_power_of_two(size_t value) {
 
 static void ANALYSIS_constellation_apply_frequency_correction(double *i_data, double *q_data, size_t count,
                                                               double radians_per_sample) {
+    /*
+        Purpose: Rotates IQ samples to compensate for a frequency offset
+        Returns: No value
+    */
 
     if (!i_data || !q_data || count == 0 || fabs(radians_per_sample) < 1e-15) {
 
@@ -10133,6 +10160,11 @@ static void ANALYSIS_constellation_apply_frequency_correction(double *i_data, do
 
 static void ANALYSIS_constellation_complex_power(double input_i, double input_q, int order, double *output_i,
                                                  double *output_q) {
+    /*
+        Purpose: Raises a complex IQ value to an integer power
+        Returns: No value
+    */
+
     double result_i = 1.0;
     double result_q = 0.0;
 
@@ -10158,6 +10190,11 @@ static void ANALYSIS_constellation_complex_power(double input_i, double input_q,
 
 static double ANALYSIS_constellation_estimate_mth_frequency(const double *i_data, const double *q_data, size_t count,
                                                             int order, double magnitude_gate) {
+    /*
+        Purpose: Estimates angular frequency offset using an Mth-power phase measurement
+        Returns: Estimated radians per sample
+    */
+
     double sum_i = 0.0;
     double sum_q = 0.0;
     double previous_i = 0.0;
@@ -10204,6 +10241,11 @@ static double ANALYSIS_constellation_estimate_mth_frequency(const double *i_data
 
 static double ANALYSIS_constellation_mth_coherence(const double *i_data, const double *q_data, size_t count, int order,
                                                    double frequency, double magnitude_gate) {
+    /*
+        Purpose: Measures Mth-order phase coherence after applying a candidate frequency correction
+        Returns: Normalized coherence score
+    */
+
     double sum_i = 0.0;
     double sum_q = 0.0;
     int used = 0;
@@ -10241,6 +10283,11 @@ static double ANALYSIS_constellation_mth_coherence(const double *i_data, const d
 
 static double ANALYSIS_constellation_estimate_direct_frequency(const double *i_data, const double *q_data, size_t count,
                                                                double magnitude_gate) {
+    /*
+        Purpose: Estimates direct sample-to-sample angular frequency from gated IQ samples
+        Returns: Estimated radians per sample
+    */
+
     double sum_i = 0.0;
     double sum_q = 0.0;
 
@@ -10266,6 +10313,10 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
                                                   int time_filter_active, int time_col_low, int time_col_high,
                                                   int render_w, double **output_i, double **output_q,
                                                   size_t *output_count, double *output_bandwidth_hz) {
+    /*
+        Purpose: Loads and prepares the filtered IQ sample set used for constellation analysis
+        Returns: Success status
+    */
 
     if (!fp || !output_i || !output_q || !output_count || Global_Analysis_Sample_Rate <= 0.0 ||
         Global_Analysis_IQ_Count == 0 || Global_Analysis_View_Len == 0) {
@@ -10616,6 +10667,10 @@ static int ANALYSIS_constellation_prepare_samples(FILE *fp, int filter_active, i
 }
 
 static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, int level_count) {
+    /*
+        Purpose: Measures normalized one-dimensional K-means clustering distortion for the requested level count
+        Returns: Normalized clustering error
+    */
 
     if (!values || count < level_count || level_count < 2 || level_count > 8) {
 
@@ -10715,6 +10770,10 @@ static double ANALYSIS_constellation_kmeans_1d(const double *values, int count, 
 }
 
 static double ANALYSIS_constellation_psk_score(const Type_Analysis_Constellation_Point *points, int count, int order) {
+    /*
+        Purpose: Scores how closely constellation points fit the requested PSK order
+        Returns: PSK fit score
+    */
 
     if (!points || count < 8) {
 
@@ -10762,6 +10821,10 @@ static double ANALYSIS_constellation_psk_score(const Type_Analysis_Constellation
 }
 
 static double ANALYSIS_constellation_qam_score(const Type_Analysis_Constellation_Point *points, int count) {
+    /*
+        Purpose: Scores how closely constellation points fit a QAM arrangement
+        Returns: QAM fit score
+    */
 
     if (!points || count < 16) {
 
@@ -10824,6 +10887,10 @@ static double ANALYSIS_constellation_qam_score(const Type_Analysis_Constellation
 }
 
 static double ANALYSIS_constellation_ask_score(const Type_Analysis_Constellation_Point *points, int count) {
+    /*
+        Purpose: Scores how closely constellation points fit an ASK or OOK arrangement
+        Returns: ASK or OOK fit score
+    */
 
     if (!points || count < 12) {
 
@@ -10893,6 +10960,10 @@ static double ANALYSIS_constellation_ask_score(const Type_Analysis_Constellation
 static int ANALYSIS_constellation_collect_candidate(const double *i_data, const double *q_data, size_t count,
                                                     size_t guard, int samples_per_symbol, int offset,
                                                     Type_Analysis_Constellation_Point *points, int maximum_points) {
+    /*
+        Purpose: Collects symbol-spaced constellation points for a timing candidate
+        Returns: Number of points collected
+    */
 
     if (!i_data || !q_data || !points || samples_per_symbol < 2 || maximum_points < 1 || count <= guard * 2U) {
 
@@ -10967,6 +11038,10 @@ static int ANALYSIS_constellation_collect_candidate(const double *i_data, const 
 
 static double ANALYSIS_constellation_transition_timing_score(const double *i_data, const double *q_data, size_t count,
                                                              size_t guard, int samples_per_symbol, int center_offset) {
+    /*
+        Purpose: Scores a symbol timing candidate from transition concentration around the symbol center
+        Returns: Timing score
+    */
 
     if (!i_data || !q_data || samples_per_symbol < 4 || count <= guard * 2U + 4U) {
 
@@ -11071,6 +11146,10 @@ static double ANALYSIS_constellation_transition_timing_score(const double *i_dat
 static int ANALYSIS_constellation_find_symbol_timing(const double *i_data, const double *q_data, size_t count,
                                                      double bandwidth_hz, int family, int psk_order,
                                                      int *best_samples_per_symbol, int *best_offset) {
+    /*
+        Purpose: Searches for the best samples-per-symbol value and sampling offset for the selected modulation family
+        Returns: Success status
+    */
 
     if (!i_data || !q_data || count < 256U || !best_samples_per_symbol || !best_offset ||
         Global_Analysis_Sample_Rate <= 0.0) {
@@ -11185,6 +11264,11 @@ static int ANALYSIS_constellation_find_symbol_timing(const double *i_data, const
 }
 
 static void ANALYSIS_constellation_normalize_output(int preserve_origin) {
+    /*
+        Purpose: Normalizes the generated constellation output for display while optionally preserving the origin
+        Returns: No value
+    */
+
     int count = Global_Analysis_Const_Count;
 
     if (count <= 0) {
@@ -11252,6 +11336,10 @@ static void ANALYSIS_constellation_normalize_output(int preserve_origin) {
 static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_data, const double *q_data,
                                                                 size_t count, int order, double magnitude_gate,
                                                                 double maximum_offset_hz) {
+    /*
+        Purpose: Estimates PSK carrier frequency offset with an FFT-based Mth-power measurement
+        Returns: Estimated radians per sample
+    */
 
     if (!i_data || !q_data || count < 64U || order < 2 || Global_Analysis_Sample_Rate <= 0.0) {
 
@@ -11401,6 +11489,10 @@ static double ANALYSIS_constellation_estimate_psk_frequency_fft(const double *i_
 static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_data, const double *q_data,
                                                                 size_t count, double magnitude_gate,
                                                                 double maximum_offset_hz) {
+    /*
+        Purpose: Estimates QAM carrier frequency offset with an FFT-based measurement
+        Returns: Estimated radians per sample
+    */
 
     if (!i_data || !q_data || count < 64U || Global_Analysis_Sample_Rate <= 0.0) {
 
@@ -11575,6 +11667,10 @@ static double ANALYSIS_constellation_estimate_qam_frequency_fft(const double *i_
 
 static double ANALYSIS_constellation_estimate_spectral_center(const double *i_data, const double *q_data, size_t count,
                                                               double maximum_offset_hz) {
+    /*
+        Purpose: Estimates the spectral center frequency offset of the constellation input
+        Returns: Estimated radians per sample
+    */
 
     if (!i_data || !q_data || count < 64U || Global_Analysis_Sample_Rate <= 0.0) {
 
@@ -11727,6 +11823,10 @@ typedef struct Type_Analysis_Constellation_Rate_Peak {
 
 static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, const double *q_data, size_t count,
                                                           double bandwidth_hz, double magnitude_gate) {
+    /*
+        Purpose: Estimates the symbol rate from the prepared constellation IQ samples
+        Returns: Estimated symbol rate in hertz
+    */
 
     if (!i_data || !q_data || count < 256U || Global_Analysis_Sample_Rate <= 0.0) {
 
@@ -11989,6 +12089,10 @@ static double ANALYSIS_constellation_estimate_symbol_rate(const double *i_data, 
 static int ANALYSIS_constellation_find_center_offset(const double *i_data, const double *q_data, size_t count,
                                                      size_t guard, int samples_per_symbol, int *relative_center_offset,
                                                      double *transition_concentration) {
+    /*
+        Purpose: Finds the sampling-center offset within a symbol period from transition concentration
+        Returns: Success status
+    */
 
     if (!i_data || !q_data || samples_per_symbol < 2 || count <= guard * 2U + 4U || !relative_center_offset) {
 
@@ -12105,6 +12209,10 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
                                                         double bandwidth_hz, int family, int psk_order,
                                                         double magnitude_gate, int *best_samples_per_symbol,
                                                         int *best_offset) {
+    /*
+        Purpose: Performs the refined symbol timing search for the selected modulation family
+        Returns: Success status
+    */
 
     if (!i_data || !q_data || count < 256U || !best_samples_per_symbol || !best_offset ||
         Global_Analysis_Sample_Rate <= 0.0) {
@@ -12405,6 +12513,10 @@ static int ANALYSIS_constellation_find_symbol_timing_v2(const double *i_data, co
 
 static double ANALYSIS_constellation_psk_residual_frequency(const Type_Analysis_Constellation_Point *points, int count,
                                                             int order, int samples_per_symbol) {
+    /*
+        Purpose: Estimates residual PSK frequency error from symbol-spaced constellation points
+        Returns: Estimated radians per sample
+    */
 
     if (!points || count < 8 || order < 1 || samples_per_symbol < 1) {
 
@@ -12450,6 +12562,11 @@ static double ANALYSIS_constellation_psk_residual_frequency(const Type_Analysis_
 
 static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_Constellation_Point *points, int count,
                                                             int samples_per_symbol, double symbol_rate_hz) {
+    /*
+        Purpose: Estimates residual QAM frequency error from symbol-spaced constellation points
+        Returns: Estimated radians per sample
+    */
+
     const int block_symbols = 32;
 
     if (!points || count < block_symbols * 4 || samples_per_symbol < 1 || symbol_rate_hz <= 0.0) {
@@ -12526,6 +12643,10 @@ static double ANALYSIS_constellation_qam_residual_frequency(const Type_Analysis_
 
 static void ANALYSIS_constellation_build_linear_family(double *i_data, double *q_data, size_t count,
                                                        double bandwidth_hz, int family, int selected_psk_order) {
+    /*
+        Purpose: Builds the corrected and symbol-timed constellation for PSK, QAM, or ASK/OOK signals
+        Returns: No value
+    */
 
     if (!i_data || !q_data || count < 256U || Global_Analysis_Sample_Rate <= 0.0) {
 
@@ -13599,6 +13720,11 @@ static void ANALYSIS_constellation_build_fsk_family(const double *i_data, const 
 
 static double ANALYSIS_constellation_ofdm_cp_score(const double *i_data, const double *q_data, size_t count,
                                                    int fft_size, int cp_size, int offset, double *phase_out) {
+    /*
+        Purpose: Calculates normalized cyclic-prefix correlation for an OFDM timing candidate
+        Returns: Cyclic-prefix correlation score
+    */
+
     int symbol_size = fft_size + cp_size;
     double sum_i = 0.0;
     double sum_q = 0.0;
@@ -13629,6 +13755,11 @@ static double ANALYSIS_constellation_ofdm_cp_score(const double *i_data, const d
 }
 
 static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, double *q_data, size_t count) {
+    /*
+        Purpose: Builds a generic OFDM constellation when no known OFDM waveform is recovered
+        Returns: No value
+    */
+
     const int fft_candidates[] = {64, 128, 256, 512, 1024, 2048};
     const int cp_divisors[] = {4, 8, 16, 32};
     double best_score = 0.0;
@@ -13878,6 +14009,10 @@ static void ANALYSIS_constellation_build_ofdm_family_generic(double *i_data, dou
 static int ANALYSIS_constellation_ofdm_cp_metrics(const double *i_data, const double *q_data, size_t count,
                                                   int fft_size, int cp_size, double *metrics, double *corr_i,
                                                   double *corr_q, size_t metric_count) {
+    /*
+        Purpose: Calculates cyclic-prefix correlation metrics across candidate OFDM symbol offsets
+        Returns: Success status
+    */
 
     if (!i_data || !q_data || !metrics || !corr_i || !corr_q || fft_size <= 0 || cp_size <= 0 || metric_count == 0 ||
         count < (size_t)(fft_size + cp_size)) {
@@ -13932,6 +14067,11 @@ static int ANALYSIS_constellation_ofdm_cp_metrics(const double *i_data, const do
 
 static int ANALYSIS_constellation_ofdm_has_periodic_neighbor(const size_t *peaks, int peak_count, int index,
                                                              int symbol_size, int tolerance) {
+    /*
+        Purpose: Checks whether an OFDM correlation peak has a neighboring peak at the expected symbol spacing
+        Returns: Boolean status
+    */
+
     size_t current = peaks[index];
 
     for (int p = index - 1; p >= 0; p--) {
@@ -14672,6 +14812,10 @@ static int ANALYSIS_constellation_build_known_ofdm_qpsk(double *i_data, double *
 }
 
 static void ANALYSIS_constellation_build_ofdm_family(double *i_data, double *q_data, size_t count) {
+    /*
+        Purpose: Builds the OFDM constellation using the known-waveform recovery path or the generic fallback
+        Returns: No value
+    */
 
     if (ANALYSIS_constellation_build_known_ofdm_qpsk(i_data, q_data, count)) {
 
@@ -14685,6 +14829,11 @@ static void ANALYSIS_constellation_build_ofdm_family(double *i_data, double *q_d
 static void ANALYSIS_build_selected_constellation(FILE *fp, int filter_active, int filter_bin_low, int filter_bin_high,
                                                   int time_filter_active, int time_col_low, int time_col_high,
                                                   int render_w) {
+    /*
+        Purpose: Builds and caches the constellation for the currently selected constellation mode and filters
+        Returns: No value
+    */
+
     Global_Analysis_Const_Count = 0;
     memset(Global_Analysis_Const_I, 0, sizeof(Global_Analysis_Const_I));
     memset(Global_Analysis_Const_Q, 0, sizeof(Global_Analysis_Const_Q));

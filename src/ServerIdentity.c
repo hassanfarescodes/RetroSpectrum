@@ -1,17 +1,18 @@
 #define _POSIX_C_SOURCE 200809L
+
 /*
  * ============================================================================
  * File:            ServerIdentity.c
  * Author:          Hassan Fares
  *
- * Description:     Persistent post-quantum ML-DSA-87 server identity, public
- *                  identity-file export/import, and signed LAN announcements.
- *                  SHA-512 fingerprints bind trusted public-key files to the
- *                  complete ML-DSA-87 public key.
+ * Description:     Post-quantum server identity management for RetroSpectrum
  *
  * Language:        C
+ * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 
@@ -163,8 +164,7 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     if (xdg_config && xdg_config[0] != '\0') {
 
-        if (xdg_config[0] != '/' ||
-            !sec_strcpy(root, sizeof(root), xdg_config)) {
+        if (xdg_config[0] != '/' || !sec_strcpy(root, sizeof(root), xdg_config)) {
 
             return 0;
 
@@ -174,8 +174,7 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     else if (home && home[0] != '\0') {
 
-        if (home[0] != '/' ||
-            !sec_sprintf(root, sizeof(root), "%s/.config", home)) {
+        if (home[0] != '/' || !sec_sprintf(root, sizeof(root), "%s/.config", home)) {
 
             return 0;
 
@@ -207,9 +206,7 @@ static int server_identity_key_path(char *path, size_t path_size) {
 
     }
 
-    return sec_sprintf(path, path_size,
-                       "%s/server_identity_mldsa87.key",
-                       directory) ? 1 : 0;
+    return sec_sprintf(path, path_size, "%s/server_identity_mldsa87.key", directory) ? 1 : 0;
 }
 
 static int server_identity_named_path(char *path, size_t path_size, const char *filename) {
@@ -231,8 +228,7 @@ static int server_identity_named_path(char *path, size_t path_size, const char *
 
     if (xdg_config && xdg_config[0] != '\0') {
 
-        if (xdg_config[0] != '/' ||
-            !sec_strcpy(root, sizeof(root), xdg_config)) {
+        if (xdg_config[0] != '/' || !sec_strcpy(root, sizeof(root), xdg_config)) {
 
             return 0;
 
@@ -242,8 +238,7 @@ static int server_identity_named_path(char *path, size_t path_size, const char *
 
     else if (home && home[0] != '\0') {
 
-        if (home[0] != '/' ||
-            !sec_sprintf(root, sizeof(root), "%s/.config", home)) {
+        if (home[0] != '/' || !sec_sprintf(root, sizeof(root), "%s/.config", home)) {
 
             return 0;
 
@@ -270,8 +265,7 @@ static int server_identity_named_path(char *path, size_t path_size, const char *
 
     }
 
-    return sec_sprintf(path, path_size, "%s/%s",
-                       directory, filename) ? 1 : 0;
+    return sec_sprintf(path, path_size, "%s/%s", directory, filename) ? 1 : 0;
 }
 
 static int server_identity_name_valid(const char *name) {
@@ -1064,7 +1058,7 @@ static int server_identity_decode_public_file(const unsigned char file_data[SERV
     memset(identity, 0, sizeof(*identity));
 
     if (!sec_memcpy(identity->server_name, sizeof(identity->server_name),
-        file_data + SERVER_IDENTITY_PUBLIC_FILE_NAME_OFFSET, name_length)) {
+                    file_data + SERVER_IDENTITY_PUBLIC_FILE_NAME_OFFSET, name_length)) {
 
         server_identity_secure_zero(expected_digest, sizeof(expected_digest));
         return 0;
@@ -1072,7 +1066,6 @@ static int server_identity_decode_public_file(const unsigned char file_data[SERV
     }
 
     identity->server_name[name_length] = '\0';
-
 
     if (!server_identity_name_valid(identity->server_name)) {
 
@@ -1418,8 +1411,7 @@ static void server_identity_mark_conflict(const struct sockaddr_in *source,
     pthread_mutex_lock(&Global_Server_Identity_Lock);
     Global_Server_Identity_Conflict = 1;
 
-    (void)sec_strcpy(Global_Server_Identity_Status, sizeof(Global_Server_Identity_Status),
-                     message);
+    (void)sec_strcpy(Global_Server_Identity_Status, sizeof(Global_Server_Identity_Status), message);
 
     pthread_mutex_unlock(&Global_Server_Identity_Lock);
 }
@@ -1559,8 +1551,7 @@ static void server_identity_handle_packet(const unsigned char *packet, size_t pa
 
             pthread_mutex_lock(&Global_Server_Identity_Lock);
 
-            (void)sec_strcpy(Global_Server_Identity_Trusted_Host, sizeof(Global_Server_Identity_Trusted_Host),
-                             address);
+            (void)sec_strcpy(Global_Server_Identity_Trusted_Host, sizeof(Global_Server_Identity_Trusted_Host), address);
 
             Global_Server_Identity_Last_Verified_At = (int64_t)time(NULL);
 
@@ -1630,8 +1621,8 @@ static void *server_identity_thread_main(void *unused) {
             }
 
             memset(&source, 0, sizeof(source));
-            received = recvfrom(socket_fd, packet, SERVER_IDENTITY_PACKET_BYTES, 0,
-                                (struct sockaddr *)&source, &source_size);
+            received =
+                recvfrom(socket_fd, packet, SERVER_IDENTITY_PACKET_BYTES, 0, (struct sockaddr *)&source, &source_size);
         }
 
         if (received > 0) {
@@ -2002,7 +1993,7 @@ int SERVER_IDENTITY_import_public_file(const char *path, char *message, size_t m
     if (message && message_size > 0) {
 
         (void)sec_sprintf(message, message_size, "Trusted server changed to %s.", identity.server_name);
-    
+
     }
 
     success = 1;
@@ -2079,13 +2070,10 @@ int SERVER_IDENTITY_get_trusted_host(char *host, size_t host_size) {
 
     pthread_mutex_lock(&Global_Server_Identity_Lock);
     available = Global_Server_Identity_Trusted_Host[0] != '\0';
-    copied = sec_strcpy(host,
-                        host_size,
-                        Global_Server_Identity_Trusted_Host) ? 1 : 0;
+    copied = sec_strcpy(host, host_size, Global_Server_Identity_Trusted_Host) ? 1 : 0;
     pthread_mutex_unlock(&Global_Server_Identity_Lock);
 
     return available && copied;
-
 }
 
 int SERVER_IDENTITY_get_trusted_public(unsigned char public_key[SERVER_IDENTITY_PUBLIC_KEY_BYTES]) {

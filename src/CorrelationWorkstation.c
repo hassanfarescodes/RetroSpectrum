@@ -1,19 +1,18 @@
 #define _POSIX_C_SOURCE 200809L
+
 /*
  * ============================================================================
  * File:            CorrelationWorkstation.c
  * Author:          Hassan Fares
  *
- * Confidential:    No
- *
- * Description:     Correlation workstation for cached transmission detection,
- *                  fixed-length RF signature extraction, and similarity ranking
- *                  across complex16 recordings.
+ * Description:     Signal correlation and similarity analysis for RetroSpectrum
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 
@@ -100,8 +99,8 @@ int ANALYSIS_export_recording_to_workspace(const char *record_dir, const char *f
 #define CORRELATION_HIDDEN_FILE_DELAY_MS 12U
 
 /* Default score scalars; users can edit them in the Signature Engine bar. */
-#define CORRELATION_DEFAULT_MAGNITUDE_WEIGHT 0.10
-#define CORRELATION_DEFAULT_FREQUENCY_WEIGHT 0.80
+#define CORRELATION_DEFAULT_MAGNITUDE_WEIGHT 0.30
+#define CORRELATION_DEFAULT_FREQUENCY_WEIGHT 0.60
 #define CORRELATION_DEFAULT_BANDWIDTH_WEIGHT 0.10
 
 typedef struct Type_Correlation_Detected_Range {
@@ -172,8 +171,8 @@ static int Global_Correlation_Selected_Result = -1;
 static double Global_Correlation_Magnitude_Weight = CORRELATION_DEFAULT_MAGNITUDE_WEIGHT;
 static double Global_Correlation_Frequency_Weight = CORRELATION_DEFAULT_FREQUENCY_WEIGHT;
 static double Global_Correlation_Bandwidth_Weight = CORRELATION_DEFAULT_BANDWIDTH_WEIGHT;
-static char Global_Correlation_Magnitude_Weight_Text[CORRELATION_WEIGHT_TEXT_MAX] = "0.10";
-static char Global_Correlation_Frequency_Weight_Text[CORRELATION_WEIGHT_TEXT_MAX] = "0.80";
+static char Global_Correlation_Magnitude_Weight_Text[CORRELATION_WEIGHT_TEXT_MAX] = "0.30";
+static char Global_Correlation_Frequency_Weight_Text[CORRELATION_WEIGHT_TEXT_MAX] = "0.60";
 static char Global_Correlation_Bandwidth_Weight_Text[CORRELATION_WEIGHT_TEXT_MAX] = "0.10";
 static int Global_Correlation_Trend_Points = CORRELATION_DEFAULT_TREND_POINTS;
 static char Global_Correlation_Trend_Points_Text[CORRELATION_WEIGHT_TEXT_MAX] = "256";

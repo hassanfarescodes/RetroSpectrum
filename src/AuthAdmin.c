@@ -1,17 +1,18 @@
 #define _POSIX_C_SOURCE 200809L
+
 /*
  * ============================================================================
  * File:            AuthAdmin.c
  * Author:          Hassan Fares
  *
- * Description:     Administrator-only local account management interface for
- *                  RetroSpectrum. Administrators can create users, reset
- *                  passwords, manage 2FA, and delete accounts. Ordinary login users never
- *                  enter this interface.
+ * Description:     Administrator account management interface for RetroSpectrum
  *
  * Language:        C
+ * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 
@@ -678,7 +679,9 @@ static void admin_render_users(SDL_Renderer *renderer, TTF_Font *font_small, TTF
         }
 
         if (!sec_sprintf(line, sizeof(line), "Username: %s", user->username)) {
+
             line[0] = '\0';
+
         }
 
         admin_text(renderer, font_small, line, details.x + 30, details.y + 26, Admin_TEXT);
@@ -874,7 +877,9 @@ static void admin_render_reset(SDL_Renderer *renderer, TTF_Font *font_small, TTF
     char title[256];
 
     if (!sec_sprintf(title, sizeof(title), "RESET PASSWORD: %s", state->username)) {
+
         title[0] = '\0';
+
     }
 
     admin_fill(renderer, panel, Admin_PANEL);
@@ -915,7 +920,9 @@ static void admin_render_remove_totp(SDL_Renderer *renderer, TTF_Font *font_smal
                    (SDL_Rect){panel.x, panel.y + 40, panel.w, 28}, Admin_ERROR);
 
     if (!sec_sprintf(line, sizeof(line), "Disable 2FA for account: %s", state->username)) {
+
         line[0] = '\0';
+
     }
 
     admin_centered(renderer, font_small, line, (SDL_Rect){panel.x + 30, panel.y + 170, panel.w - 60, 28}, Admin_TEXT);
@@ -1382,8 +1389,7 @@ static void admin_submit_reset(Type_Auth_Admin_State *state) {
     admin_secure_zero(state->confirm, sizeof(state->confirm));
     state->view = AUTH_ADMIN_VIEW_USERS;
     admin_refresh_users(state);
-    admin_set_status(state, Admin_WARN,
-                 "Password reset. Existing 2FA enrollment was preserved.");
+    admin_set_status(state, Admin_WARN, "Password reset. Existing 2FA enrollment was preserved.");
 }
 
 static void admin_submit_role(Type_Auth_Admin_State *state) {

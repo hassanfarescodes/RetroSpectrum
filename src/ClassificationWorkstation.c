@@ -1,18 +1,18 @@
 #define _GNU_SOURCE
+
 /*
  * ============================================================================
  * File:            ClassificationWorkstation.c
  * Author:          Hassan Fares
  *
- * Confidential:    No
- *
- * Description:     Simple signal classification workstation for RetroSpectrum.
- *                  Builds CSV rows from manually entered classification fields.
+ * Description:     Signal classification workstation logic for RetroSpectrum
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
  */
 
@@ -1180,8 +1180,7 @@ static void CLASSIFICATION_insert_field_text(int field, const char *src) {
 
     }
 
-    for (const unsigned char *p = (const unsigned char *)src;
-         *p && filtered_len + 1U < sizeof(filtered); p++) {
+    for (const unsigned char *p = (const unsigned char *)src; *p && filtered_len + 1U < sizeof(filtered); p++) {
 
         if (*p == '\r' || *p == '\n' || (*p < 32 && *p != '\t')) {
 
@@ -1417,18 +1416,14 @@ static void CLASSIFICATION_single_line_view(TTF_Font *font, const char *text, in
 
     while (view_start < cursor &&
            CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)cursor) > max_px) {
-
         view_start++;
-
     }
 
     view_end = cursor;
 
     while (view_end < len &&
            CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)(view_end + 1)) <= max_px) {
-
         view_end++;
-
     }
 
     if (start) {
@@ -1491,8 +1486,7 @@ static void CLASSIFICATION_set_field_cursor_from_mouse(int field, SDL_Rect rect,
     }
 
     for (int i = view_start; i <= view_end; i++) {
-        int w0 = CLASSIFICATION_text_range_width(Global_Classification_Input_Font, text, (size_t)view_start,
-                                                 (size_t)i);
+        int w0 = CLASSIFICATION_text_range_width(Global_Classification_Input_Font, text, (size_t)view_start, (size_t)i);
         int w1 = w0;
 
         if (i < view_end) {
@@ -3984,9 +3978,7 @@ void CLASSIFICATION_enter_mode(const char *record_dir) {
     CLASSIFICATION_clear_field_selection();
 
     for (int i = 0; i < CLASSIFICATION_FIELD_COUNT; i++) {
-
         Global_Classification_Field_Cursor[i] = (int)strlen(Global_Classification_Field_Text[i]);
-
     }
     Global_Classification_Save_Message[0] = '\0';
     Global_Classification_Save_Message_Time = 0;
@@ -4063,8 +4055,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
             if ((mod & KMOD_CTRL) && key == SDLK_v) {
 
-                if (active_field == CLASSIFICATION_FIELD_LATITUDE ||
-                    active_field == CLASSIFICATION_FIELD_LONGITUDE) {
+                if (active_field == CLASSIFICATION_FIELD_LATITUDE || active_field == CLASSIFICATION_FIELD_LONGITUDE) {
 
                     CLASSIFICATION_paste_coordinate_text(active_field);
 
@@ -4333,8 +4324,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
 
                     if (extend_selection) {
 
-                        Global_Classification_Field_Selection_End =
-                            Global_Classification_Field_Cursor[active_field];
+                        Global_Classification_Field_Selection_End = Global_Classification_Field_Cursor[active_field];
 
                     }
 
@@ -4536,8 +4526,7 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
         SDL_Rect field_rects[CLASSIFICATION_FIELD_COUNT];
         CLASSIFICATION_get_layout(win_w, win_h, NULL, NULL, field_rects, NULL);
 
-        if (Global_Classification_Notes_Selecting &&
-            Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
+        if (Global_Classification_Notes_Selecting && Global_Classification_Active_Field == CLASSIFICATION_FIELD_NOTES) {
 
             CLASSIFICATION_set_notes_cursor_from_mouse(field_rects[CLASSIFICATION_FIELD_NOTES], event->motion.x,
                                                        event->motion.y);
@@ -4549,9 +4538,8 @@ int CLASSIFICATION_handle_event(SDL_Event *event, int win_w, int win_h) {
         if (Global_Classification_Field_Selecting &&
             CLASSIFICATION_is_single_line_text_field(Global_Classification_Active_Field)) {
 
-            CLASSIFICATION_set_field_cursor_from_mouse(Global_Classification_Active_Field,
-                                                       field_rects[Global_Classification_Active_Field],
-                                                       event->motion.x);
+            CLASSIFICATION_set_field_cursor_from_mouse(
+                Global_Classification_Active_Field, field_rects[Global_Classification_Active_Field], event->motion.x);
             CLASSIFICATION_update_field_selection(Global_Classification_Active_Field);
             return 1;
 
@@ -5119,8 +5107,7 @@ static void CLASSIFICATION_draw_input_field(SDL_Renderer *renderer, TTF_Font *fo
 
         if (((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
 
-            int cursor_x = rect.x + 9 +
-                           CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)cursor);
+            int cursor_x = rect.x + 9 + CLASSIFICATION_text_range_width(font, text, (size_t)view_start, (size_t)cursor);
 
             if (cursor_x < rect.x + 9) {
 

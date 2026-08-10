@@ -9,11 +9,10 @@ SRC_DIR := src
 INC_DIR := include
 BUILD_DIR := build
 
-OPENSSL_MIN_VERSION := 3.5.6
+OPENSSL_MIN_VERSION := 3.5.5
 SQLCIPHER_MIN_VERSION := 4.6.1
 OPENSSL_VERSION := $(shell pkg-config --modversion openssl 2>/dev/null)
-# Debian/Parrot's sqlcipher.pc reports the embedded SQLite version (for example
-# 3.46.1), not the SQLCipher release. Ask SQLCipher itself for cipher_version.
+
 SQLCIPHER_VERSION := $(shell sqlcipher ':memory:' 'PRAGMA cipher_version;' 2>/dev/null | awk 'NR == 1 { print $$1 }')
 OPENSSL_OK := $(shell pkg-config --atleast-version=$(OPENSSL_MIN_VERSION) openssl 2>/dev/null && echo 1 || echo 0)
 SQLCIPHER_OK := $(shell \

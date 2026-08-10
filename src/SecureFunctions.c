@@ -1,5 +1,21 @@
 #define _POSIX_C_SOURCE 200809L
 
+/*
+ * ============================================================================
+ * File:            SecureFunctions.c
+ * Author:          Hassan Fares
+ *
+ * Description:     Security-hardened utility functions for RetroSpectrum
+ *
+ * Language:        C
+ * Compiler:        GCC
+ * Standard:        C11
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
+ * ============================================================================
+*/
+
 #include "SecureFunctions.h"
 
 #include <errno.h>

@@ -3,16 +3,16 @@
  * File:            MapDashboard.c
  * Author:          Hassan Fares
  *
- * Description:     Dashboard and world-map/case rendering logic for
- * RetroSpectrum. This file was split out of RetroSpectrum.c so RetroSpectrum.c
- *                  can remain the top-level application coordinator.
+ * Description:     World map dashboard and case visualization for RetroSpectrum
  *
  * Language:        C
  * Compiler:        GCC
  * Standard:        C11
- * Target:          Linux x86-64
+ * Target:          Linux
+ *
+ *                                                               05/04/2026
  * ============================================================================
- */
+*/
 
 #include <ctype.h>
 #include <dirent.h>
@@ -38,8 +38,8 @@
 
 /* Kept here so this source also builds when an older DataStore.h omits the
  * server-backed document deletion declaration. */
-int DATASTORE_delete_content(const char *document_kind, const char *document_name,
-                             int *deleted, char *error, size_t error_size);
+int DATASTORE_delete_content(const char *document_kind, const char *document_name, int *deleted, char *error,
+                             size_t error_size);
 
 /*
  * world_map_bin_loader.c is intentionally included here, not compiled as a
@@ -551,6 +551,11 @@ static int dashboard_point_in_rect(int x, int y, SDL_Rect r) {
 }
 
 static void dashboard_update_timestamp(Type_Dashboard_State *dashboard) {
+    /*
+        Purpose: Updates the dashboard status text with the current local timestamp
+        Returns: No value
+    */
+
     time_t now;
     struct tm *local_time;
 
@@ -1048,8 +1053,8 @@ static int dashboard_case_color_parse(const char *text, SDL_Color *color) {
 
     }
 
-    if (sscanf(text, " %d , %d , %d %c", &red, &green, &blue, &trailing) != 3 ||
-        red < 0 || red > 255 || green < 0 || green > 255 || blue < 0 || blue > 255) {
+    if (sscanf(text, " %d , %d , %d %c", &red, &green, &blue, &trailing) != 3 || red < 0 || red > 255 || green < 0 ||
+        green > 255 || blue < 0 || blue > 255) {
 
         return 0;
 
@@ -1072,8 +1077,7 @@ static void dashboard_load_case_colors(void) {
     char database_error[256] = "";
     size_t document_count = 0;
 
-    if (!DATASTORE_list_documents(DASHBOARD_CASE_COLOR_KIND, documents,
-                                  sizeof(documents) / sizeof(documents[0]),
+    if (!DATASTORE_list_documents(DASHBOARD_CASE_COLOR_KIND, documents, sizeof(documents) / sizeof(documents[0]),
                                   &document_count, database_error, sizeof(database_error))) {
 
         return;
@@ -1088,8 +1092,8 @@ static void dashboard_load_case_colors(void) {
         char text[32];
         SDL_Color color;
 
-        if (strncmp(documents[i].document_name, DASHBOARD_CASE_COLOR_PREFIX,
-                    strlen(DASHBOARD_CASE_COLOR_PREFIX)) != 0 ||
+        if (strncmp(documents[i].document_name, DASHBOARD_CASE_COLOR_PREFIX, strlen(DASHBOARD_CASE_COLOR_PREFIX)) !=
+                0 ||
             !documents[i].case_number[0]) {
 
             continue;
@@ -1104,9 +1108,8 @@ static void dashboard_load_case_colors(void) {
 
         }
 
-        if (!DATASTORE_load_content(DASHBOARD_CASE_COLOR_KIND, documents[i].document_name,
-                                    &content, &content_size, &found,
-                                    database_error, sizeof(database_error)) ||
+        if (!DATASTORE_load_content(DASHBOARD_CASE_COLOR_KIND, documents[i].document_name, &content, &content_size,
+                                    &found, database_error, sizeof(database_error)) ||
             !found || !content || content_size == 0 || content_size >= sizeof(text)) {
 
             DATASTORE_free_content(content, content_size);
@@ -1433,8 +1436,7 @@ static int dashboard_parse_coordinate(const char *text, double minimum, double m
     return 1;
 }
 
-static void dashboard_load_case_content(unsigned char *content, size_t content_size,
-                                        const char *document_name) {
+static void dashboard_load_case_content(unsigned char *content, size_t content_size, const char *document_name) {
     /*
         Purpose: Loads the case content
         Returns: No value
@@ -1507,14 +1509,12 @@ static void dashboard_load_case_content(unsigned char *content, size_t content_s
 
             if (field_count >= 12) {
 
-                has_valid_location =
-                    dashboard_parse_coordinate(fields[9], -90.0, 90.0, &latitude) &&
-                    dashboard_parse_coordinate(fields[10], -180.0, 180.0, &longitude);
+                has_valid_location = dashboard_parse_coordinate(fields[9], -90.0, 90.0, &latitude) &&
+                                     dashboard_parse_coordinate(fields[10], -180.0, 180.0, &longitude);
 
             }
 
-            if (field_count >= 12 && fields[0][0] &&
-                Global_Dashboard_Case_Point_Count < DASHBOARD_MAX_CASE_POINTS) {
+            if (field_count >= 12 && fields[0][0] && Global_Dashboard_Case_Point_Count < DASHBOARD_MAX_CASE_POINTS) {
 
                 int case_index = dashboard_case_index_for(fields[0]);
 
@@ -1592,13 +1592,10 @@ static int dashboard_reload_cases(Type_Dashboard_State *dashboard) {
     char database_error[256] = "";
     size_t document_count = 0;
 
-    if (Global_Dashboard_Selected_Signal >= 0 &&
-        Global_Dashboard_Selected_Signal < Global_Dashboard_Case_Point_Count) {
+    if (Global_Dashboard_Selected_Signal >= 0 && Global_Dashboard_Selected_Signal < Global_Dashboard_Case_Point_Count) {
 
-        Type_Dashboard_Case_Point *selected_point =
-            &Global_Dashboard_Case_Points[Global_Dashboard_Selected_Signal];
-        dashboard_copy_text(selected_signal_document, sizeof(selected_signal_document),
-                            selected_point->document_name);
+        Type_Dashboard_Case_Point *selected_point = &Global_Dashboard_Case_Points[Global_Dashboard_Selected_Signal];
+        dashboard_copy_text(selected_signal_document, sizeof(selected_signal_document), selected_point->document_name);
         selected_signal_row = selected_point->document_row_index;
         restore_selected_signal = selected_signal_document[0] != '\0';
 
@@ -1674,6 +1671,7 @@ static int dashboard_reload_cases(Type_Dashboard_State *dashboard) {
 
             }
         }
+
     }
 
     if (dashboard) {
@@ -1845,8 +1843,7 @@ void dashboard_draw_case_points(Type_Dashboard_State *dashboard, SDL_Renderer *r
     for (int i = 0; i < Global_Dashboard_Case_Point_Count; i++) {
         Type_Dashboard_Case_Point *pt = &Global_Dashboard_Case_Points[i];
 
-        if (pt->case_index < 0 || pt->case_index >= Global_Dashboard_Case_Count ||
-            !pt->has_valid_location) {
+        if (pt->case_index < 0 || pt->case_index >= Global_Dashboard_Case_Count || !pt->has_valid_location) {
 
             continue;
 
@@ -1894,8 +1891,7 @@ static int dashboard_select_case_at(Type_Dashboard_State *dashboard, SDL_Rect ma
         int sx = 0;
         int sy = 0;
 
-        if (!pt->has_valid_location ||
-            !dashboard_lonlat_to_screen(pt->longitude, pt->latitude, map, &sx, &sy)) {
+        if (!pt->has_valid_location || !dashboard_lonlat_to_screen(pt->longitude, pt->latitude, map, &sx, &sy)) {
 
             continue;
 
@@ -2039,10 +2035,8 @@ static int dashboard_description_text_width(TTF_Font *font, const char *text) {
     return width;
 }
 
-static void dashboard_description_emit_line(SDL_Renderer *renderer, TTF_Font *font,
-                                            const char *line, SDL_Rect rect,
-                                            SDL_Color color, int first_line,
-                                            int visible_lines, int line_height,
+static void dashboard_description_emit_line(SDL_Renderer *renderer, TTF_Font *font, const char *line, SDL_Rect rect,
+                                            SDL_Color color, int first_line, int visible_lines, int line_height,
                                             int *line_index) {
     /*
         Purpose: Counts and conditionally draws one wrapped description line
@@ -2055,19 +2049,17 @@ static void dashboard_description_emit_line(SDL_Renderer *renderer, TTF_Font *fo
 
     }
 
-    if (renderer && font && line && *line_index >= first_line &&
-        *line_index < first_line + visible_lines && line[0] != '\0') {
+    if (renderer && font && line && *line_index >= first_line && *line_index < first_line + visible_lines &&
+        line[0] != '\0') {
 
-        draw_text(renderer, font, line, rect.x,
-                  rect.y + (*line_index - first_line) * line_height, color);
+        draw_text(renderer, font, line, rect.x, rect.y + (*line_index - first_line) * line_height, color);
 
     }
 
     (*line_index)++;
 }
 
-static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *font,
-                                           const char *text, SDL_Rect rect,
+static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *font, const char *text, SDL_Rect rect,
                                            SDL_Color color, int first_line) {
     /*
         Purpose: Wraps, clips, and optionally scrolls the selected case description
@@ -2118,7 +2110,7 @@ static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *fon
 
     }
 
-    for (const unsigned char *cursor = (const unsigned char *)text; ; cursor++) {
+    for (const unsigned char *cursor = (const unsigned char *)text;; cursor++) {
         unsigned char character = *cursor;
 
         if (character == '\r') {
@@ -2130,16 +2122,13 @@ static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *fon
         if (character == '\n' || character == '\0') {
 
             while (line_length > 0 && line[line_length - 1] == ' ') {
-
                 line[--line_length] = '\0';
-
             }
 
             if (line_length > 0 || character == '\n') {
 
-                dashboard_description_emit_line(renderer, font, line, rect, color,
-                                                first_line, visible_lines, line_height,
-                                                &line_index);
+                dashboard_description_emit_line(renderer, font, line, rect, color, first_line, visible_lines,
+                                                line_height, &line_index);
 
             }
 
@@ -2170,8 +2159,7 @@ static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *fon
 
         if (line_length + 1 >= (int)sizeof(line)) {
 
-            dashboard_description_emit_line(renderer, font, line, rect, color,
-                                            first_line, visible_lines, line_height,
+            dashboard_description_emit_line(renderer, font, line, rect, color, first_line, visible_lines, line_height,
                                             &line_index);
             line[0] = '\0';
             line_length = 0;
@@ -2201,6 +2189,7 @@ static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *fon
             }
 
             if (break_position > 0) {
+
                 char remainder[512];
                 int remainder_length;
 
@@ -2209,24 +2198,19 @@ static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *fon
                 line_length = break_position;
 
                 while (line_length > 0 && line[line_length - 1] == ' ') {
-
                     line[--line_length] = '\0';
-
                 }
 
-                dashboard_description_emit_line(renderer, font, line, rect, color,
-                                                first_line, visible_lines, line_height,
-                                                &line_index);
+                dashboard_description_emit_line(renderer, font, line, rect, color, first_line, visible_lines,
+                                                line_height, &line_index);
 
                 snprintf(line, sizeof(line), "%s", remainder);
                 line_length = (int)strlen(line);
                 remainder_length = line_length;
 
                 while (remainder_length > 0 && line[0] == ' ') {
-
                     memmove(line, line + 1, (size_t)remainder_length);
                     remainder_length--;
-
                 }
 
                 line_length = remainder_length;
@@ -2234,6 +2218,7 @@ static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *fon
             }
 
             else {
+
                 char remainder[512];
                 int fit_length = line_length - 1;
 
@@ -2261,9 +2246,8 @@ static int dashboard_wrap_description_text(SDL_Renderer *renderer, TTF_Font *fon
 
                 snprintf(remainder, sizeof(remainder), "%s", line + fit_length);
                 line[fit_length] = '\0';
-                dashboard_description_emit_line(renderer, font, line, rect, color,
-                                                first_line, visible_lines, line_height,
-                                                &line_index);
+                dashboard_description_emit_line(renderer, font, line, rect, color, first_line, visible_lines,
+                                                line_height, &line_index);
                 snprintf(line, sizeof(line), "%s", remainder);
                 line_length = (int)strlen(line);
 
@@ -2624,9 +2608,7 @@ static void dashboard_case_image_trim_path(char *path) {
     start = path;
 
     while (*start && isspace((unsigned char)*start)) {
-
         start++;
-
     }
 
     if (start != path) {
@@ -2638,14 +2620,12 @@ static void dashboard_case_image_trim_path(char *path) {
     length = strlen(path);
 
     while (length > 0 && isspace((unsigned char)path[length - 1])) {
-
         path[--length] = '\0';
-
     }
 }
 
-static int dashboard_case_image_read_file(const char *path, unsigned char **content, size_t *content_size,
-                                          char *error, size_t error_size) {
+static int dashboard_case_image_read_file(const char *path, unsigned char **content, size_t *content_size, char *error,
+                                          size_t error_size) {
     /*
         Purpose: Reads a bounded local image file selected by path
         Returns: Success status
@@ -2858,8 +2838,8 @@ static SDL_Texture *dashboard_case_image_load_texture(SDL_Renderer *renderer, co
 
         dashboard_case_image_clear_cache();
         Global_Dashboard_Case_Image_Texture_Renderer = renderer;
-        dashboard_copy_text(Global_Dashboard_Case_Image_Loaded_Case,
-                            sizeof(Global_Dashboard_Case_Image_Loaded_Case), case_number);
+        dashboard_copy_text(Global_Dashboard_Case_Image_Loaded_Case, sizeof(Global_Dashboard_Case_Image_Loaded_Case),
+                            case_number);
 
     }
 
@@ -2912,6 +2892,7 @@ static void dashboard_case_image_draw_preview(SDL_Renderer *renderer, TTF_Font *
     (void)font;
 
     if (!texture || Global_Dashboard_Case_Image_Texture_W <= 0 || Global_Dashboard_Case_Image_Texture_H <= 0) {
+
         SDL_Color question_color = {220, 220, 220, 255};
         int available_w = rect.w - 20;
         int available_h = rect.h - 20;
@@ -2969,14 +2950,13 @@ static void dashboard_case_image_draw_preview(SDL_Renderer *renderer, TTF_Font *
 
         top = (SDL_Rect){question_x + thickness, question_y, question_w - (thickness * 2), thickness};
         upper_left = (SDL_Rect){question_x, question_y + thickness, thickness, question_h / 5};
-        upper_right = (SDL_Rect){question_x + question_w - thickness, question_y + thickness, thickness,
-                                 question_h / 3};
-        middle = (SDL_Rect){question_x + question_w / 2, question_y + question_h / 3,
-                            question_w / 2, thickness};
-        stem = (SDL_Rect){question_x + question_w / 2 - thickness / 2,
-                          question_y + question_h / 3, thickness, question_h / 3};
-        dot = (SDL_Rect){question_x + question_w / 2 - thickness / 2,
-                         question_y + question_h - thickness, thickness, thickness};
+        upper_right =
+            (SDL_Rect){question_x + question_w - thickness, question_y + thickness, thickness, question_h / 3};
+        middle = (SDL_Rect){question_x + question_w / 2, question_y + question_h / 3, question_w / 2, thickness};
+        stem = (SDL_Rect){question_x + question_w / 2 - thickness / 2, question_y + question_h / 3, thickness,
+                          question_h / 3};
+        dot = (SDL_Rect){question_x + question_w / 2 - thickness / 2, question_y + question_h - thickness, thickness,
+                         thickness};
 
         draw_filled_rect(renderer, top, question_color);
         draw_filled_rect(renderer, upper_left, question_color);
@@ -3049,8 +3029,8 @@ static void dashboard_case_image_insert_text(const char *text) {
 
     }
 
-    memmove(Global_Dashboard_Case_Image_Path + cursor + (int)added,
-            Global_Dashboard_Case_Image_Path + cursor, length - (size_t)cursor + 1U);
+    memmove(Global_Dashboard_Case_Image_Path + cursor + (int)added, Global_Dashboard_Case_Image_Path + cursor,
+            length - (size_t)cursor + 1U);
     memcpy(Global_Dashboard_Case_Image_Path + cursor, text, added);
     Global_Dashboard_Case_Image_Path_Cursor = cursor + (int)added;
 }
@@ -3143,12 +3123,12 @@ static void dashboard_case_image_draw_path_input(SDL_Renderer *renderer, TTF_Fon
     }
 
     draw_filled_rect(renderer, rect, (SDL_Color){0, 12, 5, 255});
-    draw_outline_rect(renderer, rect,
-                      Global_Dashboard_Case_Image_Path_Active ? Dashboard_Border_Hi : Dashboard_Border);
+    draw_outline_rect(renderer, rect, Global_Dashboard_Case_Image_Path_Active ? Dashboard_Border_Hi : Dashboard_Border);
 
     SDL_RenderSetClipRect(renderer, &rect);
 
     if (text[0]) {
+
         char visible[DASHBOARD_CASE_IMAGE_PATH_MAX];
         int visible_length = end - start;
 
@@ -3163,6 +3143,7 @@ static void dashboard_case_image_draw_path_input(SDL_Renderer *renderer, TTF_Fon
         draw_text(renderer, font, visible, rect.x + 8, rect.y + 7, text_color);
 
         if (Global_Dashboard_Case_Image_Path_Active && ((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
+
             char before[DASHBOARD_CASE_IMAGE_PATH_MAX];
             int before_length = cursor - start;
             int text_w = 0;
@@ -3193,6 +3174,7 @@ static void dashboard_case_image_draw_path_input(SDL_Renderer *renderer, TTF_Fon
             SDL_SetRenderDrawColor(renderer, Dashboard_Border_Hi.r, Dashboard_Border_Hi.g, Dashboard_Border_Hi.b,
                                    Dashboard_Border_Hi.a);
             SDL_RenderDrawLine(renderer, cursor_x, rect.y + 5, cursor_x, rect.y + rect.h - 5);
+
         }
 
     }
@@ -3220,9 +3202,7 @@ static void dashboard_case_color_sync_inputs(SDL_Color color) {
              (unsigned int)color.b);
 
     for (int i = 0; i < DASHBOARD_CASE_COLOR_FIELD_COUNT; i++) {
-
         Global_Dashboard_Case_Color_Cursor[i] = (int)strlen(Global_Dashboard_Case_Color_Text[i]);
-
     }
 }
 
@@ -3237,8 +3217,7 @@ static void dashboard_case_color_insert_text(const char *text) {
     size_t length;
 
     if (Global_Dashboard_Case_Color_Active < 0 ||
-        Global_Dashboard_Case_Color_Active >= DASHBOARD_CASE_COLOR_FIELD_COUNT ||
-        !text || !text[0]) {
+        Global_Dashboard_Case_Color_Active >= DASHBOARD_CASE_COLOR_FIELD_COUNT || !text || !text[0]) {
 
         return;
 
@@ -3290,8 +3269,7 @@ static int dashboard_case_color_save(Type_Dashboard_State *dashboard) {
     char document_name[256];
     char database_error[256] = "";
 
-    if (!dashboard || dashboard->selected_case < 0 ||
-        dashboard->selected_case >= Global_Dashboard_Case_Count) {
+    if (!dashboard || dashboard->selected_case < 0 || dashboard->selected_case >= Global_Dashboard_Case_Count) {
 
         return 0;
 
@@ -3326,11 +3304,10 @@ static int dashboard_case_color_save(Type_Dashboard_State *dashboard) {
     snprintf(content, sizeof(content), "%d,%d,%d", values[0], values[1], values[2]);
     dashboard_case_color_document_name(info->case_number, document_name, sizeof(document_name));
 
-    if (!DATASTORE_save_content(DASHBOARD_CASE_COLOR_KIND, document_name, info->case_number,
-                                content, strlen(content), database_error, sizeof(database_error))) {
+    if (!DATASTORE_save_content(DASHBOARD_CASE_COLOR_KIND, document_name, info->case_number, content, strlen(content),
+                                database_error, sizeof(database_error))) {
 
-        snprintf(dashboard->status, sizeof(dashboard->status),
-                 "Unable to update case color: %.170s", database_error);
+        snprintf(dashboard->status, sizeof(dashboard->status), "Unable to update case color: %.170s", database_error);
         return 0;
 
     }
@@ -3339,13 +3316,11 @@ static int dashboard_case_color_save(Type_Dashboard_State *dashboard) {
     Global_Dashboard_Case_Color_Active = -1;
     dashboard->case_desc_editing = Global_Dashboard_Case_Image_Path_Active;
     dashboard_case_color_sync_inputs(color);
-    snprintf(dashboard->status, sizeof(dashboard->status),
-             "Case color updated for all connected users.");
+    snprintf(dashboard->status, sizeof(dashboard->status), "Case color updated for all connected users.");
     return 1;
 }
 
-static void dashboard_case_color_draw_input(SDL_Renderer *renderer, TTF_Font *font,
-                                            SDL_Rect rect, int field_index) {
+static void dashboard_case_color_draw_input(SDL_Renderer *renderer, TTF_Font *font, SDL_Rect rect, int field_index) {
     /*
         Purpose: Draws one RGB channel input
         Returns: No value
@@ -3357,9 +3332,7 @@ static void dashboard_case_color_draw_input(SDL_Renderer *renderer, TTF_Font *fo
 
     draw_filled_rect(renderer, rect, (SDL_Color){0, 9, 4, 255});
     draw_outline_rect(renderer, rect,
-                      Global_Dashboard_Case_Color_Active == field_index
-                          ? Dashboard_Border_Hi
-                          : Dashboard_Border);
+                      Global_Dashboard_Case_Color_Active == field_index ? Dashboard_Border_Hi : Dashboard_Border);
 
     if (TTF_SizeText(font, text, &text_w, &text_h) != 0) {
 
@@ -3369,8 +3342,8 @@ static void dashboard_case_color_draw_input(SDL_Renderer *renderer, TTF_Font *fo
 
     draw_text(renderer, font, text, rect.x + (rect.w - text_w) / 2, rect.y + 7, Dashboard_Text);
 
-    if (Global_Dashboard_Case_Color_Active == field_index &&
-        ((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
+    if (Global_Dashboard_Case_Color_Active == field_index && ((SDL_GetTicks64() / 520ULL) % 2ULL) == 0ULL) {
+
         char before[4];
         int cursor = Global_Dashboard_Case_Color_Cursor[field_index];
         int cursor_w = 0;
@@ -3396,16 +3369,16 @@ static void dashboard_case_color_draw_input(SDL_Renderer *renderer, TTF_Font *fo
 
         }
 
-        SDL_SetRenderDrawColor(renderer, Dashboard_Border_Hi.r, Dashboard_Border_Hi.g,
-                               Dashboard_Border_Hi.b, Dashboard_Border_Hi.a);
-        SDL_RenderDrawLine(renderer, rect.x + (rect.w - text_w) / 2 + cursor_w,
-                          rect.y + 5, rect.x + (rect.w - text_w) / 2 + cursor_w,
-                          rect.y + rect.h - 5);
+        SDL_SetRenderDrawColor(renderer, Dashboard_Border_Hi.r, Dashboard_Border_Hi.g, Dashboard_Border_Hi.b,
+                               Dashboard_Border_Hi.a);
+        SDL_RenderDrawLine(renderer, rect.x + (rect.w - text_w) / 2 + cursor_w, rect.y + 5,
+                           rect.x + (rect.w - text_w) / 2 + cursor_w, rect.y + rect.h - 5);
+
     }
 }
 
 void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *renderer, TTF_Font *font,
-                                 SDL_Rect sidebar) {
+                                 SDL_Rect sidebar, SDL_Rect map) {
     /*
         Purpose: Draws the selected case details, image, and image upload controls
         Returns: No value
@@ -3441,8 +3414,7 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
     }
 
-    dashboard->case_desc_editing =
-        Global_Dashboard_Case_Image_Path_Active || Global_Dashboard_Case_Color_Active >= 0;
+    dashboard->case_desc_editing = Global_Dashboard_Case_Image_Path_Active || Global_Dashboard_Case_Color_Active >= 0;
     SDL_GetMouseState(&mouse_x, &mouse_y);
 
     if (Global_Dashboard_Case_Color_Active < 0) {
@@ -3465,8 +3437,7 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
         char displayed_case[128];
 
         draw_text(renderer, font, "CASE", sidebar.x + 16, sidebar.y + 18, Dashboard_Muted);
-        dashboard_sdr_copy_truncated(font, displayed_case, sizeof(displayed_case),
-                                     info->case_number, sidebar.w - 32);
+        dashboard_sdr_copy_truncated(font, displayed_case, sizeof(displayed_case), info->case_number, sidebar.w - 32);
         draw_text(renderer, font, displayed_case, sidebar.x + 16, sidebar.y + 42, Dashboard_Text);
 
         for (int i = 0; i < DASHBOARD_CASE_COLOR_FIELD_COUNT; i++) {
@@ -3474,23 +3445,19 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
             Global_Dashboard_Case_Color_Rect[i] =
                 (SDL_Rect){group_x + i * (field_w + field_gap), field_y, field_w, field_h};
-            draw_text(renderer, font, label,
-                      Global_Dashboard_Case_Color_Rect[i].x + field_w / 2 - 4,
-                      field_y - 20, Dashboard_Muted);
-            dashboard_case_color_draw_input(renderer, font,
-                                            Global_Dashboard_Case_Color_Rect[i], i);
+            draw_text(renderer, font, label, Global_Dashboard_Case_Color_Rect[i].x + field_w / 2 - 4, field_y - 20,
+                      Dashboard_Muted);
+            dashboard_case_color_draw_input(renderer, font, Global_Dashboard_Case_Color_Rect[i], i);
         }
 
         Global_Dashboard_Case_Color_Apply_Rect =
             (SDL_Rect){group_x + 3 * (field_w + field_gap), field_y, apply_w, field_h};
         draw_filled_rect(renderer, Global_Dashboard_Case_Color_Apply_Rect,
-                         dashboard_point_in_rect(mouse_x, mouse_y,
-                                                 Global_Dashboard_Case_Color_Apply_Rect)
+                         dashboard_point_in_rect(mouse_x, mouse_y, Global_Dashboard_Case_Color_Apply_Rect)
                              ? (SDL_Color){0, 45, 18, 255}
                              : (SDL_Color){0, 20, 8, 255});
         draw_outline_rect(renderer, Global_Dashboard_Case_Color_Apply_Rect, Dashboard_Border);
-        dashboard_draw_text_centered(renderer, font, "Set",
-                                     Global_Dashboard_Case_Color_Apply_Rect, Dashboard_Text);
+        dashboard_draw_text_centered(renderer, font, "Set", Global_Dashboard_Case_Color_Apply_Rect, Dashboard_Text);
     }
 
     char count_line[128];
@@ -3498,8 +3465,7 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
     draw_text(renderer, font, count_line, sidebar.x + 16, sidebar.y + 72, Dashboard_Muted);
 
     draw_text(renderer, font, "Case Image", sidebar.x + 16, sidebar.y + 104, Dashboard_Text);
-    Global_Dashboard_Case_Image_Preview_Rect =
-        (SDL_Rect){sidebar.x + 16, sidebar.y + 130, sidebar.w - 32, preview_h};
+    Global_Dashboard_Case_Image_Preview_Rect = (SDL_Rect){sidebar.x + 16, sidebar.y + 130, sidebar.w - 32, preview_h};
     dashboard_case_image_draw_preview(renderer, font, Global_Dashboard_Case_Image_Preview_Rect, info->case_number);
 
     Global_Dashboard_Case_Image_Path_Rect =
@@ -3567,12 +3533,9 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
     }
 
-    description_line_count = dashboard_wrap_description_text(NULL, font, shown,
-                                                             desc_text_rect, Dashboard_Muted, 0);
+    description_line_count = dashboard_wrap_description_text(NULL, font, shown, desc_text_rect, Dashboard_Muted, 0);
     Global_Dashboard_Case_Description_Max_Scroll =
-        description_line_count > visible_description_lines
-            ? description_line_count - visible_description_lines
-            : 0;
+        description_line_count > visible_description_lines ? description_line_count - visible_description_lines : 0;
 
     if (Global_Dashboard_Case_Description_Scroll > Global_Dashboard_Case_Description_Max_Scroll) {
 
@@ -3584,9 +3547,9 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
                                     Global_Dashboard_Case_Description_Scroll);
 
     if (Global_Dashboard_Case_Description_Max_Scroll > 0) {
+
         SDL_Rect scroll_track = {dashboard->case_desc_rect.x + dashboard->case_desc_rect.w - 8,
-                                 dashboard->case_desc_rect.y + 8, 3,
-                                 dashboard->case_desc_rect.h - 16};
+                                 dashboard->case_desc_rect.y + 8, 3, dashboard->case_desc_rect.h - 16};
         int thumb_height = scroll_track.h * visible_description_lines / description_line_count;
         int thumb_travel;
         int thumb_y;
@@ -3608,15 +3571,15 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
         if (Global_Dashboard_Case_Description_Max_Scroll > 0 && thumb_travel > 0) {
 
-            thumb_y += thumb_travel * Global_Dashboard_Case_Description_Scroll /
-                       Global_Dashboard_Case_Description_Max_Scroll;
+            thumb_y +=
+                thumb_travel * Global_Dashboard_Case_Description_Scroll / Global_Dashboard_Case_Description_Max_Scroll;
 
         }
 
         draw_filled_rect(renderer, scroll_track, (SDL_Color){0, 35, 14, 255});
-        draw_filled_rect(renderer,
-                         (SDL_Rect){scroll_track.x, thumb_y, scroll_track.w, thumb_height},
+        draw_filled_rect(renderer, (SDL_Rect){scroll_track.x, thumb_y, scroll_track.w, thumb_height},
                          Dashboard_Border_Hi);
+
     }
 
     y = dashboard->case_desc_rect.y + dashboard->case_desc_rect.h + 12;
@@ -3631,10 +3594,8 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
     Global_Dashboard_Signal_Row_Count = 0;
 
     for (int i = 0; i < DASHBOARD_VISIBLE_SIGNAL_ROWS; i++) {
-
         Global_Dashboard_Signal_Row_Point_Index[i] = -1;
         Global_Dashboard_Signal_Row_Rect[i] = (SDL_Rect){0, 0, 0, 0};
-
     }
 
     int total_signals = 0;
@@ -3683,16 +3644,12 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
     }
 
-    Global_Dashboard_Signal_List_Rect =
-        (SDL_Rect){sidebar.x + 12, y - 3, sidebar.w - 24, visible_rows * 24};
+    Global_Dashboard_Signal_List_Rect = (SDL_Rect){sidebar.x + 12, y - 3, sidebar.w - 24, visible_rows * 24};
 
     int skipped_count = 0;
     int shown_count = 0;
 
-    for (int i = 0;
-         i < Global_Dashboard_Case_Point_Count && shown_count < visible_rows;
-         i++) {
-
+    for (int i = 0; i < Global_Dashboard_Case_Point_Count && shown_count < visible_rows; i++) {
         Type_Dashboard_Case_Point *pt = &Global_Dashboard_Case_Points[i];
 
         if (pt->case_index != dashboard->selected_case) {
@@ -3716,17 +3673,14 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
         if (hovered || selected) {
 
             draw_filled_rect(renderer, signal_row,
-                             selected ? (SDL_Color){0, 40, 16, 255}
-                                      : (SDL_Color){0, 25, 10, 255});
-            draw_outline_rect(renderer, signal_row,
-                              selected ? Dashboard_Border_Hi : Dashboard_Border);
+                             selected ? (SDL_Color){0, 40, 16, 255} : (SDL_Color){0, 25, 10, 255});
+            draw_outline_rect(renderer, signal_row, selected ? Dashboard_Border_Hi : Dashboard_Border);
 
         }
 
         if (pt->has_valid_location) {
 
-            snprintf(line, sizeof(line), "%s  %.4f, %.4f",
-                     pt->signal_name[0] ? pt->signal_name : "Unnamed signal",
+            snprintf(line, sizeof(line), "%s  %.4f, %.4f", pt->signal_name[0] ? pt->signal_name : "Unnamed signal",
                      pt->latitude, pt->longitude);
 
         }
@@ -3738,8 +3692,31 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
         }
 
-        draw_text(renderer, font, line, sidebar.x + 16, y,
-                  hovered || selected ? Dashboard_Text : Dashboard_Muted);
+        draw_text(renderer, font, line, sidebar.x + 16, y, hovered || selected ? Dashboard_Text : Dashboard_Muted);
+
+        if (hovered && pt->has_valid_location) {
+
+            int signal_x = 0;
+            int signal_y = 0;
+            int drag_x = 0;
+            int drag_y = 0;
+
+            if (dashboard_lonlat_to_screen(pt->longitude, pt->latitude, map, &signal_x, &signal_y)) {
+
+                WORLD_MAP_get_drag_offset(&drag_x, &drag_y);
+                signal_x += drag_x;
+                signal_y += drag_y;
+
+                if (dashboard_point_in_rect(signal_x, signal_y, map)) {
+
+                    dashboard_draw_case_dot(renderer, signal_x, signal_y, Global_Dashboard_Cases[pt->case_index].color,
+                                            1, 1);
+
+                }
+
+            }
+
+        }
 
         Global_Dashboard_Signal_Row_Rect[shown_count] = signal_row;
         Global_Dashboard_Signal_Row_Point_Index[shown_count] = i;
@@ -3747,10 +3724,8 @@ void dashboard_draw_case_sidebar(Type_Dashboard_State *dashboard, SDL_Renderer *
 
         y += 24;
         shown_count++;
-
     }
 }
-
 
 static int dashboard_classification_line_is_header(const unsigned char *line, size_t line_size) {
     /*
@@ -3811,8 +3786,7 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
 
     selected = Global_Dashboard_Case_Points[Global_Dashboard_Selected_Signal];
 
-    if (!selected.document_name[0] || selected.case_index < 0 ||
-        selected.case_index >= Global_Dashboard_Case_Count) {
+    if (!selected.document_name[0] || selected.case_index < 0 || selected.case_index >= Global_Dashboard_Case_Count) {
 
         snprintf(dashboard->status, sizeof(dashboard->status),
                  "Unable to identify the selected classification record.");
@@ -3820,15 +3794,13 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
 
     }
 
-    dashboard_copy_text(case_number, sizeof(case_number),
-                        Global_Dashboard_Cases[selected.case_index].case_number);
+    dashboard_copy_text(case_number, sizeof(case_number), Global_Dashboard_Cases[selected.case_index].case_number);
 
-    if (!DATASTORE_load_content(DATASTORE_KIND_CLASSIFICATION, selected.document_name,
-                                &content, &content_size, &found, database_error,
-                                sizeof(database_error))) {
+    if (!DATASTORE_load_content(DATASTORE_KIND_CLASSIFICATION, selected.document_name, &content, &content_size, &found,
+                                database_error, sizeof(database_error))) {
 
-        snprintf(dashboard->status, sizeof(dashboard->status),
-                 "Unable to load signal classification: %.170s", database_error);
+        snprintf(dashboard->status, sizeof(dashboard->status), "Unable to load signal classification: %.170s",
+                 database_error);
         return 0;
 
     }
@@ -3836,8 +3808,7 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
     if (!found || !content || content_size == 0) {
 
         DATASTORE_free_content(content, content_size);
-        snprintf(dashboard->status, sizeof(dashboard->status),
-                 "The selected classification no longer exists.");
+        snprintf(dashboard->status, sizeof(dashboard->status), "The selected classification no longer exists.");
         Global_Dashboard_Selected_Signal = -1;
         dashboard_reload_cases(dashboard);
         return 0;
@@ -3887,8 +3858,7 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
         if (first) {
 
             first = 0;
-            is_header = dashboard_classification_line_is_header(content + line_start,
-                                                                 trimmed_size);
+            is_header = dashboard_classification_line_is_header(content + line_start, trimmed_size);
 
         }
 
@@ -3912,6 +3882,7 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
         }
 
         if (!skip_line) {
+
             size_t span_size = span_end - line_start;
 
             memcpy(updated + updated_size, content + line_start, span_size);
@@ -3926,8 +3897,7 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
     if (!removed) {
 
         free(updated);
-        snprintf(dashboard->status, sizeof(dashboard->status),
-                 "The selected classification row could not be found.");
+        snprintf(dashboard->status, sizeof(dashboard->status), "The selected classification row could not be found.");
         Global_Dashboard_Selected_Signal = -1;
         dashboard_reload_cases(dashboard);
         return 0;
@@ -3936,13 +3906,12 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
 
     if (remaining_rows == 0) {
 
-        if (!DATASTORE_delete_content(DATASTORE_KIND_CLASSIFICATION,
-                                      selected.document_name, &deleted,
-                                      database_error, sizeof(database_error)) || !deleted) {
+        if (!DATASTORE_delete_content(DATASTORE_KIND_CLASSIFICATION, selected.document_name, &deleted, database_error,
+                                      sizeof(database_error)) ||
+            !deleted) {
 
             free(updated);
-            snprintf(dashboard->status, sizeof(dashboard->status),
-                     "Unable to delete signal classification: %.165s",
+            snprintf(dashboard->status, sizeof(dashboard->status), "Unable to delete signal classification: %.165s",
                      database_error[0] ? database_error : "record was not deleted");
             return 0;
 
@@ -3950,14 +3919,12 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
 
     }
 
-    else if (!DATASTORE_save_content(DATASTORE_KIND_CLASSIFICATION,
-                                     selected.document_name, case_number,
-                                     updated, updated_size, database_error,
-                                     sizeof(database_error))) {
+    else if (!DATASTORE_save_content(DATASTORE_KIND_CLASSIFICATION, selected.document_name, case_number, updated,
+                                     updated_size, database_error, sizeof(database_error))) {
 
         free(updated);
-        snprintf(dashboard->status, sizeof(dashboard->status),
-                 "Unable to update signal classification: %.170s", database_error);
+        snprintf(dashboard->status, sizeof(dashboard->status), "Unable to update signal classification: %.170s",
+                 database_error);
         return 0;
 
     }
@@ -3969,13 +3936,11 @@ static int dashboard_delete_selected_signal(Type_Dashboard_State *dashboard) {
     Global_Dashboard_Signal_Delete_Rect = (SDL_Rect){0, 0, 0, 0};
     dashboard_reload_cases(dashboard);
     dashboard->last_case_scan_ms = SDL_GetTicks64();
-    snprintf(dashboard->status, sizeof(dashboard->status),
-             "Signal classification deleted.");
+    snprintf(dashboard->status, sizeof(dashboard->status), "Signal classification deleted.");
     return 1;
 }
 
-static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
-                                        const char *label, const char *value,
+static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font, const char *label, const char *value,
                                         SDL_Rect rect) {
     /*
         Purpose: Draws one read-only signal classification field
@@ -3983,8 +3948,7 @@ static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
     */
 
     SDL_Rect value_rect = {rect.x, rect.y + 18, rect.w, rect.h - 18};
-    SDL_Rect text_rect = {value_rect.x + 7, value_rect.y + 4,
-                          value_rect.w - 14, value_rect.h - 8};
+    SDL_Rect text_rect = {value_rect.x + 7, value_rect.y + 4, value_rect.w - 14, value_rect.h - 8};
     const char *shown = value && value[0] ? value : "(not set)";
 
     draw_text(renderer, font, label, rect.x, rect.y, Dashboard_Muted);
@@ -3992,11 +3956,11 @@ static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
     draw_outline_rect(renderer, value_rect, Dashboard_Border);
 
     if (rect.h <= 50) {
+
         char fitted[512];
         int text_y;
 
-        dashboard_sdr_copy_truncated(font, fitted, sizeof(fitted), shown,
-                                     text_rect.w);
+        dashboard_sdr_copy_truncated(font, fitted, sizeof(fitted), shown, text_rect.w);
         text_y = value_rect.y + (value_rect.h - TTF_FontHeight(font)) / 2;
 
         if (text_y < value_rect.y + 2) {
@@ -4007,6 +3971,7 @@ static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
 
         draw_text(renderer, font, fitted, text_rect.x, text_y, Dashboard_Text);
         return;
+
     }
 
     {
@@ -4022,24 +3987,21 @@ static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
 
             line[0] = '\0';
 
-            while (cursor[line_length] && cursor[line_length] != '\n' &&
-                   line_length + 1 < sizeof(line)) {
+            while (cursor[line_length] && cursor[line_length] != '\n' && line_length + 1 < sizeof(line)) {
                 int text_w = 0;
                 int text_h = 0;
 
                 line[line_length] = cursor[line_length];
                 line[line_length + 1] = '\0';
 
-                if (cursor[line_length] == ' ' || cursor[line_length] == '\t' ||
-                    cursor[line_length] == '/' || cursor[line_length] == '_' ||
-                    cursor[line_length] == '-' || cursor[line_length] == '.') {
+                if (cursor[line_length] == ' ' || cursor[line_length] == '\t' || cursor[line_length] == '/' ||
+                    cursor[line_length] == '_' || cursor[line_length] == '-' || cursor[line_length] == '.') {
 
                     last_break = line_length + 1;
 
                 }
 
-                if (TTF_SizeText(font, line, &text_w, &text_h) == 0 &&
-                    text_w > text_rect.w) {
+                if (TTF_SizeText(font, line, &text_w, &text_h) == 0 && text_w > text_rect.w) {
 
                     if (last_break > 0) {
 
@@ -4068,11 +4030,8 @@ static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
 
             consume_length = line_length;
 
-            while (line_length > 0 &&
-                   (cursor[line_length - 1] == ' ' || cursor[line_length - 1] == '\t')) {
-
+            while (line_length > 0 && (cursor[line_length - 1] == ' ' || cursor[line_length - 1] == '\t')) {
                 line_length--;
-
             }
 
             if (line_length >= sizeof(line)) {
@@ -4099,9 +4058,7 @@ static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
             }
 
             while (*cursor == ' ' || *cursor == '\t') {
-
                 cursor++;
-
             }
 
             y += line_h;
@@ -4109,10 +4066,8 @@ static void dashboard_draw_signal_field(SDL_Renderer *renderer, TTF_Font *font,
     }
 }
 
-static void dashboard_draw_signal_popup(Type_Dashboard_State *dashboard,
-                                        SDL_Renderer *renderer, TTF_Font *font,
-                                        int win_w, int win_h, int mouse_x,
-                                        int mouse_y) {
+static void dashboard_draw_signal_popup(Type_Dashboard_State *dashboard, SDL_Renderer *renderer, TTF_Font *font,
+                                        int win_w, int win_h, int mouse_x, int mouse_y) {
     /*
         Purpose: Draws the read-only signal classification popup
         Returns: No value
@@ -4174,77 +4129,59 @@ static void dashboard_draw_signal_popup(Type_Dashboard_State *dashboard,
 
     }
 
-    popup = (SDL_Rect){(win_w - popup_w) / 2, (win_h - popup_h) / 2,
-                       popup_w, popup_h};
+    popup = (SDL_Rect){(win_w - popup_w) / 2, (win_h - popup_h) / 2, popup_w, popup_h};
     Global_Dashboard_Signal_Popup_Rect = popup;
-    Global_Dashboard_Signal_Popup_Close_Rect =
-        (SDL_Rect){popup.x + popup.w - 46, popup.y + 14, 30, 28};
-    Global_Dashboard_Signal_Delete_Rect =
-        (SDL_Rect){popup.x + popup.w - 176, popup.y + popup.h - 50, 156, 34};
+    Global_Dashboard_Signal_Popup_Close_Rect = (SDL_Rect){popup.x + popup.w - 46, popup.y + 14, 30, 28};
+    Global_Dashboard_Signal_Delete_Rect = (SDL_Rect){popup.x + popup.w - 176, popup.y + popup.h - 50, 156, 34};
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     draw_filled_rect(renderer, overlay, (SDL_Color){0, 0, 0, 185});
     draw_filled_rect(renderer, popup, (SDL_Color){0, 7, 3, 252});
     draw_outline_rect(renderer, popup, case_info->color);
 
-    draw_text(renderer, font, "SIGNAL CLASSIFICATION DETAILS",
-              popup.x + margin, popup.y + 18, Dashboard_Text);
+    draw_text(renderer, font, "SIGNAL CLASSIFICATION DETAILS", popup.x + margin, popup.y + 18, Dashboard_Text);
 
     dashboard_sdr_copy_truncated(font, shown_signal, sizeof(shown_signal),
-                                 point->signal_name[0] ? point->signal_name : "Unnamed signal",
-                                 popup.w - 150);
-    snprintf(subtitle, sizeof(subtitle), "%s  |  Case: %s",
-             shown_signal, case_info->case_number);
-    draw_text(renderer, font, subtitle, popup.x + margin, popup.y + 43,
-              Dashboard_Muted);
+                                 point->signal_name[0] ? point->signal_name : "Unnamed signal", popup.w - 150);
+    snprintf(subtitle, sizeof(subtitle), "%s  |  Case: %s", shown_signal, case_info->case_number);
+    draw_text(renderer, font, subtitle, popup.x + margin, popup.y + 43, Dashboard_Muted);
 
     draw_filled_rect(renderer, Global_Dashboard_Signal_Popup_Close_Rect,
-                     dashboard_point_in_rect(mouse_x, mouse_y,
-                                             Global_Dashboard_Signal_Popup_Close_Rect)
+                     dashboard_point_in_rect(mouse_x, mouse_y, Global_Dashboard_Signal_Popup_Close_Rect)
                          ? (SDL_Color){0, 40, 16, 255}
                          : (SDL_Color){0, 18, 7, 255});
-    draw_outline_rect(renderer, Global_Dashboard_Signal_Popup_Close_Rect,
-                      Dashboard_Border);
-    dashboard_draw_text_centered(renderer, font, "X",
-                                 Global_Dashboard_Signal_Popup_Close_Rect,
-                                 Dashboard_Text);
+    draw_outline_rect(renderer, Global_Dashboard_Signal_Popup_Close_Rect, Dashboard_Border);
+    dashboard_draw_text_centered(renderer, font, "X", Global_Dashboard_Signal_Popup_Close_Rect, Dashboard_Text);
 
     column_w = (popup.w - margin * 2 - gap) / 2;
     y = popup.y + 72;
 
-    dashboard_draw_signal_field(renderer, font, "Frequency (MHz)",
-                                point->frequency_mhz,
+    dashboard_draw_signal_field(renderer, font, "Frequency (MHz)", point->frequency_mhz,
                                 (SDL_Rect){popup.x + margin, y, column_w, field_h});
     dashboard_draw_signal_field(renderer, font, "Bandwidth", point->bandwidth,
-                                (SDL_Rect){popup.x + margin + column_w + gap, y,
-                                           column_w, field_h});
+                                (SDL_Rect){popup.x + margin + column_w + gap, y, column_w, field_h});
     y += field_h + 7;
 
     dashboard_draw_signal_field(renderer, font, "Start Time", point->start_time,
                                 (SDL_Rect){popup.x + margin, y, column_w, field_h});
     dashboard_draw_signal_field(renderer, font, "End Time", point->end_time,
-                                (SDL_Rect){popup.x + margin + column_w + gap, y,
-                                           column_w, field_h});
+                                (SDL_Rect){popup.x + margin + column_w + gap, y, column_w, field_h});
     y += field_h + 7;
 
-    dashboard_draw_signal_field(renderer, font, "Calculated Modulation",
-                                point->calculated_modulation,
+    dashboard_draw_signal_field(renderer, font, "Calculated Modulation", point->calculated_modulation,
                                 (SDL_Rect){popup.x + margin, y, column_w, field_h});
     dashboard_draw_signal_field(renderer, font, "Signal Class", point->signal_class,
-                                (SDL_Rect){popup.x + margin + column_w + gap, y,
-                                           column_w, field_h});
+                                (SDL_Rect){popup.x + margin + column_w + gap, y, column_w, field_h});
     y += field_h + 7;
 
     dashboard_draw_signal_field(renderer, font, "Country", point->country,
                                 (SDL_Rect){popup.x + margin, y, column_w, field_h});
     dashboard_draw_signal_field(renderer, font, "Latitude", point->latitude_text,
-                                (SDL_Rect){popup.x + margin + column_w + gap, y,
-                                           column_w, field_h});
+                                (SDL_Rect){popup.x + margin + column_w + gap, y, column_w, field_h});
     y += field_h + 7;
 
     dashboard_draw_signal_field(renderer, font, "Longitude", point->longitude_text,
-                                (SDL_Rect){popup.x + margin, y,
-                                           popup.w - margin * 2, field_h});
+                                (SDL_Rect){popup.x + margin, y, popup.w - margin * 2, field_h});
     y += field_h + 7;
 
     {
@@ -4258,29 +4195,23 @@ static void dashboard_draw_signal_popup(Type_Dashboard_State *dashboard,
         }
 
         dashboard_draw_signal_field(renderer, font, "Notes", point->notes,
-                                    (SDL_Rect){popup.x + margin, y,
-                                               popup.w - margin * 2, notes_h});
+                                    (SDL_Rect){popup.x + margin, y, popup.w - margin * 2, notes_h});
         y += notes_h + 7;
         dashboard_draw_signal_field(renderer, font, "File Name", point->file_name,
-                                    (SDL_Rect){popup.x + margin, y,
-                                               popup.w - margin * 2, filename_h});
+                                    (SDL_Rect){popup.x + margin, y, popup.w - margin * 2, filename_h});
     }
 
     draw_filled_rect(renderer, Global_Dashboard_Signal_Delete_Rect,
-                     dashboard_point_in_rect(mouse_x, mouse_y,
-                                             Global_Dashboard_Signal_Delete_Rect)
+                     dashboard_point_in_rect(mouse_x, mouse_y, Global_Dashboard_Signal_Delete_Rect)
                          ? (SDL_Color){90, 12, 12, 255}
                          : (SDL_Color){48, 7, 7, 255});
-    draw_outline_rect(renderer, Global_Dashboard_Signal_Delete_Rect,
-                      (SDL_Color){255, 80, 80, 255});
-    dashboard_draw_text_centered(renderer, font, "Delete Signal",
-                                 Global_Dashboard_Signal_Delete_Rect,
+    draw_outline_rect(renderer, Global_Dashboard_Signal_Delete_Rect, (SDL_Color){255, 80, 80, 255});
+    dashboard_draw_text_centered(renderer, font, "Delete Signal", Global_Dashboard_Signal_Delete_Rect,
                                  (SDL_Color){255, 200, 200, 255});
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
-static int dashboard_handle_signal_popup_event(Type_Dashboard_State *dashboard,
-                                               const SDL_Event *event) {
+static int dashboard_handle_signal_popup_event(Type_Dashboard_State *dashboard, const SDL_Event *event) {
     /*
         Purpose: Handles the signal detail popup and destructive delete button
         Returns: Handling status
@@ -4306,27 +4237,23 @@ static int dashboard_handle_signal_popup_event(Type_Dashboard_State *dashboard,
 
     }
 
-    if (event->type == SDL_MOUSEBUTTONDOWN &&
-        event->button.button == SDL_BUTTON_LEFT) {
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
 
-        if (dashboard_point_in_rect(event->button.x, event->button.y,
-                                    Global_Dashboard_Signal_Delete_Rect)) {
+        if (dashboard_point_in_rect(event->button.x, event->button.y, Global_Dashboard_Signal_Delete_Rect)) {
 
             dashboard_delete_selected_signal(dashboard);
             return 1;
 
         }
 
-        if (dashboard_point_in_rect(event->button.x, event->button.y,
-                                    Global_Dashboard_Signal_Popup_Close_Rect)) {
+        if (dashboard_point_in_rect(event->button.x, event->button.y, Global_Dashboard_Signal_Popup_Close_Rect)) {
 
             Global_Dashboard_Selected_Signal = -1;
             return 1;
 
         }
 
-        if (!dashboard_point_in_rect(event->button.x, event->button.y,
-                                     Global_Dashboard_Signal_Popup_Rect)) {
+        if (!dashboard_point_in_rect(event->button.x, event->button.y, Global_Dashboard_Signal_Popup_Rect)) {
 
             Global_Dashboard_Selected_Signal = -1;
             return 1;
@@ -4337,8 +4264,8 @@ static int dashboard_handle_signal_popup_event(Type_Dashboard_State *dashboard,
 
     }
 
-    if (event->type == SDL_MOUSEBUTTONUP || event->type == SDL_MOUSEMOTION ||
-        event->type == SDL_MOUSEWHEEL || event->type == SDL_TEXTINPUT) {
+    if (event->type == SDL_MOUSEBUTTONUP || event->type == SDL_MOUSEMOTION || event->type == SDL_MOUSEWHEEL ||
+        event->type == SDL_TEXTINPUT) {
 
         return 1;
 
@@ -4515,6 +4442,7 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
     }
 
     if (event->type == SDL_MOUSEWHEEL) {
+
         int mouse_x = 0;
         int mouse_y = 0;
 
@@ -4531,11 +4459,9 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
 
             }
 
-            if (Global_Dashboard_Case_Description_Scroll >
-                Global_Dashboard_Case_Description_Max_Scroll) {
+            if (Global_Dashboard_Case_Description_Scroll > Global_Dashboard_Case_Description_Max_Scroll) {
 
-                Global_Dashboard_Case_Description_Scroll =
-                    Global_Dashboard_Case_Description_Max_Scroll;
+                Global_Dashboard_Case_Description_Scroll = Global_Dashboard_Case_Description_Max_Scroll;
 
             }
 
@@ -4554,17 +4480,16 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
 
             }
 
-            if (Global_Dashboard_Signal_Scroll >
-                Global_Dashboard_Signal_Max_Scroll) {
+            if (Global_Dashboard_Signal_Scroll > Global_Dashboard_Signal_Max_Scroll) {
 
-                Global_Dashboard_Signal_Scroll =
-                    Global_Dashboard_Signal_Max_Scroll;
+                Global_Dashboard_Signal_Scroll = Global_Dashboard_Signal_Max_Scroll;
 
             }
 
             return 1;
 
         }
+
     }
 
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
@@ -4572,11 +4497,9 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
         for (int i = 0; i < Global_Dashboard_Signal_Row_Count; i++) {
 
             if (Global_Dashboard_Signal_Row_Point_Index[i] >= 0 &&
-                dashboard_point_in_rect(event->button.x, event->button.y,
-                                        Global_Dashboard_Signal_Row_Rect[i])) {
+                dashboard_point_in_rect(event->button.x, event->button.y, Global_Dashboard_Signal_Row_Rect[i])) {
 
-                Global_Dashboard_Selected_Signal =
-                    Global_Dashboard_Signal_Row_Point_Index[i];
+                Global_Dashboard_Selected_Signal = Global_Dashboard_Signal_Row_Point_Index[i];
                 Global_Dashboard_Case_Image_Path_Active = 0;
                 Global_Dashboard_Case_Color_Active = -1;
                 dashboard->case_desc_editing = 0;
@@ -4587,12 +4510,10 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
 
         for (int i = 0; i < DASHBOARD_CASE_COLOR_FIELD_COUNT; i++) {
 
-            if (dashboard_point_in_rect(event->button.x, event->button.y,
-                                        Global_Dashboard_Case_Color_Rect[i])) {
+            if (dashboard_point_in_rect(event->button.x, event->button.y, Global_Dashboard_Case_Color_Rect[i])) {
 
                 Global_Dashboard_Case_Color_Active = i;
-                Global_Dashboard_Case_Color_Cursor[i] =
-                    (int)strlen(Global_Dashboard_Case_Color_Text[i]);
+                Global_Dashboard_Case_Color_Cursor[i] = (int)strlen(Global_Dashboard_Case_Color_Text[i]);
                 Global_Dashboard_Case_Image_Path_Active = 0;
                 dashboard->case_desc_editing = 1;
                 SDL_StartTextInput();
@@ -4601,8 +4522,7 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
             }
         }
 
-        if (dashboard_point_in_rect(event->button.x, event->button.y,
-                                    Global_Dashboard_Case_Color_Apply_Rect)) {
+        if (dashboard_point_in_rect(event->button.x, event->button.y, Global_Dashboard_Case_Color_Apply_Rect)) {
 
             dashboard_case_color_save(dashboard);
             return 1;
@@ -4635,6 +4555,7 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
     }
 
     if (Global_Dashboard_Case_Color_Active >= 0) {
+
         int field_index = Global_Dashboard_Case_Color_Active;
         char *field = Global_Dashboard_Case_Color_Text[field_index];
         int *cursor = &Global_Dashboard_Case_Color_Cursor[field_index];
@@ -4650,14 +4571,14 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
         }
 
         if (event->type == SDL_KEYDOWN) {
+
             SDL_Keycode key = event->key.keysym.sym;
 
             if (key == SDLK_BACKSPACE) {
 
                 if (*cursor > 0 && length > 0) {
 
-                    memmove(field + *cursor - 1, field + *cursor,
-                            (size_t)(length - *cursor) + 1U);
+                    memmove(field + *cursor - 1, field + *cursor, (size_t)(length - *cursor) + 1U);
                     (*cursor)--;
 
                 }
@@ -4669,8 +4590,7 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
 
                 if (*cursor >= 0 && *cursor < length) {
 
-                    memmove(field + *cursor, field + *cursor + 1,
-                            (size_t)(length - *cursor));
+                    memmove(field + *cursor, field + *cursor + 1, (size_t)(length - *cursor));
 
                 }
                 return 1;
@@ -4723,17 +4643,18 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
             if (key == SDLK_ESCAPE) {
 
                 Global_Dashboard_Case_Color_Active = -1;
-                dashboard_case_color_sync_inputs(
-                    Global_Dashboard_Cases[dashboard->selected_case].color);
+                dashboard_case_color_sync_inputs(Global_Dashboard_Cases[dashboard->selected_case].color);
                 dashboard->case_desc_editing = Global_Dashboard_Case_Image_Path_Active;
                 return 1;
 
             }
 
             return 1;
+
         }
 
         return 0;
+
     }
 
     if (!Global_Dashboard_Case_Image_Path_Active) {
@@ -4752,6 +4673,7 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
     }
 
     if (event->type == SDL_KEYDOWN) {
+
         SDL_Keycode key = event->key.keysym.sym;
         SDL_Keymod modifiers = SDL_GetModState();
         int length = (int)strlen(Global_Dashboard_Case_Image_Path);
@@ -4768,8 +4690,8 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
 
             if (cursor > 0 && length > 0) {
 
-                memmove(Global_Dashboard_Case_Image_Path + cursor - 1,
-                        Global_Dashboard_Case_Image_Path + cursor, (size_t)(length - cursor) + 1U);
+                memmove(Global_Dashboard_Case_Image_Path + cursor - 1, Global_Dashboard_Case_Image_Path + cursor,
+                        (size_t)(length - cursor) + 1U);
                 Global_Dashboard_Case_Image_Path_Cursor--;
 
             }
@@ -4781,8 +4703,8 @@ static int dashboard_handle_case_sidebar_event(Type_Dashboard_State *dashboard, 
 
             if (cursor >= 0 && cursor < length) {
 
-                memmove(Global_Dashboard_Case_Image_Path + cursor,
-                        Global_Dashboard_Case_Image_Path + cursor + 1, (size_t)(length - cursor));
+                memmove(Global_Dashboard_Case_Image_Path + cursor, Global_Dashboard_Case_Image_Path + cursor + 1,
+                        (size_t)(length - cursor));
 
             }
             return 1;
@@ -5386,7 +5308,7 @@ void dashboard_draw(Type_Dashboard_State *dashboard, SDL_Renderer *renderer, TTF
         dashboard_draw_hover_country_cases(dashboard, renderer, font_small, sidebar);
         dashboard_draw_case_points(dashboard, renderer, font_small, map);
         dashboard_draw_case_search(dashboard, renderer, font_small, search_area);
-        dashboard_draw_case_sidebar(dashboard, renderer, font_small, sidebar);
+        dashboard_draw_case_sidebar(dashboard, renderer, font_small, sidebar, map);
 
     }
 
