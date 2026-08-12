@@ -2561,11 +2561,6 @@ static int decode_find_gnuradio_helper(char *out, size_t out_size) {
     */
 
     const char *paths[] = {"src/scripts/gnuradio_decode_file.py",
-                           "./src/scripts/gnuradio_decode_file.py",
-                           "scripts/gnuradio_decode_file.py",
-                           "./scripts/gnuradio_decode_file.py",
-                           "gnuradio_decode_file.py",
-                           "./gnuradio_decode_file.py",
                            NULL};
 
     if (!out || out_size == 0) {

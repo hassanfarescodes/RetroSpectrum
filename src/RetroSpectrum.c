@@ -13,7 +13,7 @@
  * Target:          Linux
  *                                                               05/04/2026
  * ============================================================================
- */
+*/
 
 // =========
 // Libraries
@@ -528,7 +528,7 @@ static void configure_recording_filter(void) {
     Global_Rec_Acc_Count = 0;
 
     // Output rate should be comfortably above selected bandwidth
-    // 2.5x gives room for FIR transition
+    // 3x gives room for FIR transition
 
     double wanted_out_rate = (double)Global_Rec_BW_Hz * 3;
 
@@ -587,7 +587,7 @@ static void configure_recording_filter(void) {
 
         }
 
-        // Hamming window
+        // Hamming window equation
 
         double window = 0.54 - 0.46 * cos((2.0 * M_PI * (double)n) / (double)(REC_FIR_TAPS - 1));
 
@@ -5991,7 +5991,7 @@ int main(int argc, char **argv) {
 
     Type_Dashboard_State dashboard;
 
-    if (!dashboard_init(&dashboard, "world_map.bin")) {
+    if (!dashboard_init(&dashboard, "assets/world_map.bin")) {
 
         set_status("Dashboard map not loaded: world_map.bin", (SDL_Color){255, 180, 40, 255});
 
@@ -7393,7 +7393,7 @@ int main(int argc, char **argv) {
             SECURE_NETWORK_disconnect();
             dashboard_shutdown();
 
-            if (!dashboard_init(&dashboard, "world_map.bin")) {
+            if (!dashboard_init(&dashboard, "assets/world_map.bin")) {
 
                 set_status("Dashboard map not loaded: world_map.bin", (SDL_Color){255, 180, 40, 255});
 

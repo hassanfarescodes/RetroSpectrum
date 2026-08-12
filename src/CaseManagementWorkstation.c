@@ -661,7 +661,7 @@ static SDL_Texture *case_country_flag_texture(SDL_Renderer *renderer, int countr
     if (!Global_Case_Country_Flag_Attempted[country_index]) {
 
         Global_Case_Country_Flag_Attempted[country_index] = 1;
-        snprintf(path, sizeof(path), "flags/%s.png", CASE_MGMT_COUNTRIES[country_index].alpha2);
+        snprintf(path, sizeof(path), "assets/flags/%s.png", CASE_MGMT_COUNTRIES[country_index].alpha2);
         Global_Case_Country_Flag_Textures[country_index] = IMG_LoadTexture(renderer, path);
 
     }

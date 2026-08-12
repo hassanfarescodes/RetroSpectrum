@@ -5304,7 +5304,7 @@ void dashboard_draw(Type_Dashboard_State *dashboard, SDL_Renderer *renderer, TTF
 
         }
 
-        WORLD_MAP_draw(renderer, font_small, map, sidebar, draw_mouse_x, draw_mouse_y, "flags");
+        WORLD_MAP_draw(renderer, font_small, map, sidebar, draw_mouse_x, draw_mouse_y, "assets/flags");
         dashboard_draw_hover_country_cases(dashboard, renderer, font_small, sidebar);
         dashboard_draw_case_points(dashboard, renderer, font_small, map);
         dashboard_draw_case_search(dashboard, renderer, font_small, search_area);

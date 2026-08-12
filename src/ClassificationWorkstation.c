@@ -808,7 +808,7 @@ static SDL_Texture *CLASSIFICATION_get_flag_texture(SDL_Renderer *renderer, cons
     }
 
     char path[64];
-    snprintf(path, sizeof(path), "flags/%s.png", alpha2);
+    snprintf(path, sizeof(path), "assets/flags/%s.png", alpha2);
 
     Global_Classification_Flag_Texture = IMG_LoadTexture(renderer, path);
 

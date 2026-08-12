@@ -53,6 +53,7 @@ int AUTH_DB_delete_user(const char *username, const char *acting_admin, char *er
 #define SECURE_NETWORK_MAGIC 0x52535051U
 #define SECURE_NETWORK_VERSION 1U
 #define SECURE_NETWORK_MAX_PAYLOAD (64U * 1024U * 1024U + 4096U)
+#define SECURE_NETWORK_MAX_PREAUTH_PAYLOAD 206U
 #define SECURE_NETWORK_MAX_CLIENTS 32
 #define SECURE_NETWORK_HANDSHAKES_PER_MINUTE 20
 #define SECURE_NETWORK_EXPORTER_BYTES 64
@@ -282,7 +283,7 @@ static int secure_network_send_frame(SSL *ssl, uint16_t type, uint32_t request_i
 }
 
 static int secure_network_receive_frame(SSL *ssl, uint16_t *type, uint32_t *request_id, unsigned char **payload,
-                                        size_t *payload_size) {
+                                        size_t *payload_size, size_t maximum_payload) {
     /*
         Purpose: Receives the frame
         Returns: Success status
@@ -305,7 +306,7 @@ static int secure_network_receive_frame(SSL *ssl, uint16_t *type, uint32_t *requ
     *request_id = secure_network_load_u32(header + 8);
     length = secure_network_load_u32(header + 12);
 
-    if (length > SECURE_NETWORK_MAX_PAYLOAD) {
+    if (length > SECURE_NETWORK_MAX_PAYLOAD || length > maximum_payload) {
 
         return 0;
 
@@ -1443,31 +1444,33 @@ static void *secure_network_client_thread(void *argument) {
         size_t payload_size = 0;
         int keep = 1;
 
-        if (!secure_network_receive_frame(ssl, &type, &request_id, &payload, &payload_size)) {
+        size_t maximum_payload = authenticated ? SECURE_NETWORK_MAX_PAYLOAD : SECURE_NETWORK_MAX_PREAUTH_PAYLOAD;
 
-            break;
+          if (!secure_network_receive_frame(ssl, &type, &request_id, &payload, &payload_size, maximum_payload)) {
 
-        }
+              break;
 
-        if (type == SECURE_NETWORK_TYPE_AUTH) {
+          }
 
-            int was_authenticated = authenticated;
+          if (type == SECURE_NETWORK_TYPE_AUTH) {
 
-            keep = secure_network_handle_auth(ssl, request_id, payload, payload_size, remote_ip, &authenticated,
-                                              &is_admin, authenticated_username, sizeof(authenticated_username));
+              int was_authenticated = authenticated;
 
-            /*
-                Remove the handshake/login socket timeout after successful
-                authentication so an idle authenticated session remains connected.
-            */
+              keep = secure_network_handle_auth(ssl, request_id, payload, payload_size, remote_ip, &authenticated,
+                                                &is_admin, authenticated_username, sizeof(authenticated_username));
 
-            if (keep && !was_authenticated && authenticated) {
+              /*
+                  Remove the handshake/login socket timeout after successful
+                  authentication so an idle authenticated session remains connected.
+              */
 
-                struct timeval no_timeout = {0, 0};
+              if (keep && !was_authenticated && authenticated) {
 
-                setsockopt(client->fd, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof(no_timeout));
+                  struct timeval no_timeout = {0, 0};
 
-                setsockopt(client->fd, SOL_SOCKET, SO_SNDTIMEO, &no_timeout, sizeof(no_timeout));
+                  setsockopt(client->fd, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof(no_timeout));
+
+                  setsockopt(client->fd, SOL_SOCKET, SO_SNDTIMEO, &no_timeout, sizeof(no_timeout));
 
             }
 
@@ -1977,13 +1980,14 @@ static int secure_network_receive_status_locked(uint16_t request_type, uint32_t 
     size_t payload_size = 0;
     uint32_t message_length;
 
-    if (!secure_network_receive_frame(Global_Secure_Client_SSL, &type, &response_id, &payload, &payload_size) ||
+    if (!secure_network_receive_frame(Global_Secure_Client_SSL, &type, &response_id, &payload, &payload_size, SECURE_NETWORK_MAX_PAYLOAD) ||
         type != (request_type | SECURE_NETWORK_RESPONSE_FLAG) || response_id != request_id || payload_size < 8) {
 
         OPENSSL_clear_free(payload, payload_size);
         return 0;
 
     }
+
     *status = secure_network_load_u32(payload);
     message_length = secure_network_load_u32(payload + 4);
 
