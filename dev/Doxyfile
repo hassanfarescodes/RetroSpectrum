@@ -1,0 +1,36 @@
+PROJECT_NAME           = "RetroSpectrum"
+PROJECT_BRIEF          = "Signal analysis, classification, decoding, correlation, and case management platform"
+
+OUTPUT_DIRECTORY       = generated
+
+INPUT                  = src
+FILE_PATTERNS           = *.c *.h
+
+RECURSIVE               = YES
+
+EXTRACT_ALL             = YES
+EXTRACT_STATIC          = YES
+EXTRACT_PRIVATE         = YES
+
+SOURCE_BROWSER          = YES
+INLINE_SOURCES          = NO
+
+GENERATE_HTML           = YES
+HTML_OUTPUT             = html
+
+GENERATE_LATEX          = YES
+LATEX_OUTPUT            = latex
+LATEX_HEADER            = doxygen_header.tex
+USE_PDFLATEX            = YES
+
+HAVE_DOT                = YES
+CALL_GRAPH              = YES
+CALLER_GRAPH            = YES
+DIRECTORY_GRAPH         = YES
+
+GENERATE_TREEVIEW       = YES
+
+QUIET                   = NO
+WARNINGS                = YES
+WARN_IF_UNDOCUMENTED    = YES
+WARN_IF_DOC_ERROR       = YES

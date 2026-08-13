@@ -136,6 +136,7 @@ typedef enum Type_Decode_Modulation {
     DECODE_MOD_AFSK,
     DECODE_MOD_QAM16,
     DECODE_MOD_QAM64,
+    DECODE_MOD_SSTV_VIS,
     DECODE_MOD_COUNT
 } Type_Decode_Modulation;
 
@@ -226,6 +227,10 @@ static int Global_Decode_Classifier_Search_Document_Count = 0;
 static char Global_Decode_Classifier_Search_Text[DECODE_CLASSIFIER_SEARCH_TEXT_MAX] = "";
 static Type_DataStore_Document_Summary
     Global_Decode_Classifier_Search_Documents[DECODE_CLASSIFIER_SEARCH_MAX_DOCUMENTS];
+static int Global_Decode_Classifier_Delete_Confirm_Open = 0;
+static SDL_Rect Global_Decode_Classifier_Delete_Confirm_Cancel_Rect = {0, 0, 0, 0};
+static SDL_Rect Global_Decode_Classifier_Delete_Confirm_Delete_Rect = {0, 0, 0, 0};
+static char Global_Decode_Classifier_Delete_Document_Name[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX] = "";
 
 typedef struct Type_Decode_Classifier_Label {
     char name[DECODE_CLASSIFIER_LABEL_NAME_MAX];
@@ -242,6 +247,7 @@ typedef struct Type_Decode_Classifier_Layout {
     SDL_Rect load_button;
     SDL_Rect new_label;
     SDL_Rect add_label_button;
+    SDL_Rect delete_saved_button;
     SDL_Rect palette[DECODE_CLASSIFIER_PALETTE_COUNT];
     SDL_Rect rgb_field[3];
     SDL_Rect rgb_preview;
@@ -283,6 +289,8 @@ int DATASTORE_load_content(const char *document_kind, const char *document_name,
                            size_t *content_size, int *found, char *error, size_t error_size);
 int DATASTORE_list_documents(const char *document_kind, Type_DataStore_Document_Summary *documents, size_t capacity,
                              size_t *count, char *error, size_t error_size);
+int DATASTORE_delete_content(const char *document_kind, const char *document_name, int *deleted, char *error,
+                             size_t error_size);
 void DATASTORE_free_content(unsigned char *content, size_t content_size);
 
 static SDL_Color Decode_BG = {0, 0, 0, 255};
@@ -306,7 +314,8 @@ static const char *DECODE_MOD_LABELS[DECODE_MOD_COUNT] = {"OOK / ASK Symbol Slic
                                                           "4-FSK",
                                                           "AFSK",
                                                           "16QAM",
-                                                          "64QAM"};
+                                                          "64QAM",
+                                                          "SSTV VIS"};
 
 static void decode_get_layout(int win_w, int win_h, SDL_Rect *file_panel, SDL_Rect *file_list, SDL_Rect *controls,
                               SDL_Rect *output);
@@ -343,6 +352,10 @@ static int decode_classifier_handle_panel_click(int x, int y, SDL_Rect panel);
 static void decode_classifier_apply_selected_label(void);
 static void decode_classifier_remove_selected_tag(void);
 static void decode_classifier_add_custom_label(void);
+static void decode_classifier_open_delete_confirmation(void);
+static void decode_classifier_delete_saved(void);
+static int decode_classifier_handle_delete_confirmation(const SDL_Event *event);
+static void decode_classifier_draw_delete_confirmation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 static void decode_classifier_sync_rgb_from_selected(void);
 static void decode_classifier_apply_custom_rgb(void);
 static int decode_classifier_get_active_text_target(char **target, size_t *target_size, int **cursor, int *digits_only);
@@ -1617,8 +1630,9 @@ static void decode_classifier_get_layout(SDL_Rect panel, Type_Decode_Classifier_
     layout->save_button = (SDL_Rect){x, panel.y + 69, (w - 8) / 2, 30};
     layout->load_button =
         (SDL_Rect){layout->save_button.x + layout->save_button.w + 8, panel.y + 69, w - layout->save_button.w - 8, 30};
-    layout->new_label = (SDL_Rect){x, panel.y + 124, w - 72, 30};
-    layout->add_label_button = (SDL_Rect){x + w - 64, panel.y + 124, 64, 30};
+    layout->new_label = (SDL_Rect){x, panel.y + 124, w - 128, 30};
+    layout->add_label_button = (SDL_Rect){x + w - 120, panel.y + 124, 56, 30};
+    layout->delete_saved_button = (SDL_Rect){x + w - 56, panel.y + 124, 56, 30};
     palette_y = panel.y + 177;
     color_left_w = (w - 12) / 2;
     palette_size = (color_left_w - palette_gap * 3) / 4;
@@ -2510,6 +2524,7 @@ static void decode_update_bits_per_symbol_from_modulation(void) {
     case DECODE_MOD_FSK2:
     case DECODE_MOD_GFSK:
     case DECODE_MOD_AFSK:
+    case DECODE_MOD_SSTV_VIS:
     default:
         bps = 1;
         break;
@@ -2548,6 +2563,8 @@ static const char *decode_mod_arg(void) {
         return "qam16";
     case DECODE_MOD_QAM64:
         return "qam64";
+    case DECODE_MOD_SSTV_VIS:
+        return "sstv_vis";
     case DECODE_MOD_OOK_SYMBOL:
     default:
         return "ook";
@@ -3758,6 +3775,302 @@ static void decode_draw_modal_button(SDL_Renderer *renderer, TTF_Font *font, SDL
         draw_text(renderer, font, label, rect.x + (rect.w - tw) / 2, rect.y + (rect.h - th) / 2, text);
 
     }
+}
+
+static void decode_classifier_open_delete_confirmation(void) {
+    /*
+        Purpose: Opens the saved bit-stream classification deletion confirmation
+        Returns: No value
+    */
+
+    char document_name[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX];
+
+    decode_classifier_trim_text(Global_Decode_Classifier_Document_Name, document_name, sizeof(document_name));
+
+    if (!document_name[0]) {
+
+        decode_set_status("Enter or load a saved classification name before deleting.");
+        return;
+
+    }
+
+    decode_copy_text(Global_Decode_Classifier_Delete_Document_Name,
+                     sizeof(Global_Decode_Classifier_Delete_Document_Name), document_name);
+    Global_Decode_Classifier_Delete_Confirm_Open = 1;
+    Global_Decode_Classifier_Text_Active = DECODE_CLASSIFIER_TEXT_NONE;
+    decode_classifier_document_clear_selection();
+    decode_classifier_close_search_menu();
+}
+
+static void decode_classifier_delete_saved(void) {
+    /*
+        Purpose: Deletes the confirmed saved bit-stream classification from the datastore
+        Returns: No value
+    */
+
+    char error[256] = "";
+    int deleted = 0;
+
+    if (!Global_Decode_Classifier_Delete_Document_Name[0]) {
+
+        decode_set_status("No saved bit-stream classification is selected for deletion.");
+        return;
+
+    }
+
+    if (!DATASTORE_delete_content(DECODE_CLASSIFIER_DATASTORE_KIND, Global_Decode_Classifier_Delete_Document_Name,
+                                  &deleted, error, sizeof(error))) {
+
+        char message[384];
+
+        snprintf(message, sizeof(message), "Saved bit-stream classification deletion failed: %.250s",
+                 error[0] ? error : "database error");
+        decode_set_status(message);
+        Global_Decode_Classifier_Delete_Document_Name[0] = '\0';
+        return;
+
+    }
+
+    if (!deleted) {
+
+        decode_set_status("The saved bit-stream classification no longer exists.");
+        Global_Decode_Classifier_Delete_Document_Name[0] = '\0';
+        return;
+
+    }
+
+    Global_Decode_Classifier_Delete_Document_Name[0] = '\0';
+    decode_set_status("Saved bit-stream classification deleted.");
+}
+
+static int decode_classifier_handle_delete_confirmation(const SDL_Event *event) {
+    /*
+        Purpose: Handles the saved bit-stream classification deletion confirmation
+        Returns: Event handling status
+    */
+
+    if (!Global_Decode_Classifier_Delete_Confirm_Open || !event) {
+
+        return 0;
+
+    }
+
+    if (event->type == SDL_KEYDOWN) {
+
+        if (event->key.keysym.sym == SDLK_ESCAPE) {
+
+            Global_Decode_Classifier_Delete_Confirm_Open = 0;
+            Global_Decode_Classifier_Delete_Document_Name[0] = '\0';
+            return 1;
+
+        }
+
+        if (event->key.keysym.sym == SDLK_RETURN || event->key.keysym.sym == SDLK_KP_ENTER) {
+
+            Global_Decode_Classifier_Delete_Confirm_Open = 0;
+            decode_classifier_delete_saved();
+            return 1;
+
+        }
+        return 1;
+
+    }
+
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+
+        if (decode_point_in_rect(event->button.x, event->button.y,
+                                 Global_Decode_Classifier_Delete_Confirm_Cancel_Rect)) {
+
+            Global_Decode_Classifier_Delete_Confirm_Open = 0;
+            Global_Decode_Classifier_Delete_Document_Name[0] = '\0';
+            return 1;
+
+        }
+
+        if (decode_point_in_rect(event->button.x, event->button.y,
+                                 Global_Decode_Classifier_Delete_Confirm_Delete_Rect)) {
+
+            Global_Decode_Classifier_Delete_Confirm_Open = 0;
+            decode_classifier_delete_saved();
+            return 1;
+
+        }
+        return 1;
+
+    }
+
+    return 1;
+}
+
+static void decode_classifier_draw_delete_confirmation(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h) {
+    /*
+        Purpose: Draws the saved bit-stream classification deletion confirmation dialog
+        Returns: No value
+    */
+
+    SDL_Rect panel;
+    SDL_Rect message;
+    int mx = 0;
+    int my = 0;
+    int delete_hover;
+    int cancel_hover;
+    int name_line_count = 0;
+    int name_offset = 0;
+    int name_y;
+    char name_line[DECODE_CLASSIFIER_DOCUMENT_NAME_MAX];
+
+    if (!Global_Decode_Classifier_Delete_Confirm_Open || !renderer || !font) {
+
+        return;
+
+    }
+
+    decode_get_adjusted_mouse_state(&mx, &my);
+    panel = (SDL_Rect){(win_w - 540) / 2, 0, 540, 238};
+
+    if (panel.x < 12) {
+
+        panel.x = 12;
+        panel.w = win_w - 24;
+
+    }
+
+    {
+        int scan_offset = 0;
+
+        while (Global_Decode_Classifier_Delete_Document_Name[scan_offset]) {
+            int remaining = (int)strlen(Global_Decode_Classifier_Delete_Document_Name + scan_offset);
+            int take = remaining;
+            int text_w = 0;
+            int text_h = 0;
+
+            if (take >= (int)sizeof(name_line)) {
+
+                take = (int)sizeof(name_line) - 1;
+
+            }
+
+            while (take > 1) {
+                snprintf(name_line, sizeof(name_line), "%.*s", take,
+                         Global_Decode_Classifier_Delete_Document_Name + scan_offset);
+
+                if (TTF_SizeText(font, name_line, &text_w, &text_h) == 0 && text_w <= panel.w - 44) {
+
+                    break;
+
+                }
+                take--;
+            }
+
+            scan_offset += take;
+            name_line_count++;
+        }
+    }
+
+    if (name_line_count < 1) {
+
+        name_line_count = 1;
+
+    }
+
+    panel.h = 238 + name_line_count * 24;
+    panel.y = (win_h - panel.h) / 2;
+
+    if (panel.y < 12) {
+
+        panel.y = 12;
+
+    }
+
+    Global_Decode_Classifier_Delete_Confirm_Cancel_Rect =
+        (SDL_Rect){panel.x + panel.w - 242, panel.y + panel.h - 58, 106, 36};
+    Global_Decode_Classifier_Delete_Confirm_Delete_Rect =
+        (SDL_Rect){panel.x + panel.w - 124, panel.y + panel.h - 58, 106, 36};
+    delete_hover = decode_point_in_rect(mx, my, Global_Decode_Classifier_Delete_Confirm_Delete_Rect);
+    cancel_hover = decode_point_in_rect(mx, my, Global_Decode_Classifier_Delete_Confirm_Cancel_Rect);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    draw_filled_rect(renderer, (SDL_Rect){0, 0, win_w, win_h}, (SDL_Color){0, 0, 0, 205});
+    draw_filled_rect(renderer, panel, (SDL_Color){20, 0, 0, 252});
+    draw_outline_rect(renderer, panel, (SDL_Color){255, 35, 35, 255});
+
+    draw_text(renderer, font, "Delete database record?", panel.x + 22, panel.y + 22,
+              (SDL_Color){255, 90, 90, 255});
+
+    name_y = panel.y + 46;
+    name_line_count = 0;
+
+    while (Global_Decode_Classifier_Delete_Document_Name[name_offset]) {
+        int remaining = (int)strlen(Global_Decode_Classifier_Delete_Document_Name + name_offset);
+        int take = remaining;
+        int text_w = 0;
+        int text_h = 0;
+
+        if (take >= (int)sizeof(name_line)) {
+
+            take = (int)sizeof(name_line) - 1;
+
+        }
+
+        while (take > 1) {
+            snprintf(name_line, sizeof(name_line), "%.*s", take,
+                     Global_Decode_Classifier_Delete_Document_Name + name_offset);
+
+            if (TTF_SizeText(font, name_line, &text_w, &text_h) == 0 && text_w <= panel.w - 44) {
+
+                break;
+
+            }
+            take--;
+        }
+
+        snprintf(name_line, sizeof(name_line), "%.*s", take,
+                 Global_Decode_Classifier_Delete_Document_Name + name_offset);
+        draw_text(renderer, font, name_line, panel.x + 22, name_y + name_line_count * 24,
+                  (SDL_Color){255, 90, 90, 255});
+        name_offset += take;
+        name_line_count++;
+    }
+
+    message = (SDL_Rect){panel.x + 22, panel.y + 54 + name_line_count * 24, panel.w - 44, 92};
+    draw_text(renderer, font, "This permanently deletes the saved bit-stream classification", message.x, message.y,
+              (SDL_Color){235, 205, 205, 255});
+    draw_text(renderer, font, "record from the database.", message.x, message.y + 24,
+              (SDL_Color){235, 205, 205, 255});
+
+    decode_draw_modal_button(renderer, font, Global_Decode_Classifier_Delete_Confirm_Cancel_Rect, "Cancel",
+                             cancel_hover);
+
+    {
+        SDL_Rect rect = Global_Decode_Classifier_Delete_Confirm_Delete_Rect;
+        SDL_Color fill = delete_hover ? (SDL_Color){72, 8, 8, 255} : (SDL_Color){34, 0, 0, 255};
+        SDL_Color border = delete_hover ? (SDL_Color){255, 90, 90, 255} : (SDL_Color){210, 45, 45, 255};
+        SDL_Color text_color = delete_hover ? (SDL_Color){255, 235, 235, 255} : (SDL_Color){255, 110, 110, 255};
+        int tw = 0;
+        int th = 0;
+
+        if (delete_hover) {
+
+            SDL_Rect glow = {rect.x - 4, rect.y - 4, rect.w + 8, rect.h + 8};
+
+            draw_filled_rect(renderer, glow, (SDL_Color){255, 35, 35, 38});
+
+        }
+
+        draw_filled_rect(renderer, rect, fill);
+        draw_outline_rect(renderer, rect, border);
+
+        if (TTF_SizeText(font, "Delete", &tw, &th) != 0) {
+
+            tw = 0;
+            th = 0;
+
+        }
+
+        draw_text(renderer, font, "Delete", rect.x + (rect.w - tw) / 2, rect.y + (rect.h - th) / 2, text_color);
+    }
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 }
 
 static SDL_Rect decode_file_search_button_rect(int win_w, int win_h) {
@@ -5524,6 +5837,37 @@ static void decode_classifier_draw_panel(SDL_Renderer *renderer, TTF_Font *font,
                                       Global_Decode_Classifier_Text_Active == DECODE_CLASSIFIER_TEXT_NEW_LABEL);
     decode_draw_modal_button(renderer, font, layout.add_label_button, "Add",
                              decode_point_in_rect(mx, my, layout.add_label_button));
+    {
+        SDL_Rect rect = layout.delete_saved_button;
+        int hovered = decode_point_in_rect(mx, my, rect);
+        SDL_Color fill = hovered ? (SDL_Color){72, 8, 8, 255} : (SDL_Color){34, 0, 0, 255};
+        SDL_Color border = hovered ? (SDL_Color){255, 90, 90, 255} : (SDL_Color){210, 45, 45, 255};
+        SDL_Color text_color = hovered ? (SDL_Color){255, 235, 235, 255} : (SDL_Color){255, 110, 110, 255};
+        int tw = 0;
+        int th = 0;
+
+        if (hovered) {
+
+            SDL_Rect glow = {rect.x - 4, rect.y - 4, rect.w + 8, rect.h + 8};
+
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            draw_filled_rect(renderer, glow, (SDL_Color){255, 35, 35, 38});
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+        }
+
+        draw_filled_rect(renderer, rect, fill);
+        draw_outline_rect(renderer, rect, border);
+
+        if (TTF_SizeText(font, "Delete", &tw, &th) != 0) {
+
+            tw = 0;
+            th = 0;
+
+        }
+
+        draw_text(renderer, font, "Delete", rect.x + (rect.w - tw) / 2, rect.y + (rect.h - th) / 2, text_color);
+    }
 
     draw_text(renderer, font, "Selected label color", layout.palette[0].x, layout.palette[0].y - 17, Decode_Muted);
 
@@ -5724,6 +6068,13 @@ static int decode_classifier_handle_panel_click(int x, int y, SDL_Rect panel) {
     if (decode_point_in_rect(x, y, layout.add_label_button)) {
 
         decode_classifier_add_custom_label();
+        return 1;
+
+    }
+
+    if (decode_point_in_rect(x, y, layout.delete_saved_button)) {
+
+        decode_classifier_open_delete_confirmation();
         return 1;
 
     }
@@ -5940,6 +6291,12 @@ int DECODE_handle_event(const SDL_Event *event, int win_w, int win_h) {
     if (!event || !Global_Decode_Mode) {
 
         return 0;
+
+    }
+
+    if (decode_classifier_handle_delete_confirmation(event)) {
+
+        return 1;
 
     }
 
@@ -7483,4 +7840,5 @@ void DECODE_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, 
 
     decode_draw_file_search_popup(renderer, font, win_w, win_h);
     decode_classifier_draw_search_popup(renderer, font, win_w, win_h);
+    decode_classifier_draw_delete_confirmation(renderer, font, win_w, win_h);
 }

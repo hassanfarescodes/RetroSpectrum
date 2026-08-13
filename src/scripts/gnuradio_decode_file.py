@@ -46,6 +46,7 @@ MODES = [
     "afsk",
     "qam16",
     "qam64",
+    "sstv_vis",
 ]
 
 
@@ -336,6 +337,144 @@ def phase_discriminator(samples: np.ndarray) -> np.ndarray:
     return np.angle(x[1:] * np.conj(x[:-1])).astype(np.float32)
 
 
+def sstv_fm_audio(samples: np.ndarray, input_rate: float) -> tuple[np.ndarray, float]:
+    # Purpose: FM-demodulate IQ and decimate the resulting SSTV audio for tone detection.
+    #
+    # Return: FM-demodulated audio samples and their effective sample rate.
+    #
+    discriminator = phase_discriminator(samples).astype(np.float64)
+    if discriminator.size == 0:
+        return np.array([], dtype=np.float32), input_rate
+
+    discriminator -= np.mean(discriminator)
+
+    target_rate = 24000.0
+    decimation = max(1, int(math.floor(input_rate / target_rate)))
+    usable = (discriminator.size // decimation) * decimation
+    if usable <= 0:
+        return np.array([], dtype=np.float32), input_rate
+
+    audio = discriminator[:usable].reshape((-1, decimation)).mean(axis=1)
+    audio -= np.mean(audio)
+
+    peak = float(np.max(np.abs(audio)))
+    if peak > 0.0 and math.isfinite(peak):
+        audio /= peak
+
+    return audio.astype(np.float32), input_rate / float(decimation)
+
+
+def sstv_tone_power(samples: np.ndarray, sample_rate: float, frequency: float) -> float:
+    # Purpose: Measure how much of one SSTV header/VIS tone exists in a sample interval.
+    #
+    # Return: Correlation power at the requested frequency.
+    #
+    if samples.size < 8:
+        return 0.0
+
+    x = samples.astype(np.float64)
+    x -= np.mean(x)
+    x *= np.hanning(x.size)
+
+    n = np.arange(x.size, dtype=np.float64)
+    angle = 2.0 * math.pi * frequency * n / sample_rate
+    real = float(np.dot(x, np.cos(angle)))
+    imag = float(np.dot(x, np.sin(angle)))
+
+    return (real * real) + (imag * imag)
+
+
+def sstv_tone_score(
+    audio: np.ndarray,
+    sample_rate: float,
+    start_seconds: float,
+    duration_seconds: float,
+    target_frequency: float,
+) -> float:
+    # Purpose: Compare one expected SSTV tone against the other VIS/header tones.
+    #
+    # Return: Fraction of candidate-tone power belonging to the target frequency.
+    #
+    start = int(round(start_seconds * sample_rate))
+    end = int(round((start_seconds + duration_seconds) * sample_rate))
+    if start < 0 or end > audio.size or end - start < 8:
+        return 0.0
+
+    segment = audio[start:end]
+    frequencies = (1100.0, 1200.0, 1300.0, 1900.0)
+    powers = [sstv_tone_power(segment, sample_rate, f) for f in frequencies]
+    total = sum(powers) + 1e-18
+    target_index = frequencies.index(target_frequency)
+
+    return powers[target_index] / total
+
+
+def run_sstv_vis(samples: np.ndarray, sps: int) -> list[int]:
+    # Purpose: FM-demodulate SSTV IQ, locate the standard VIS header, and recover its VIS bits.
+    #
+    # Return: Seven transmitted VIS data bits followed by the even-parity bit.
+    #
+    if samples.size < 2 or sps <= 0:
+        return []
+
+    # One VIS bit is 30 ms, so Samples/Symbol represents one 30 ms VIS bit.
+    input_rate = float(sps) / 0.030
+    audio, audio_rate = sstv_fm_audio(samples, input_rate)
+
+    # 300 ms leader + 10 ms break + 300 ms leader + 30 ms start +
+    # 7 x 30 ms VIS bits + 30 ms parity + 30 ms stop = 910 ms.
+    header_seconds = 0.910
+    required = int(math.ceil(header_seconds * audio_rate))
+    if audio.size < required:
+        return []
+
+    step = max(1, int(round(0.005 * audio_rate)))
+    last_start = audio.size - required
+    best_score = 0.0
+    best_start = None
+
+    for start in range(0, last_start + 1, step):
+        t = float(start) / audio_rate
+        score = (
+            sstv_tone_score(audio, audio_rate, t + 0.050, 0.200, 1900.0)
+            + sstv_tone_score(audio, audio_rate, t + 0.300, 0.010, 1200.0)
+            + sstv_tone_score(audio, audio_rate, t + 0.360, 0.200, 1900.0)
+            + sstv_tone_score(audio, audio_rate, t + 0.615, 0.020, 1200.0)
+        ) / 4.0
+
+        if score > best_score:
+            best_score = score
+            best_start = t
+
+    if best_start is None or best_score < 0.55:
+        return []
+
+    bit_start = best_start + 0.640
+    bits: list[int] = []
+
+    for bit_index in range(7):
+        t = bit_start + (float(bit_index) * 0.030) + 0.005
+        one_score = sstv_tone_score(audio, audio_rate, t, 0.020, 1100.0)
+        zero_score = sstv_tone_score(audio, audio_rate, t, 0.020, 1300.0)
+        bits.append(1 if one_score > zero_score else 0)
+
+    parity_time = bit_start + (7.0 * 0.030) + 0.005
+    parity_one = sstv_tone_score(audio, audio_rate, parity_time, 0.020, 1100.0)
+    parity_zero = sstv_tone_score(audio, audio_rate, parity_time, 0.020, 1300.0)
+    parity = 1 if parity_one > parity_zero else 0
+
+    stop_time = bit_start + (8.0 * 0.030) + 0.005
+    stop_score = sstv_tone_score(audio, audio_rate, stop_time, 0.020, 1200.0)
+
+    if ((sum(bits) + parity) & 1) != 0:
+        return []
+    if stop_score < 0.45:
+        return []
+
+    bits.append(parity)
+    return bits
+
+
 def moving_average(x: np.ndarray, n: int) -> np.ndarray:
     # Purpose: Smooth a real-valued sequence with a rectangular moving-average kernel.
     #
@@ -533,6 +672,29 @@ def main() -> int:
     if args.sps <= 0:
         print("samples/symbol must be > 0", file=sys.stderr)
         return 1
+
+    if args.mod == "sstv_vis":
+        # For SSTV VIS, Samples/Symbol is the number of IQ samples in one 30 ms VIS bit.
+        input_rate = float(args.sps) / 0.030
+        search_samples = int(math.ceil(input_rate * 5.0))
+
+        try:
+            raw_samples = read_complex16_raw(path, args.start_sample, search_samples)
+        except Exception as exc:
+            print(f"Could not read SSTV IQ samples: {exc}", file=sys.stderr)
+            return 1
+
+        if raw_samples.size == 0:
+            print("No SSTV IQ samples were read.", file=sys.stderr)
+            return 1
+
+        symbols = run_sstv_vis(raw_samples, args.sps)
+        if not symbols:
+            print("No valid SSTV VIS header was detected.", file=sys.stderr)
+            return 1
+
+        write_bits(symbols, 1, bool(args.invert), bool(args.tight))
+        return 0
 
     try:
         complex_symbols, mag_symbols, raw_samples = symbol_views(

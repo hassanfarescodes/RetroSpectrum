@@ -1,7 +1,0 @@
-/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/GUIs.c:1693:9: warning: Value stored to 'spec_h' is never read [deadcode.DeadStores]
- 1693 |         spec_h = 110;
-      |         ^        ~~~
-/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_5/src/GUIs.c:1693:9: note: Value stored to 'spec_h' is never read
- 1693 |         spec_h = 110;
-      |         ^        ~~~
-1 warning generated.

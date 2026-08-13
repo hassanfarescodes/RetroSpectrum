@@ -1,4 +1,0 @@
-/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/CorrelationWorkstation.c: In function ‘correlation_parse_cache_buffer’:
-/home/stvned/Desktop/RetroSpectrum/RetroSpectrum_AUG_8/src/CorrelationWorkstation.c:561:57: warning: comparison is always false due to limited range of data type [-Wtype-limits]
-  561 |     if (header.trend_points == 0 || header.trend_points > SIZE_MAX / (3U * sizeof(float))) {
-      |                                                         ^
