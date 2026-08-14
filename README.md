@@ -30,6 +30,23 @@ Start RetroSpectrum in server mode and use `Recs` as the recordings directory:
 
 RetroSpectrum is organized around dedicated workstations. Each workstation focuses on a specific stage of the RF analysis workflow while sharing recordings, case information, and other project data through the application.
 
+### Map Workstation
+
+![Map Workstation](images/MAP.png)
+
+The Map workstation provides the geographic case view. It supports:
+
+- Case locations plotted on the world map
+- Case selection
+- Case-specific colors
+- Case images
+- Case descriptions
+- Signal listings
+- Case search
+- SDR selection
+
+The map provides a geographic layer over classified signals and case-management data, allowing related RF observations to be reviewed spatially.
+
 ### RetroSpectrum
 
 ![RetroSpectrum Workstation](images/SPECTRUM.png)
@@ -148,23 +165,6 @@ The Correlation workstation compares recordings and ranks them by similarity. It
 - Export of selected results back to Analysis
 
 This workstation is intended to help identify recordings with related RF characteristics.
-
-### Map Workstation
-
-![Map Workstation](images/MAP.png)
-
-The Map workstation provides the geographic case view. It supports:
-
-- Case locations plotted on the world map
-- Case selection
-- Case-specific colors
-- Case images
-- Case descriptions
-- Signal listings
-- Case search
-- SDR selection
-
-The map provides a geographic layer over classified signals and case-management data, allowing related RF observations to be reviewed spatially.
 
 ---
 
