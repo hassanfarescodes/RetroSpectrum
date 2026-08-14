@@ -18,7 +18,7 @@ Install the project dependencies:
 sudo bash scripts/install-dependencis.sh
 ```
 
-Start RetroSpectrum in server mode and use `Recordings` as the recordings directory:
+Start RetroSpectrum in server mode and use `Recs` as the recordings directory:
 
 ```bash
 ./build/retrospectrum -S -o Recordings
@@ -217,6 +217,26 @@ Start a client:
 The `--cli` option is also available for command-line operation.
 
 When starting the server for the first time, click **Create Admin** in the top-right corner to create the administrator account. This is required before using the server.
+
+Ensure the server firewall permits:
+
+- UDP `47741` for discovery
+- TCP `47742` for secure client/server connections
+
+For UFW:
+
+```bash
+sudo ufw allow 47741/udp
+sudo ufw allow 47742/tcp
+```
+
+For firewalld:
+
+```bash
+sudo firewall-cmd --permanent --add-port=47741/udp
+sudo firewall-cmd --permanent --add-port=47742/tcp
+sudo firewall-cmd --reload
+```
 
 The server hosts the shared RetroSpectrum data, while clients connect to the server for multi-user access.
 
