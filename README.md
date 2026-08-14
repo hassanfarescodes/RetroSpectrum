@@ -248,6 +248,8 @@ RetroSpectrum works with recorded complex IQ data, including `.complex16` record
 
 Source documentation can be viewed in 'docs/' which includes DSP and Security related documentation as well.
 
+Additionally, Keyboard_Shortcuts.pdf provides a useful explanation of various features that can be controlled with the keyboard.
+
 ## License
 
 GNU GENERAL PUBLIC LICENSE Version 3
