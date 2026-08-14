@@ -44,7 +44,6 @@ The RetroSpectrum workstation is the live RF spectrum interface. It provides:
 - AGC/amplifier control
 - DC correction
 - Pre-record cache support
-- Recommended antenna-length display
 
 This workstation is the main entry point for capturing RF activity and creating recordings for later analysis.
 
@@ -207,14 +206,8 @@ RetroSpectrum works with recorded complex IQ data, including `.complex16` record
 
 ## Documentation
 
-Source documentation can be generated with Doxygen when the optional documentation dependencies are installed.
-
-```bash
-doxygen dev/Doxyfile
-```
-
-If LaTeX output is enabled in the Doxyfile, the generated reference manual can then be built from the generated LaTeX directory.
+Source documentation can be viewed in 'docs/' which includes DSP and Security related documentation as well.
 
 ## License
 
-See the repository license file for the terms that apply to RetroSpectrum.
+GNU GENERAL PUBLIC LICENSE Version 3
