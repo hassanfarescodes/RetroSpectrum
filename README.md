@@ -50,7 +50,7 @@ This workstation is the main entry point for capturing RF activity and creating 
 
 ### Analysis Workstation
 
-![Analysis Workstation](images/ANALYSIS(1).png)
+![Analysis Workstation](images/ANALYSIS.png)
 
 The Analysis workstation provides detailed inspection of recorded IQ data. It includes:
 
