@@ -20,7 +20,7 @@ HTML_OUTPUT             = html
 
 GENERATE_LATEX          = YES
 LATEX_OUTPUT            = latex
-LATEX_HEADER            = doxygen_header.tex
+LATEX_HEADER            = 
 USE_PDFLATEX            = YES
 
 HAVE_DOT                = YES

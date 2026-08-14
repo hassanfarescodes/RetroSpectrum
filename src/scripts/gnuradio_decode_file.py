@@ -17,7 +17,7 @@ import argparse
 import math
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 try:
     import numpy as np
@@ -545,6 +545,582 @@ def kmeans_1d(vals: np.ndarray, k: int, rounds: int = 24) -> np.ndarray:
     return np.sort(centers)
 
 
+def detect_sps_from_intervals(intervals: np.ndarray) -> Optional[int]:
+    # Purpose: Estimate a fundamental symbol period from transition spacings that may span one or more symbols.
+    #
+    # Return: Estimated integer samples-per-symbol, or None when the intervals do not support a stable period.
+    #
+    # The score rewards a candidate that explains many observed run lengths as integer multiples while also
+    # preferring candidates that are directly represented by one-symbol runs.
+    vals = np.asarray(intervals, dtype=np.float64)
+    vals = vals[np.isfinite(vals) & (vals >= 2.0)]
+    if vals.size < 2:
+        return None
+
+    vals = np.sort(vals)
+    if vals.size > 2048:
+        # Timing information is concentrated in the shorter transition spacings; very long runs add little
+        # information and can dominate the candidate set.
+        vals = vals[:2048]
+
+    median_len = float(np.median(vals))
+    if not math.isfinite(median_len) or median_len < 2.0:
+        return None
+
+    # Remove only extreme tiny fragments. Legitimate one-symbol runs are intentionally retained.
+    tiny_floor = max(2.0, median_len * 0.04)
+    filtered = vals[vals >= tiny_floor]
+    if filtered.size >= max(4, vals.size // 3):
+        vals = filtered
+
+    seed_vals = vals[: min(vals.size, 256)]
+    candidates: set[int] = set()
+
+    for value in seed_vals:
+        max_multiple = min(32, max(1, int(round(value / 2.0))))
+        for multiple in range(1, max_multiple + 1):
+            candidate = int(round(value / float(multiple)))
+            if candidate >= 2:
+                candidates.add(candidate)
+
+    if not candidates:
+        return None
+
+    best_sps = None
+    best_score = -1.0e30
+
+    for candidate in candidates:
+        ratios = vals / float(candidate)
+        nearest = np.rint(ratios)
+        valid = (nearest >= 1.0) & (nearest <= 128.0)
+        if not np.any(valid):
+            continue
+
+        residual = np.abs(ratios - nearest)
+        close = valid & (residual <= 0.12)
+        coverage = float(np.count_nonzero(close)) / float(vals.size)
+        if coverage < 0.35:
+            continue
+
+        one_support = float(np.count_nonzero(close & (nearest == 1.0))) / float(vals.size)
+        primitive_support = float(np.count_nonzero(close & (nearest <= 2.0))) / float(vals.size)
+        valid_residuals = residual[close]
+        median_residual = float(np.median(valid_residuals)) if valid_residuals.size else 1.0
+
+        score = (4.0 * coverage) + (3.0 * one_support) + (0.35 * primitive_support) - median_residual
+
+        if score > best_score or (math.isclose(score, best_score, rel_tol=1e-12, abs_tol=1e-12) and
+                                  (best_sps is None or candidate > best_sps)):
+            best_score = score
+            best_sps = candidate
+
+    return best_sps
+
+
+def refine_sps_from_events(events: np.ndarray, coarse_sps: int) -> int:
+    # Purpose: Refine a coarse SPS estimate by finding the period that best phase-aligns observed transitions.
+    #
+    # Return: Refined integer samples-per-symbol.
+    if coarse_sps < 2:
+        return max(2, coarse_sps)
+
+    positions = np.asarray(events, dtype=np.float64)
+    positions = positions[np.isfinite(positions)]
+    if positions.size < 3:
+        return coarse_sps
+
+    low = max(2, int(math.floor(coarse_sps * 0.80)))
+    high = max(low, int(math.ceil(coarse_sps * 1.20)))
+
+    def coherence(candidate: int) -> float:
+        phases = (2.0 * math.pi / float(candidate)) * positions
+        vector = np.exp(1j * phases)
+        return float(abs(np.mean(vector)))
+
+    width = high - low
+    step = max(1, int(math.ceil(width / 320.0)))
+    best = coarse_sps
+    best_score = -1.0
+
+    for candidate in range(low, high + 1, step):
+        score = coherence(candidate)
+        if score > best_score:
+            best_score = score
+            best = candidate
+
+    fine_low = max(low, best - (2 * step))
+    fine_high = min(high, best + (2 * step))
+
+    for candidate in range(fine_low, fine_high + 1):
+        score = coherence(candidate)
+        if score > best_score:
+            best_score = score
+            best = candidate
+
+    return best
+
+
+def detect_binary_state_sps(values: np.ndarray, smooth_len: int = 1) -> Optional[int]:
+    # Purpose: Detect SPS from a two-state amplitude or frequency-domain timing signal.
+    #
+    # Return: Estimated integer samples-per-symbol, or None.
+    if values.size < 16:
+        return None
+
+    x = values.astype(np.float32)
+    if smooth_len > 1:
+        x = moving_average(x, smooth_len)
+
+    states = threshold_binary_robust(x)
+    if states.size < 16:
+        return None
+
+    events = np.flatnonzero(states[1:] != states[:-1]).astype(np.int64) + 1
+    if events.size < 3:
+        return None
+
+    coarse = detect_sps_from_intervals(np.diff(events))
+    if coarse is None:
+        return None
+
+    return refine_sps_from_events(events, coarse)
+
+
+def detect_ook_sps(samples: np.ndarray, hint_sps: int) -> Optional[int]:
+    # Purpose: Detect ASK/OOK symbol timing from envelope transitions.
+    #
+    # Return: Estimated integer samples-per-symbol, or None.
+    if samples.size < 16:
+        return None
+
+    envelope = (np.abs(samples) ** 2).astype(np.float32)
+    smooth_len = max(1, min(17, max(1, hint_sps // 40)))
+    return detect_binary_state_sps(envelope, smooth_len)
+
+
+def scalar_transition_events(values: np.ndarray) -> np.ndarray:
+    # Purpose: Locate likely symbol boundaries from sharp changes in a real-valued timing signal.
+    #
+    # Return: Integer sample positions of transition peaks.
+    if values.size < 32:
+        return np.array([], dtype=np.int64)
+
+    energy = np.abs(np.diff(values.astype(np.float32))).astype(np.float32)
+    energy = moving_average(energy, 3)
+    if energy.size < 16 or float(np.max(energy)) <= 0.0:
+        return np.array([], dtype=np.int64)
+
+    selected = np.array([], dtype=np.int64)
+    minimum_events = min(200, max(12, energy.size // 1000))
+
+    for percentile in (99.9, 99.5, 99.0, 98.0, 97.0, 95.0, 92.0, 90.0):
+        threshold = float(np.percentile(energy, percentile))
+        if not math.isfinite(threshold) or threshold <= 0.0:
+            continue
+
+        mask = energy >= threshold
+        changes = np.diff(mask.astype(np.int8), prepend=0, append=0)
+        starts = np.flatnonzero(changes == 1)
+        ends = np.flatnonzero(changes == -1)
+        events: list[int] = []
+
+        for start, end in zip(starts, ends):
+            if end <= start:
+                continue
+            local = energy[start:end]
+            peak = start + int(np.argmax(local)) + 1
+            events.append(peak)
+
+        if len(events) >= 6:
+            candidate_events = np.asarray(events, dtype=np.int64)
+            if candidate_events.size > selected.size:
+                selected = candidate_events
+            if minimum_events <= candidate_events.size <= 5000:
+                selected = candidate_events
+                break
+
+    return selected
+
+
+def detect_fsk_sps(samples: np.ndarray, mod: str, hint_sps: int) -> Optional[int]:
+    # Purpose: Detect FSK-family symbol timing from phase-discriminator states without assuming the user's SPS.
+    #
+    # Return: Estimated integer samples-per-symbol, or None.
+    discriminator = phase_discriminator(samples)
+    if discriminator.size < 16:
+        return None
+
+    discriminator = discriminator - float(np.median(discriminator))
+
+    # A small fixed detector-only smoothing window suppresses per-sample discriminator jitter. It is deliberately
+    # independent of hint_sps: the existing Samples/Symbol field must not scale or constrain blind detection.
+    if mod == "gfsk":
+        smooth_len = 9
+    else:
+        smooth_len = 5
+
+    discriminator = moving_average(discriminator, smooth_len)
+
+    if mod != "fsk4":
+        return detect_binary_state_sps(discriminator, 1)
+
+    # 4-FSK has four frequency states, so a binary threshold loses transitions between same-side levels.
+    # Cluster the discriminator into four levels and recover timing from every level transition instead.
+    stride = max(1, discriminator.size // 50000)
+    centers = kmeans_1d(discriminator[::stride], 4)
+    if centers.size != 4:
+        return None
+
+    labels = np.argmin(np.abs(discriminator[:, None] - centers[None, :]), axis=1).astype(np.int16)
+    events = np.flatnonzero(labels[1:] != labels[:-1]).astype(np.int64) + 1
+    if events.size < 3:
+        return None
+
+    coarse = detect_sps_from_intervals(np.diff(events))
+    if coarse is None:
+        return None
+
+    return refine_sps_from_events(events, coarse)
+
+
+def complex_transition_events(samples: np.ndarray) -> np.ndarray:
+    # Purpose: Locate likely PSK/QAM symbol-boundary events after removing residual carrier rotation.
+    #
+    # Return: Integer sample positions of transition-energy peaks.
+    if samples.size < 32:
+        return np.array([], dtype=np.int64)
+
+    x = normalize_complex(samples).astype(np.complex64)
+    products = x[1:] * np.conj(x[:-1])
+    product_sum = np.sum(products.astype(np.complex128))
+    residual_rotation = float(np.angle(product_sum)) if abs(product_sum) > 1e-18 else 0.0
+
+    if math.isfinite(residual_rotation) and abs(residual_rotation) > 1e-12:
+        n = np.arange(x.size, dtype=np.float64)
+        x = (x * np.exp(-1j * residual_rotation * n)).astype(np.complex64)
+
+    energy = (np.abs(np.diff(x)) ** 2).astype(np.float32)
+    energy = moving_average(energy, 3)
+
+    if energy.size < 16 or float(np.max(energy)) <= 0.0:
+        return np.array([], dtype=np.int64)
+
+    # Symbol changes are outliers in transition energy; within-symbol RF noise is not. A MAD threshold is much
+    # more stable than taking a fixed percentile when the recording contains hundreds or thousands of samples
+    # per symbol, because real boundaries may occupy far below 0.1 percent of the samples.
+    median_energy = float(np.median(energy))
+    mad = float(np.median(np.abs(energy - median_energy)))
+    if not math.isfinite(median_energy) or not math.isfinite(mad):
+        return np.array([], dtype=np.int64)
+
+    mad = max(mad, 1e-18)
+    selected = np.array([], dtype=np.int64)
+
+    for multiplier in (50.0, 30.0, 20.0, 12.0, 8.0, 6.0):
+        threshold = median_energy + multiplier * mad
+        mask = energy >= threshold
+        changes = np.diff(mask.astype(np.int8), prepend=0, append=0)
+        starts = np.flatnonzero(changes == 1)
+        ends = np.flatnonzero(changes == -1)
+        events: list[int] = []
+
+        for event_start, event_end in zip(starts, ends):
+            if event_end <= event_start:
+                continue
+            local = energy[event_start:event_end]
+            peak = event_start + int(np.argmax(local)) + 1
+            events.append(peak)
+
+        if len(events) >= 6:
+            selected = np.asarray(events, dtype=np.int64)
+            if selected.size <= 5000:
+                return selected
+
+    return selected
+
+
+def detect_constellation_sps(samples: np.ndarray) -> Optional[int]:
+    # Purpose: Detect PSK/QAM SPS from complex-IQ transition spacing and folded transition phase.
+    #
+    # Return: Estimated integer samples-per-symbol, or None.
+    events = complex_transition_events(samples)
+    if events.size < 3:
+        return None
+
+    coarse = detect_sps_from_intervals(np.diff(events))
+    if coarse is None:
+        return None
+
+    return refine_sps_from_events(events, coarse)
+
+
+def detect_sstv_vis_sps(samples: np.ndarray) -> Optional[int]:
+    # Purpose: Detect the SSTV VIS 30 ms symbol length from the 300/10/300 ms leader-break-leader timing pattern.
+    #
+    # Return: Estimated samples in one 30 ms VIS bit, or None.
+    audio = phase_discriminator(samples).astype(np.float32)
+    if audio.size < 128:
+        return None
+
+    audio = audio - float(np.mean(audio))
+    signs = audio >= 0.0
+    crossings = np.flatnonzero(signs[1:] != signs[:-1]).astype(np.int64) + 1
+    if crossings.size < 20:
+        return None
+
+    half_periods = np.diff(crossings).astype(np.float32)
+    valid = (half_periods >= 2.0) & np.isfinite(half_periods)
+    if np.count_nonzero(valid) < 16:
+        return None
+
+    # Average several zero-crossing intervals so integer sample quantization of one tone does not become
+    # multiple artificial clusters (for example alternating 26/27-sample half periods at 1900 Hz).
+    smoothed_half_periods = moving_average(half_periods, 15)
+    hp = smoothed_half_periods[valid]
+    stride = max(1, hp.size // 50000)
+    centers = kmeans_1d(hp[::stride], 4)
+    if centers.size != 4:
+        return None
+
+    all_labels = np.argmin(np.abs(smoothed_half_periods[:, None] - centers[None, :]), axis=1).astype(np.int16)
+
+    runs: list[tuple[int, int, int]] = []
+    run_start = 0
+    current = int(all_labels[0])
+
+    for index in range(1, all_labels.size):
+        label = int(all_labels[index])
+        if label != current:
+            duration = int(crossings[index] - crossings[run_start])
+            interval_count = index - run_start
+            runs.append((current, duration, interval_count))
+            current = label
+            run_start = index
+
+    duration = int(crossings[-1] - crossings[run_start])
+    interval_count = all_labels.size - run_start
+    runs.append((current, duration, interval_count))
+
+    # First use the bridge states created by the smoothing window to estimate the physical tone-change
+    # boundaries at the middle of each bridge. This keeps the detected 30 ms SPS from inheriting the
+    # smoothing-window shortening of the stable tone runs.
+    bridge_best_sps = None
+    bridge_best_error = 1.0e30
+
+    for index in range(0, len(runs) - 6):
+        state0, d0, _ = runs[index]
+        bridge1, db1, _ = runs[index + 1]
+        state1, d1, _ = runs[index + 2]
+        bridge2, db2, _ = runs[index + 3]
+        state2, d2, _ = runs[index + 4]
+        bridge3, db3, _ = runs[index + 5]
+        state3, _, _ = runs[index + 6]
+
+        if state0 != state2 or state1 != state3 or state0 == state1:
+            continue
+        if bridge1 != bridge2 or bridge2 != bridge3:
+            continue
+        if bridge1 == state0 or bridge1 == state1:
+            continue
+
+        corrected_break = float(d1) + (0.5 * float(db1 + db2))
+        corrected_second_leader = float(d2) + (0.5 * float(db2 + db3))
+        if corrected_break <= 0.0 or corrected_second_leader <= 0.0:
+            continue
+
+        unit = corrected_second_leader / 30.0
+        expected_break = unit
+        error = abs(corrected_break - expected_break) / max(expected_break, 1.0)
+
+        if error < bridge_best_error:
+            bridge_best_error = error
+            bridge_best_sps = max(2, int(round(corrected_second_leader / 10.0)))
+
+    if bridge_best_sps is not None and bridge_best_error <= 0.20:
+        return bridge_best_sps
+
+    # Ignore short bridge states introduced by the zero-crossing smoothing window. A real 10 ms SSTV break
+    # contains roughly two dozen half cycles at 1200 Hz, independent of the capture sample rate.
+    stable_runs = [(state, duration) for state, duration, count in runs if count >= 15]
+
+    best_unit = None
+    best_error = 1.0e30
+
+    for index in range(0, len(stable_runs) - 2):
+        state0, d0 = stable_runs[index]
+        state1, d1 = stable_runs[index + 1]
+        state2, d2 = stable_runs[index + 2]
+
+        if state0 != state2 or state0 == state1:
+            continue
+        if min(d0, d1, d2) <= 0:
+            continue
+
+        estimates = np.array([d0 / 30.0, float(d1), d2 / 30.0], dtype=np.float64)
+        unit = float(np.median(estimates))
+        if not math.isfinite(unit) or unit < 1.0:
+            continue
+
+        expected = np.array([30.0, 1.0, 30.0], dtype=np.float64) * unit
+        actual = np.array([d0, d1, d2], dtype=np.float64)
+        relative_error = float(np.mean(np.abs(actual - expected) / np.maximum(expected, 1.0)))
+
+        if relative_error < best_error:
+            best_error = relative_error
+            best_unit = unit
+
+    if best_unit is not None and best_error <= 0.35:
+        return max(2, int(round(best_unit * 3.0)))
+
+    # Fallback: stable VIS/data tone runs are normally 30 ms or integer multiples of 30 ms.
+    tone_durations = np.asarray([duration for _, duration in stable_runs if duration >= 2], dtype=np.float64)
+    return detect_sps_from_intervals(tone_durations)
+
+def select_active_timing_region(samples: np.ndarray) -> np.ndarray:
+    # Purpose: Isolate the strongest contiguous RF burst before blind SPS detection so long idle/noise regions
+    #          cannot dominate transition timing and collapse the estimate to 2 or 3 samples/symbol.
+    #
+    # Return: A view/copy of the most useful active timing region, or the original samples when no clear burst exists.
+    if samples.size < 4096:
+        return samples
+
+    power = (np.abs(samples) ** 2).astype(np.float32)
+
+    # Use coarse power blocks only for burst localization. This does not assume a symbol period.
+    block = max(64, min(512, max(64, samples.size // 2048)))
+    usable = (power.size // block) * block
+    if usable < block * 8:
+        return samples
+
+    block_power = power[:usable].reshape((-1, block)).mean(axis=1).astype(np.float64)
+    block_db = 10.0 * np.log10(block_power + 1e-18)
+
+    low_db = float(np.percentile(block_db, 20.0))
+    high_db = float(np.percentile(block_db, 99.9))
+    if not math.isfinite(low_db) or not math.isfinite(high_db) or high_db - low_db < 4.0:
+        return samples
+
+    threshold_db = low_db + 0.45 * (high_db - low_db)
+    active = np.flatnonzero(block_db >= threshold_db)
+    if active.size < 2:
+        return samples
+
+    # Join nearby active islands so ASK/OOK zero runs remain inside one burst. The gap is expressed in coarse
+    # power blocks rather than SPS, so this localization step remains independent of the user's SPS field.
+    join_gap = max(8, min(128, block_db.size // 32))
+    split_points = np.flatnonzero(np.diff(active) > join_gap) + 1
+    groups = np.split(active, split_points)
+
+    best_group = None
+    best_score = -1.0
+
+    for group in groups:
+        if group.size == 0:
+            continue
+
+        excess = np.maximum(block_db[group] - threshold_db, 0.0)
+        score = float(np.sum(excess)) * math.sqrt(float(group.size))
+
+        if score > best_score:
+            best_score = score
+            best_group = group
+
+    if best_group is None or best_group.size == 0:
+        return samples
+
+    start = int(best_group[0]) * block
+    end = min(samples.size, (int(best_group[-1]) + 1) * block)
+    if end <= start:
+        return samples
+
+    # Keep the selected burst boundaries tight so edge noise cannot dominate blind timing detection.
+    padding = 0
+    start = max(0, start - padding)
+    end = min(samples.size, end + padding)
+
+    if end - start < 256:
+        return samples
+
+    return samples[start:end]
+
+
+def trim_continuous_carrier_region(samples: np.ndarray) -> np.ndarray:
+    # Purpose: Remove low-power edge noise for continuously keyed modulations before timing analysis.
+    #
+    # Return: Longest sustained high-power run, or the original region when no clear carrier run exists.
+    if samples.size < 256:
+        return samples
+
+    power = moving_average((np.abs(samples) ** 2).astype(np.float32), 17)
+    low = float(np.percentile(power, 0.1))
+    high = float(np.percentile(power, 50.0))
+    if not math.isfinite(low) or not math.isfinite(high) or high <= low:
+        return samples
+
+    if high < max(low * 4.0, low + 1e-12):
+        return samples
+
+    threshold = low + 0.30 * (high - low)
+    states = power >= threshold
+    changes = np.diff(states.astype(np.int8), prepend=0, append=0)
+    starts = np.flatnonzero(changes == 1)
+    ends = np.flatnonzero(changes == -1)
+    if starts.size == 0 or ends.size == 0:
+        return samples
+
+    lengths = ends - starts
+    best_index = int(np.argmax(lengths))
+    start = int(starts[best_index])
+    end = int(ends[best_index])
+
+    if end - start < 128:
+        return samples
+
+    return samples[start:end]
+
+
+def detect_samples_per_symbol(samples: np.ndarray, mod: str, hint_sps: int) -> Optional[int]:
+    # Purpose: Dispatch modulation-aware automatic Samples/Symbol detection without changing normal demodulation.
+    #
+    # Return: Estimated integer samples-per-symbol, or None.
+    if samples.size < 16:
+        return None
+
+    timing_samples = select_active_timing_region(samples)
+
+    if mod in {"ook", "ook_raw"}:
+        return detect_ook_sps(timing_samples, hint_sps)
+
+    if mod in {"fsk2", "gfsk", "fsk4", "afsk"}:
+        timing_samples = trim_continuous_carrier_region(timing_samples)
+        return detect_fsk_sps(timing_samples, mod, hint_sps)
+
+    if mod in {"bpsk", "qpsk", "psk8", "qam16", "qam64"}:
+        timing_samples = trim_continuous_carrier_region(timing_samples)
+        return detect_constellation_sps(timing_samples)
+
+    if mod == "sstv_vis":
+        timing_samples = trim_continuous_carrier_region(timing_samples)
+        return detect_sstv_vis_sps(timing_samples)
+
+    return None
+
+
+def detection_sample_count(path: Path, start_sample: int, hint_sps: int, mod: str) -> int:
+    # Purpose: Choose a bounded amount of IQ for SPS detection while respecting the selected start sample.
+    #
+    # Return: Number of complex IQ samples to inspect.
+    total_samples = max(0, path.stat().st_size // 4)
+    remaining = max(0, total_samples - max(0, start_sample))
+    if remaining <= 0:
+        return 0
+
+    base = 4_000_000 if mod == "sstv_vis" else 1_000_000
+    hinted = max(0, hint_sps) * 512
+    target = max(base, min(4_000_000, hinted))
+    return int(min(remaining, target))
+
+
 def run_fsk4(samples: np.ndarray, sps: int, max_symbols: int) -> list[int]:
     # Purpose: Demodulate 4-FSK IQ by phase discrimination, symbol averaging, four-center clustering, and nearest-center labeling.
     #
@@ -663,6 +1239,7 @@ def main() -> int:
     ap.add_argument("--normalize", type=int, default=1)
     ap.add_argument("--invert", type=int, default=0)
     ap.add_argument("--tight", type=int, default=1)
+    ap.add_argument("--detect-sps", action="store_true")
     args = ap.parse_args()
 
     path = Path(args.input)
@@ -672,6 +1249,25 @@ def main() -> int:
     if args.sps <= 0:
         print("samples/symbol must be > 0", file=sys.stderr)
         return 1
+
+    if args.detect_sps:
+        try:
+            sample_count = detection_sample_count(path, args.start_sample, args.sps, args.mod)
+            if sample_count <= 0:
+                print("No IQ samples are available for SPS detection.", file=sys.stderr)
+                return 1
+            detect_samples = read_complex16_raw(path, args.start_sample, sample_count)
+        except Exception as exc:
+            print(f"Could not read IQ samples for SPS detection: {exc}", file=sys.stderr)
+            return 1
+
+        detected_sps = detect_samples_per_symbol(detect_samples, args.mod, args.sps)
+        if detected_sps is None or detected_sps <= 0:
+            print("Could not detect a stable samples/symbol value for the selected modulation.", file=sys.stderr)
+            return 1
+
+        sys.stdout.write(f"{detected_sps}\n")
+        return 0
 
     if args.mod == "sstv_vis":
         # For SSTV VIS, Samples/Symbol is the number of IQ samples in one 30 ms VIS bit.

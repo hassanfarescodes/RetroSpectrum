@@ -180,6 +180,7 @@ static int Global_Decode_Ascii_Enable = 0;
 
 static char Global_Decode_Ascii_Text[DECODE_ASCII_MAX];
 static int Global_Decode_Ascii_Len = 0;
+static int Global_Decode_Ascii_Scroll = 0;
 
 static char Global_Decode_Bitstream[DECODE_BITSTREAM_MAX];
 static int Global_Decode_Bitstream_Len = 0;
@@ -372,6 +373,7 @@ static int decode_classifier_handle_search_event(const SDL_Event *event, int win
 static void decode_classifier_draw_search_popup(SDL_Renderer *renderer, TTF_Font *font, int win_w, int win_h);
 
 static int decode_run_helper_capture_bits(int samples_per_symbol, int max_bits, char *bits, int bits_cap);
+static int decode_detect_sps(void);
 static int decode_find_repeated_preamble_in_bits(const char *bits, int bit_len, int min_start, int min_prefix_len,
                                                  int max_prefix_len, int min_repeats, int *found_start, int *found_len,
                                                  int *found_repeats);
@@ -2344,6 +2346,7 @@ static void decode_update_ascii_from_bitstream(void) {
 
     Global_Decode_Ascii_Len = 0;
     Global_Decode_Ascii_Text[0] = '\0';
+    Global_Decode_Ascii_Scroll = 0;
 
     if (!Global_Decode_Ascii_Enable || Global_Decode_Bitstream_Len <= 0) {
 
@@ -2738,6 +2741,93 @@ static FILE *decode_spawn_helper(const char *helper, const char *input, const ch
 
     if (!stream) {
 
+        int status;
+
+        close(pipe_fd[0]);
+
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+        }
+
+        return NULL;
+
+    }
+
+    *child_pid = pid;
+    return stream;
+}
+
+static FILE *decode_spawn_sps_detector(const char *helper, const char *input, const char *mod, int samples_per_symbol,
+                                      int start_sample, pid_t *child_pid) {
+    /*
+        Purpose: Launches the GNU Radio helper in automatic Samples/Symbol detection mode
+        Returns: Readable helper stdout stream or NULL
+    */
+
+    int pipe_fd[2] = {-1, -1};
+    posix_spawn_file_actions_t actions;
+    pid_t pid;
+    char sps_text[32];
+    char start_text[32];
+    FILE *stream;
+    int spawn_result;
+
+    if (!helper || helper[0] == '\0' || !input || input[0] == '\0' || !mod || mod[0] == '\0' || !child_pid) {
+
+        return NULL;
+
+    }
+
+    if (snprintf(sps_text, sizeof(sps_text), "%d", samples_per_symbol) >= (int)sizeof(sps_text) ||
+        snprintf(start_text, sizeof(start_text), "%d", start_sample) >= (int)sizeof(start_text)) {
+
+        return NULL;
+
+    }
+
+    char *argv[] = {"python3",      (char *)helper, "--input",       (char *)input, "--mod",
+                    (char *)mod,    "--sps",        sps_text,        "--start-sample",
+                    start_text,     "--detect-sps", NULL};
+
+    if (pipe(pipe_fd) != 0) {
+
+        return NULL;
+
+    }
+
+    if (posix_spawn_file_actions_init(&actions) != 0) {
+
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        return NULL;
+
+    }
+
+    if (posix_spawn_file_actions_addclose(&actions, pipe_fd[0]) != 0 ||
+        posix_spawn_file_actions_adddup2(&actions, pipe_fd[1], STDOUT_FILENO) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, pipe_fd[1]) != 0) {
+
+        posix_spawn_file_actions_destroy(&actions);
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        return NULL;
+
+    }
+
+    spawn_result = posix_spawnp(&pid, "python3", &actions, NULL, argv, environ);
+
+    posix_spawn_file_actions_destroy(&actions);
+    close(pipe_fd[1]);
+
+    if (spawn_result != 0) {
+
+        close(pipe_fd[0]);
+        return NULL;
+
+    }
+
+    stream = fdopen(pipe_fd[0], "r");
+
+    if (!stream) {
         int status;
 
         close(pipe_fd[0]);
@@ -3440,6 +3530,98 @@ static void decode_export_preamble_candidate_to_decoder(void) {
     Global_Decode_Active_Field = DECODE_FIELD_NONE;
     Global_Decode_Bit_Edit_Active = 0;
     decode_set_status("Exported candidate Samples/Symbol to Decoder tab.");
+}
+
+static int decode_detect_sps(void) {
+    /*
+        Purpose: Detects Samples/Symbol for the selected file and modulation without decoding the bitstream
+        Returns: Success status
+    */
+
+    char path[DECODE_MAX_PATH + DECODE_MAX_NAME + 4];
+    char helper[DECODE_MAX_PATH];
+    char output[64];
+    char status[128];
+    FILE *pipe = NULL;
+    pid_t child_pid = -1;
+    int current_sps;
+    int start_sample;
+    int rc;
+    char *end = NULL;
+    long detected_sps;
+
+    if (!decode_selected_file_path(path, sizeof(path))) {
+
+        decode_set_status("No decode file selected.");
+        return 0;
+
+    }
+
+    if (!decode_find_gnuradio_helper(helper, sizeof(helper))) {
+
+        decode_set_status("GNU Radio helper not found. Put gnuradio_decode_file.py "
+                          "in src/scripts/, ./scripts/, or the app directory.");
+        return 0;
+
+    }
+
+    current_sps = decode_parse_int_field(DECODE_FIELD_SAMPLES_PER_SYMBOL, DECODE_DEFAULT_SPS, 1, 1000000);
+    start_sample = decode_parse_int_field(DECODE_FIELD_START_SAMPLE, 0, 0, 2000000000);
+
+    decode_set_status("Detecting Samples/Symbol for the selected modulation...");
+
+    pipe = decode_spawn_sps_detector(helper, path, decode_mod_arg(), current_sps, start_sample, &child_pid);
+
+    if (!pipe) {
+
+        decode_set_status("Could not launch GNU Radio SPS detector.");
+        return 0;
+
+    }
+
+    output[0] = '\0';
+
+    if (!fgets(output, sizeof(output), pipe)) {
+
+        rc = decode_close_helper(pipe, child_pid);
+        (void)rc;
+        decode_set_status("SPS detection did not return a value.");
+        return 0;
+
+    }
+
+    rc = decode_close_helper(pipe, child_pid);
+
+    if (rc != 0) {
+
+        decode_set_status("GNU Radio SPS detection failed for the selected signal.");
+        return 0;
+
+    }
+
+    errno = 0;
+    detected_sps = strtol(output, &end, 10);
+
+    while (end && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')) {
+        end++;
+    }
+
+    if (errno != 0 || end == output || (end && *end != '\0') || detected_sps < 1 || detected_sps > 1000000) {
+
+        decode_set_status("GNU Radio SPS detector returned an invalid value.");
+        return 0;
+
+    }
+
+    snprintf(Global_Decode_Field_Text[DECODE_FIELD_SAMPLES_PER_SYMBOL],
+             sizeof(Global_Decode_Field_Text[DECODE_FIELD_SAMPLES_PER_SYMBOL]), "%ld", detected_sps);
+    Global_Decode_Field_Cursor[DECODE_FIELD_SAMPLES_PER_SYMBOL] =
+        (int)strlen(Global_Decode_Field_Text[DECODE_FIELD_SAMPLES_PER_SYMBOL]);
+    Global_Decode_Active_Field = DECODE_FIELD_NONE;
+
+    snprintf(status, sizeof(status), "Detected Samples/Symbol: %ld.", detected_sps);
+    decode_set_status(status);
+    return 1;
 }
 
 static int decode_run_selected_file(void) {
@@ -6211,6 +6393,9 @@ static void decode_draw_ascii_panel(SDL_Renderer *renderer, TTF_Font *font, SDL_
     char label[256];
     char shown[DECODE_ASCII_MAX];
     int byte_len;
+    int shown_len;
+    int width = 0;
+    int height = 0;
 
     if (!renderer || !font) {
 
@@ -6241,7 +6426,29 @@ static void decode_draw_ascii_panel(SDL_Renderer *renderer, TTF_Font *font, SDL_
 
     }
 
-    decode_short_text(font, Global_Decode_Ascii_Text, shown, sizeof(shown), rect.w - 18);
+    if (Global_Decode_Ascii_Scroll < 0) {
+
+        Global_Decode_Ascii_Scroll = 0;
+
+    }
+
+    if (Global_Decode_Ascii_Scroll >= Global_Decode_Ascii_Len) {
+
+        Global_Decode_Ascii_Scroll = Global_Decode_Ascii_Len - 1;
+
+    }
+
+    decode_copy_text(shown, sizeof(shown), Global_Decode_Ascii_Text + Global_Decode_Ascii_Scroll);
+    shown_len = (int)strlen(shown);
+
+    while (shown_len > 0 &&
+           TTF_SizeText(font, shown, &width, &height) == 0 &&
+           width > rect.w - 18) {
+
+        shown[--shown_len] = '\0';
+
+    }
+
     draw_text(renderer, font, shown, rect.x + 8, rect.y + 31, Decode_Text);
 }
 
@@ -6259,6 +6466,7 @@ int DECODE_handle_event(const SDL_Event *event, int win_w, int win_h) {
     SDL_Rect rescan_button;
     SDL_Rect decode_button;
     SDL_Rect clear_button;
+    SDL_Rect detect_sps_button;
     SDL_Rect classifier_button;
     SDL_Rect copy_button;
     SDL_Rect mod_rect;
@@ -6312,6 +6520,7 @@ int DECODE_handle_event(const SDL_Event *event, int win_w, int win_h) {
 
     decode_button = (SDL_Rect){controls.x + 18, controls.y + controls.h - 88, 106, 34};
     clear_button = (SDL_Rect){controls.x + 136, controls.y + controls.h - 88, 86, 34};
+    detect_sps_button = (SDL_Rect){controls.x + 190, controls.y + 350, controls.w - 208, 34};
     classifier_button = (SDL_Rect){controls.x + 18, controls.y + controls.h - 44, controls.w - 36, 34};
     copy_button = (SDL_Rect){output.x + output.w - 110, output.y + 12, 92, 30};
     mod_rect = (SDL_Rect){controls.x + 18, controls.y + 64, controls.w - 36, 38};
@@ -7007,6 +7216,25 @@ int DECODE_handle_event(const SDL_Event *event, int win_w, int win_h) {
 
         }
 
+        if (decode_point_in_rect(mx, my, ascii_rect)) {
+
+            Global_Decode_Ascii_Scroll -= event->wheel.y * 8;
+
+            if (Global_Decode_Ascii_Scroll < 0) {
+
+                Global_Decode_Ascii_Scroll = 0;
+
+            }
+
+            if (Global_Decode_Ascii_Scroll >= Global_Decode_Ascii_Len) {
+
+                Global_Decode_Ascii_Scroll = Global_Decode_Ascii_Len > 0 ? Global_Decode_Ascii_Len - 1 : 0;
+
+            }
+            return 1;
+
+        }
+
         if (decode_point_in_rect(mx, my, bits_rect) || decode_point_in_rect(mx, my, output)) {
 
             Global_Decode_Bit_Scroll -= event->wheel.y;
@@ -7237,6 +7465,13 @@ int DECODE_handle_event(const SDL_Event *event, int win_w, int win_h) {
 
         }
 
+        if (Global_Decode_Left_Tab == DECODE_LEFT_TAB_DECODER && decode_point_in_rect(x, y, detect_sps_button)) {
+
+            decode_detect_sps();
+            return 1;
+
+        }
+
         if (decode_point_in_rect(x, y, decode_button)) {
 
             decode_run_selected_file();
@@ -7409,6 +7644,7 @@ void DECODE_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, 
     SDL_Rect rescan_button;
     SDL_Rect decode_button;
     SDL_Rect clear_button;
+    SDL_Rect detect_sps_button;
     SDL_Rect classifier_button;
     SDL_Rect copy_button;
     SDL_Rect mod_rect;
@@ -7459,6 +7695,7 @@ void DECODE_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, 
 
     decode_button = (SDL_Rect){controls.x + 18, controls.y + controls.h - 88, 106, 34};
     clear_button = (SDL_Rect){controls.x + 136, controls.y + controls.h - 88, 86, 34};
+    detect_sps_button = (SDL_Rect){controls.x + 190, controls.y + 350, controls.w - 208, 34};
     classifier_button = (SDL_Rect){controls.x + 18, controls.y + controls.h - 44, controls.w - 36, 34};
     copy_button = (SDL_Rect){output.x + output.w - 110, output.y + 12, 92, 30};
     mod_rect = (SDL_Rect){controls.x + 18, controls.y + 64, controls.w - 36, 38};
@@ -7627,6 +7864,8 @@ void DECODE_draw_workstation(SDL_Renderer *renderer, TTF_Font *font, int win_w, 
         decode_draw_checkbox(renderer, font, ascii_box, "ASCII", Global_Decode_Ascii_Enable);
         decode_draw_input_field(renderer, font, "ASCII Byte Len", Global_Decode_Field_Text[DECODE_FIELD_ASCII_BYTE_LEN],
                                 DECODE_FIELD_ASCII_BYTE_LEN, ascii_byte_rect);
+        decode_draw_modal_button(renderer, font, detect_sps_button, "Detect SPS",
+                                 decode_point_in_rect(mx, my, detect_sps_button));
 
         decode_draw_modal_button(renderer, font, decode_button, "Decode", decode_point_in_rect(mx, my, decode_button));
         decode_draw_modal_button(renderer, font, clear_button, "Clear", decode_point_in_rect(mx, my, clear_button));
