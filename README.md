@@ -18,7 +18,7 @@ Install the project dependencies:
 sudo bash scripts/install-dependencis.sh
 ```
 
-Start RetroSpectrum in server mode and use `Recs` as the recordings directory:
+Start RetroSpectrum in server mode and use `Recordings` as the recordings directory:
 
 ```bash
 ./build/retrospectrum -S -o Recordings
