@@ -21,7 +21,7 @@ sudo bash scripts/install-dependencis.sh
 Start RetroSpectrum in server mode and use `Recs` as the recordings directory:
 
 ```bash
-./build/retrospectrum -S -o Recs
+./build/retrospectrum -S -o Recordings
 ```
 
 ---
