@@ -200,6 +200,22 @@ Compare recordings and identify similar RF activity
 
 Each workstation can also be used independently depending on the task.
 
+## Server and Client
+
+Start the server:
+
+```bash
+./build/retrospectrum -S -o Recordings
+```
+
+Start a client:
+
+```bash
+./build/retrospectrum -C -o Recordings
+```
+
+The server hosts the shared RetroSpectrum data, while clients connect to the server for multi-user access.
+
 ## Recordings
 
 RetroSpectrum works with recorded complex IQ data, including `.complex16` recordings. Recording metadata such as center frequency, bandwidth, sample rate, decimation, and capture information is carried in the recording filename and is used throughout the application.
