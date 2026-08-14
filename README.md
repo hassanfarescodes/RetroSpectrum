@@ -214,6 +214,10 @@ Start a client:
 ./build/retrospectrum -C -o Recordings
 ```
 
+The `--cli` option is also available for command-line operation.
+
+When starting the server for the first time, click **Create Admin** in the top-right corner to create the administrator account. This is required before using the server.
+
 The server hosts the shared RetroSpectrum data, while clients connect to the server for multi-user access.
 
 ## Recordings
