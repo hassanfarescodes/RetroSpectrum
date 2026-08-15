@@ -12,9 +12,11 @@
 ![GNU Radio](https://img.shields.io/badge/DSP-GNU%20Radio-blue)
 
 </div>
+<br>
 
-### Open-source SDR toolkit for analyzing, decoding, classifying, and organizing RF signals, with built-in case management, mapping, and secure post-quantum data sharing.
+#### Open-source SDR toolkit for analyzing, decoding, classifying, and organizing RF signals, with built-in case management, mapping, and secure post-quantum data sharing.
 
+<br>
 
 ## Requirements
 
