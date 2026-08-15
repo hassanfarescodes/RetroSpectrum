@@ -2,7 +2,6 @@
 """
 Build world_map.bin for world_map_bin_loader.c.
 
-This builder does NOT require high_accuracy_world_map.c.
 It downloads/caches Natural Earth Admin-0 country polygons and writes the binary map.
 
 Typical use:

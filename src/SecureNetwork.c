@@ -1446,31 +1446,31 @@ static void *secure_network_client_thread(void *argument) {
 
         size_t maximum_payload = authenticated ? SECURE_NETWORK_MAX_PAYLOAD : SECURE_NETWORK_MAX_PREAUTH_PAYLOAD;
 
-          if (!secure_network_receive_frame(ssl, &type, &request_id, &payload, &payload_size, maximum_payload)) {
+        if (!secure_network_receive_frame(ssl, &type, &request_id, &payload, &payload_size, maximum_payload)) {
 
-              break;
+            break;
 
-          }
+        }
 
-          if (type == SECURE_NETWORK_TYPE_AUTH) {
+        if (type == SECURE_NETWORK_TYPE_AUTH) {
 
-              int was_authenticated = authenticated;
+            int was_authenticated = authenticated;
 
-              keep = secure_network_handle_auth(ssl, request_id, payload, payload_size, remote_ip, &authenticated,
-                                                &is_admin, authenticated_username, sizeof(authenticated_username));
+            keep = secure_network_handle_auth(ssl, request_id, payload, payload_size, remote_ip, &authenticated,
+                                              &is_admin, authenticated_username, sizeof(authenticated_username));
 
-              /*
-                  Remove the handshake/login socket timeout after successful
-                  authentication so an idle authenticated session remains connected.
-              */
+            /*
+                Remove the handshake/login socket timeout after successful
+                authentication so an idle authenticated session remains connected.
+            */
 
-              if (keep && !was_authenticated && authenticated) {
+            if (keep && !was_authenticated && authenticated) {
 
-                  struct timeval no_timeout = {0, 0};
+                struct timeval no_timeout = {0, 0};
 
-                  setsockopt(client->fd, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof(no_timeout));
+                setsockopt(client->fd, SOL_SOCKET, SO_RCVTIMEO, &no_timeout, sizeof(no_timeout));
 
-                  setsockopt(client->fd, SOL_SOCKET, SO_SNDTIMEO, &no_timeout, sizeof(no_timeout));
+                setsockopt(client->fd, SOL_SOCKET, SO_SNDTIMEO, &no_timeout, sizeof(no_timeout));
 
             }
 
@@ -1980,7 +1980,8 @@ static int secure_network_receive_status_locked(uint16_t request_type, uint32_t 
     size_t payload_size = 0;
     uint32_t message_length;
 
-    if (!secure_network_receive_frame(Global_Secure_Client_SSL, &type, &response_id, &payload, &payload_size, SECURE_NETWORK_MAX_PAYLOAD) ||
+    if (!secure_network_receive_frame(Global_Secure_Client_SSL, &type, &response_id, &payload, &payload_size,
+                                      SECURE_NETWORK_MAX_PAYLOAD) ||
         type != (request_type | SECURE_NETWORK_RESPONSE_FLAG) || response_id != request_id || payload_size < 8) {
 
         OPENSSL_clear_free(payload, payload_size);

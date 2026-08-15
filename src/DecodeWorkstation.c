@@ -2580,8 +2580,7 @@ static int decode_find_gnuradio_helper(char *out, size_t out_size) {
         Returns: Success status
     */
 
-    const char *paths[] = {"src/scripts/gnuradio_decode_file.py",
-                           NULL};
+    const char *paths[] = {"src/scripts/gnuradio_decode_file.py", NULL};
 
     if (!out || out_size == 0) {
 
@@ -2757,7 +2756,7 @@ static FILE *decode_spawn_helper(const char *helper, const char *input, const ch
 }
 
 static FILE *decode_spawn_sps_detector(const char *helper, const char *input, const char *mod, int samples_per_symbol,
-                                      int start_sample, pid_t *child_pid) {
+                                       int start_sample, pid_t *child_pid) {
     /*
         Purpose: Launches the GNU Radio helper in automatic Samples/Symbol detection mode
         Returns: Readable helper stdout stream or NULL
@@ -2784,9 +2783,8 @@ static FILE *decode_spawn_sps_detector(const char *helper, const char *input, co
 
     }
 
-    char *argv[] = {"python3",      (char *)helper, "--input",       (char *)input, "--mod",
-                    (char *)mod,    "--sps",        sps_text,        "--start-sample",
-                    start_text,     "--detect-sps", NULL};
+    char *argv[] = {"python3", (char *)helper, "--input",        (char *)input, "--mod",        (char *)mod,
+                    "--sps",   sps_text,       "--start-sample", start_text,    "--detect-sps", NULL};
 
     if (pipe(pipe_fd) != 0) {
 
@@ -2828,6 +2826,7 @@ static FILE *decode_spawn_sps_detector(const char *helper, const char *input, co
     stream = fdopen(pipe_fd[0], "r");
 
     if (!stream) {
+
         int status;
 
         close(pipe_fd[0]);
@@ -4176,8 +4175,7 @@ static void decode_classifier_draw_delete_confirmation(SDL_Renderer *renderer, T
     draw_filled_rect(renderer, panel, (SDL_Color){20, 0, 0, 252});
     draw_outline_rect(renderer, panel, (SDL_Color){255, 35, 35, 255});
 
-    draw_text(renderer, font, "Delete database record?", panel.x + 22, panel.y + 22,
-              (SDL_Color){255, 90, 90, 255});
+    draw_text(renderer, font, "Delete database record?", panel.x + 22, panel.y + 22, (SDL_Color){255, 90, 90, 255});
 
     name_y = panel.y + 46;
     name_line_count = 0;
@@ -4217,8 +4215,7 @@ static void decode_classifier_draw_delete_confirmation(SDL_Renderer *renderer, T
     message = (SDL_Rect){panel.x + 22, panel.y + 54 + name_line_count * 24, panel.w - 44, 92};
     draw_text(renderer, font, "This permanently deletes the saved bit-stream classification", message.x, message.y,
               (SDL_Color){235, 205, 205, 255});
-    draw_text(renderer, font, "record from the database.", message.x, message.y + 24,
-              (SDL_Color){235, 205, 205, 255});
+    draw_text(renderer, font, "record from the database.", message.x, message.y + 24, (SDL_Color){235, 205, 205, 255});
 
     decode_draw_modal_button(renderer, font, Global_Decode_Classifier_Delete_Confirm_Cancel_Rect, "Cancel",
                              cancel_hover);
@@ -6441,12 +6438,8 @@ static void decode_draw_ascii_panel(SDL_Renderer *renderer, TTF_Font *font, SDL_
     decode_copy_text(shown, sizeof(shown), Global_Decode_Ascii_Text + Global_Decode_Ascii_Scroll);
     shown_len = (int)strlen(shown);
 
-    while (shown_len > 0 &&
-           TTF_SizeText(font, shown, &width, &height) == 0 &&
-           width > rect.w - 18) {
-
+    while (shown_len > 0 && TTF_SizeText(font, shown, &width, &height) == 0 && width > rect.w - 18) {
         shown[--shown_len] = '\0';
-
     }
 
     draw_text(renderer, font, shown, rect.x + 8, rect.y + 31, Decode_Text);
