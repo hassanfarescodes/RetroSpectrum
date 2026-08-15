@@ -1,6 +1,19 @@
+<div align="center">
+
 # RetroSpectrum
 
-RetroSpectrum is a software-defined radio environment for spectrum monitoring, signal analysis, classification, decoding, case management, mapping, and signal correlation. 
+**Capture • Analyze • Classify • Decode • Correlate • Map • Collaborate**
+
+![Linux](https://img.shields.io/badge/Platform-Linux-blue)
+![Language](https://img.shields.io/badge/Language-C-blue)
+![License](https://img.shields.io/badge/License-GPLv3-green)
+![SDR](https://img.shields.io/badge/SDR-SoapySDR-orange)
+![Security](https://img.shields.io/badge/Security-Post--Quantum-purple)
+![GNU Radio](https://img.shields.io/badge/DSP-GNU%20Radio-blue)
+
+</div>
+
+RetroSpectrum is an open-source SDR toolkit for analyzing, decoding, classifying, and organizing RF signals, with built-in case management, mapping, and secure post-quantum data sharing.
 
 It enables multiple users to centralize their data while providing post-quantum secure connections.
 
@@ -18,7 +31,7 @@ Install the project dependencies:
 sudo bash scripts/install-dependencis.sh
 ```
 
-Start RetroSpectrum in server mode and use `Recs` as the recordings directory:
+Start RetroSpectrum in server mode and use `Recordings` as the recordings directory:
 
 ```bash
 ./build/retrospectrum -S -o Recordings
