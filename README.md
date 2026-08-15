@@ -13,9 +13,9 @@
 
 </div>
 
-RetroSpectrum is an open-source SDR toolkit for analyzing, decoding, classifying, and organizing RF signals, with built-in case management, mapping, and secure post-quantum data sharing.
+## RetroSpectrum is an open-source SDR toolkit for analyzing, decoding, classifying, and organizing RF signals, with built-in case management, mapping, and secure post-quantum data sharing.
 
-It enables multiple users to centralize their data while providing post-quantum secure connections.
+---
 
 ## Requirements
 
