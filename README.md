@@ -264,6 +264,8 @@ Source documentation can be viewed in 'docs/' which includes DSP and Security re
 
 Additionally, Keyboard_Shortcuts.pdf provides a useful explanation of various features that can be controlled with the keyboard.
 
-## License
+## Legal and Responsible Use
 
-GNU GENERAL PUBLIC LICENSE Version 3
+RetroSpectrum is provided for lawful research, education, testing, and authorized signal analysis. Users are solely responsible for complying with all applicable laws, regulations, licensing requirements, and authorization requirements governing radio reception, transmission, data handling, and network access.
+
+The authors and contributors are not responsible for unlawful, unauthorized, or otherwise improper use of this software.
