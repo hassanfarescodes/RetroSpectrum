@@ -21,6 +21,7 @@
 ## Requirements
 
 - Linux System
+- All dependencies in 'scripts/install-dependencis.sh'
 
 An SDR supported through SoapySDR is required for live spectrum acquisition. Recorded `.complex16` IQ files can also be analyzed without live reception.
 
